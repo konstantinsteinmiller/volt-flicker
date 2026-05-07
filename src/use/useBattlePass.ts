@@ -1,0 +1,170 @@
+import { ref, computed, watch, type Ref } from 'vue'
+import useMawConfig from '@/use/useMawConfig'
+import { saveDataVersion } from '@/use/useSaveStatus'
+import { getState, setState } from '@/use/useMawState'
+
+/**
+ * Lightweight battle pass for Maw-It-Down. 30 stages, 100 xp per stage.
+ *   - start an attempt → +12 xp (participation)
+ *   - finish a stage   → +50 xp (additional, on win)
+ * Each level grants a coin payout on a linear ramp 30 → 600 across the
+ * 30 stages. Unclaimed levels stay unclaimed until the player taps them
+ * in the modal — they don't expire just because the next level unlocks.
+ * State persists inside the consolidated `maw_state` blob.
+ */
+
+export const BP_TOTAL_STAGES = 30
+export const BP_XP_PER_STAGE = 100
+export const BP_SEASON_DAYS = 30
+
+export const BP_XP_CAMPAIGN_WIN = 50
+export const BP_XP_ATTEMPT = 12
+
+const STORAGE_KEY = 'spinner_battle_pass'
+
+interface BattlePassState {
+  xp: number
+  unlockedStages: number
+  claimedStages: number[]
+  seasonStartedAt: string | null
+}
+
+const defaultState = (): BattlePassState => ({
+  xp: 0,
+  unlockedStages: 0,
+  claimedStages: [],
+  seasonStartedAt: null
+})
+
+const daysUntilSeasonReset = (startedAt: string | null): number | null => {
+  if (!startedAt) return null
+  const start = new Date(startedAt).getTime()
+  const now = Date.now()
+  const elapsed = Math.floor((now - start) / (1000 * 60 * 60 * 24))
+  return Math.max(0, BP_SEASON_DAYS - elapsed)
+}
+
+const isSeasonExpired = (startedAt: string | null): boolean => {
+  if (!startedAt) return false
+  return daysUntilSeasonReset(startedAt) === 0
+}
+
+const loadState = (): BattlePassState => {
+  const parsed = getState<Partial<BattlePassState> | null>(STORAGE_KEY, null)
+  if (
+    parsed
+    && typeof parsed.xp === 'number'
+    && typeof parsed.unlockedStages === 'number'
+    && Array.isArray(parsed.claimedStages)
+  ) {
+    const loaded: BattlePassState = {
+      xp: parsed.xp,
+      unlockedStages: Math.max(0, Math.min(BP_TOTAL_STAGES, parsed.unlockedStages)),
+      claimedStages: parsed.claimedStages.filter(
+        (n): n is number => typeof n === 'number' && n >= 1 && n <= BP_TOTAL_STAGES
+      ),
+      seasonStartedAt: parsed.seasonStartedAt ?? null
+    }
+    if (isSeasonExpired(loaded.seasonStartedAt)) return defaultState()
+    return loaded
+  }
+  return defaultState()
+}
+
+const state: Ref<BattlePassState> = ref(loadState())
+
+watch(saveDataVersion, () => {
+  state.value = loadState()
+})
+
+const saveState = () => {
+  setState(STORAGE_KEY, state.value)
+}
+
+export const bpCoinReward = (stage: number): number => {
+  const clamped = Math.max(1, Math.min(BP_TOTAL_STAGES, stage))
+  const raw = 30 + ((clamped - 1) * 570) / (BP_TOTAL_STAGES - 1)
+  return Math.round(raw / 5) * 5
+}
+
+const { addCoins } = useMawConfig()
+
+const addXp = (amount: number) => {
+  if (amount <= 0) return
+  if (isSeasonExpired(state.value.seasonStartedAt)) {
+    state.value = defaultState()
+    saveState()
+  }
+  if (state.value.unlockedStages >= BP_TOTAL_STAGES) return
+  if (!state.value.seasonStartedAt) {
+    state.value.seasonStartedAt = new Date().toISOString().slice(0, 10)
+  }
+  state.value.xp += amount
+  while (
+    state.value.xp >= BP_XP_PER_STAGE
+    && state.value.unlockedStages < BP_TOTAL_STAGES
+    ) {
+    state.value.xp -= BP_XP_PER_STAGE
+    state.value.unlockedStages += 1
+  }
+  if (state.value.unlockedStages >= BP_TOTAL_STAGES) state.value.xp = 0
+  saveState()
+}
+
+const awardCampaignWin = () => addXp(BP_XP_CAMPAIGN_WIN)
+const awardAttempt = () => addXp(BP_XP_ATTEMPT)
+
+export interface ClaimResult {
+  stage: number
+  coins: number
+}
+
+const claimStage = (stage: number): ClaimResult | null => {
+  if (stage < 1 || stage > BP_TOTAL_STAGES) return null
+  if (stage > state.value.unlockedStages) return null
+  if (state.value.claimedStages.includes(stage)) return null
+  const coins = bpCoinReward(stage)
+  addCoins(coins)
+  state.value.claimedStages = [...state.value.claimedStages, stage]
+  saveState()
+  return { stage, coins }
+}
+
+const currentXp = computed(() => state.value.xp)
+const unlockedStages = computed(() => state.value.unlockedStages)
+const claimedStages = computed(() => state.value.claimedStages)
+const isMaxed = computed(() => state.value.unlockedStages >= BP_TOTAL_STAGES)
+
+const pendingClaimCount = computed(() => {
+  let n = 0
+  for (let i = 1; i <= state.value.unlockedStages; i++) {
+    if (!state.value.claimedStages.includes(i)) n++
+  }
+  return n
+})
+
+const hasUnclaimedReward = computed(() => pendingClaimCount.value > 0)
+
+const daysUntilReset = computed(() => daysUntilSeasonReset(state.value.seasonStartedAt))
+
+const isStageClaimed = (stage: number): boolean => state.value.claimedStages.includes(stage)
+const isStageUnlocked = (stage: number): boolean => stage <= state.value.unlockedStages
+
+export default function useBattlePass() {
+  return {
+    state,
+    currentXp,
+    unlockedStages,
+    claimedStages,
+    isMaxed,
+    hasUnclaimedReward,
+    pendingClaimCount,
+    daysUntilReset,
+    isStageClaimed,
+    isStageUnlocked,
+    bpCoinReward,
+    awardCampaignWin,
+    awardAttempt,
+    claimStage
+  }
+}

@@ -1,0 +1,469 @@
+import { ref, computed, type Ref } from 'vue'
+import useMawCampaign, { type MawStage, type MawIsland, type Obstacle } from '@/use/useMawCampaign'
+import useMawProgress, { upgradedValue, levelOf } from '@/use/useMawProgress'
+import useMawConfig from '@/use/useMawConfig'
+import { useScreenshake } from '@/use/useScreenshake'
+import { spawnCoinExplosion } from '@/use/useCoinExplosion'
+import { testStage } from '@/use/useCustomStages'
+import useBattlePass from '@/use/useBattlePass'
+
+/**
+ * Core game-loop composable for Maw-It-Down.
+ *
+ * The robot is two gears connected by a chain. One gear is the **anchor**
+ * (rooted to the ground, axis of rotation) and the other is the **swing**
+ * gear (orbits the anchor at a fixed radius = chain length). A pointer
+ * tap swaps which gear is the anchor — the swing gear's current world
+ * position becomes the new anchor, and the previous anchor becomes the
+ * new swinger orbiting at the chain length.
+ *
+ * Hit-tests:
+ *   - chain segment vs grass blade: clear & drop a coin
+ *   - chain segment vs tree stump:  damage robot (1) UNLESS player has
+ *     `sawDamage` upgrade ≥ 1, in which case the stump is also destroyed
+ *   - chain segment vs boulder:     damage robot (2)
+ *   - new anchor over water:        instant-death
+ *
+ * Camera follows the anchor gear so the world scrolls smoothly past.
+ */
+
+export type Phase =
+  | 'idle'
+  | 'ad_break'
+  | 'meteor_intro'
+  | 'playing'
+  | 'game_over'
+
+export type GameResult = '' | 'win' | 'lose'
+
+export interface Vec2 { x: number; y: number }
+
+export interface Coin {
+  /** World position. */
+  x: number
+  y: number
+  /** Flight progress 0..1; 1 = collected. */
+  t: number
+  /** ms timestamp the coin spawned. */
+  spawnedAt: number
+  /** Targets the player gear when the magnet fires. */
+  origin: { x: number; y: number }
+  /** Coin denomination on collection. Defaults to `COIN_PER_GRASS` (1) for
+   *  grass cuts; obstacle bursts use this to keep the visual count low
+   *  while still paying out the full reward (5 coins × 4 = 20 etc.). */
+  value?: number
+}
+
+const COIN_PER_GRASS = 1
+/** Probability a cut grass blade actually drops a coin. Cleared count and
+ *  achievement metrics tick on every cut regardless — only the coin spawn
+ *  rolls the dice. Tuned so that mowing feels rewarded but not floody. */
+const COIN_DROP_CHANCE = 0.33
+
+const useMawGame = () => {
+  const { currentStage, currentStageId, advanceStage, stageReinitSignal } = useMawCampaign()
+  const { addCoins } = useMawConfig()
+  const { recordMetric } = useMawProgress()
+  const { triggerShake } = useScreenshake()
+  const { awardAttempt, awardCampaignWin } = useBattlePass()
+
+  const phase: Ref<Phase> = ref('idle')
+  const gameResult: Ref<GameResult> = ref('')
+
+  // Chain length (gear-to-gear distance) is upgrade-driven.
+  const chainLength = computed(() => upgradedValue('chainLength'))
+  // Player has 2 base life + Reinforced Frame upgrade.
+  const maxLife = computed(() => upgradedValue('maxLife'))
+  const life: Ref<number> = ref(maxLife.value)
+  const sawTier = computed(() => levelOf('sawDamage'))
+  const coinMagnetMs = computed(() => Math.max(150, upgradedValue('coinMagnetMs')))
+  const rotationSpeedMul = computed(() => upgradedValue('rotationSpeed'))
+
+  // Robot state — both gears live in world coordinates.
+  const anchorPos = ref<Vec2>({ x: 0, y: 0 })
+  const swingPos = ref<Vec2>({ x: chainLength.value, y: 0 })
+  const swingAngle: Ref<number> = ref(0) // radians, swing relative to anchor
+  /** Which gear is currently the anchor (true) vs swinger. */
+  const anchorIsLeft: Ref<boolean> = ref(true)
+  /** Direction of rotation; flipped each anchor swap so the new swing arc
+   *  continues away from the previous arc. */
+  const rotationSign: Ref<1 | -1> = ref(1)
+
+  const cleared: Ref<number> = ref(0)
+  const coins: Ref<Coin[]> = ref([])
+  /** Visual-only: flips true the first time the chain touches the exit pole.
+   *  The pole still works as an exit either way. */
+  const poleCut: Ref<boolean> = ref(false)
+  const reqsMet = computed(() => cleared.value >= stage.value.targetClears)
+
+  const stage: Ref<MawStage> = ref(currentStage.value)
+  // Per-island grass + obstacles cloned so they can be mutated in-place.
+  interface RuntimeIsland extends MawIsland {
+    aliveGrass: Set<number>
+    obstacles: Obstacle[]
+  }
+  const islands: Ref<RuntimeIsland[]> = ref([])
+
+  const initIslands = () => {
+    islands.value = stage.value.islands.map(i => ({
+      ...i,
+      aliveGrass: new Set(i.grass.map((_, idx) => idx)),
+      obstacles: [...i.obstacles]
+    }))
+  }
+
+  // ─── Public lifecycle ────────────────────────────────────────────────────
+
+  const initGame = () => {
+    stage.value = currentStage.value
+    initIslands()
+    cleared.value = 0
+    coins.value = []
+    poleCut.value = false
+    life.value = maxLife.value
+    phase.value = 'idle'
+    gameResult.value = ''
+
+    // Place robot at home-island center.
+    anchorPos.value = { x: 0, y: 0 }
+    swingPos.value = { x: chainLength.value, y: 0 }
+    swingAngle.value = 0
+    anchorIsLeft.value = true
+    rotationSign.value = 1
+    // Snap camera so a fresh stage doesn't ease in from a stale position.
+    cameraPos.value = { x: 0, y: 0 }
+  }
+
+  const startMatch = () => {
+    phase.value = 'playing'
+    // Battle-pass: every play attempt grants a flat XP tick the moment the
+    // chain actually starts spinning. Editor test stages are excluded
+    // because they aren't part of the season's progression.
+    if (!testStage.value) awardAttempt()
+  }
+
+  // ─── Geometry helpers ────────────────────────────────────────────────────
+
+  const isOverIsland = (x: number, y: number): boolean => {
+    for (const isle of islands.value) {
+      const dx = x - isle.cx
+      const dy = y - isle.cy
+      if (isle.shape === 'round') {
+        if (dx * dx + dy * dy <= isle.radius * isle.radius) return true
+      } else {
+        if (Math.abs(dx) <= isle.radius && Math.abs(dy) <= isle.radius) return true
+      }
+    }
+    return false
+  }
+
+  const distToSegment = (px: number, py: number, ax: number, ay: number, bx: number, by: number): number => {
+    const dx = bx - ax
+    const dy = by - ay
+    const lenSq = dx * dx + dy * dy
+    if (lenSq === 0) return Math.hypot(px - ax, py - ay)
+    let t = ((px - ax) * dx + (py - ay) * dy) / lenSq
+    t = Math.max(0, Math.min(1, t))
+    const cx = ax + t * dx
+    const cy = ay + t * dy
+    return Math.hypot(px - cx, py - cy)
+  }
+
+  // ─── Tick ────────────────────────────────────────────────────────────────
+
+  const tick = (dt: number) => {
+    if (phase.value !== 'playing') return
+
+    // Advance swing rotation
+    const baseSpeed = 2.1 // rad/sec at upgrade level 0
+    const speed = baseSpeed * rotationSpeedMul.value * rotationSign.value
+    swingAngle.value += speed * dt
+    swingPos.value = {
+      x: anchorPos.value.x + Math.cos(swingAngle.value) * chainLength.value,
+      y: anchorPos.value.y + Math.sin(swingAngle.value) * chainLength.value
+    }
+
+    // Chain hit-testing — the chain is the segment between anchor and swing.
+    const ax = anchorPos.value.x
+    const ay = anchorPos.value.y
+    const bx = swingPos.value.x
+    const by = swingPos.value.y
+
+    for (const isle of islands.value) {
+      // Grass cuts
+      for (const idx of [...isle.aliveGrass]) {
+        const [gx, gy] = isle.grass[idx]!
+        if (distToSegment(gx, gy, ax, ay, bx, by) < 14) {
+          isle.aliveGrass.delete(idx)
+          cleared.value += 1
+          recordMetric('totalGrass', 1)
+          if (Math.random() < COIN_DROP_CHANCE) {
+            coins.value.push({
+              x: gx, y: gy, t: 0,
+              origin: { x: gx, y: gy },
+              spawnedAt: performance.now()
+            })
+          }
+        }
+      }
+
+      // Obstacle hits — single-shot per chain pass: each obstacle has a
+      // cooldown so the player doesn't take damage per-frame while the
+      // chain glides over it.
+      for (let i = isle.obstacles.length - 1; i >= 0; i--) {
+        const ob = isle.obstacles[i]!
+        const obAny = ob as Obstacle & { _cooldown?: number }
+        if ((obAny._cooldown ?? 0) > 0) {
+          obAny._cooldown! -= dt
+          continue
+        }
+        const radius = ob.type === 'boulder' ? 26 : ob.type === 'crystal' ? 18 : 22
+        if (distToSegment(ob.x, ob.y, ax, ay, bx, by) < radius) {
+          // Saw-tier gating mirrors the upgrade description:
+          //   • trees    cuttable from saw Lv. 2
+          //   • stones   cuttable from saw Lv. 4
+          //   • crystals cuttable from saw Lv. 6
+          // Below the threshold the obstacle hurts the chain instead.
+          // Cut-obstacle coin payouts: stumps 10, stones 20, crystals 30.
+          // Spawn 5 coin sprites and tag each with the per-coin value so the
+          // visual burst stays readable instead of 30 individual coins
+          // streaming to the gear at once.
+          const spawnCoinBurst = (cx: number, cy: number, total: number) => {
+            const now = performance.now()
+            const N = 5
+            const value = Math.max(1, Math.round(total / N))
+            for (let k = 0; k < N; k++) {
+              const a = (k / N) * Math.PI * 2
+              const px = cx + Math.cos(a) * 9
+              const py = cy + Math.sin(a) * 9
+              coins.value.push({
+                x: px, y: py, t: 0,
+                origin: { x: px, y: py },
+                spawnedAt: now,
+                value
+              })
+            }
+          }
+          if (ob.type === 'crystal') {
+            if (sawTier.value >= 6) {
+              isle.obstacles.splice(i, 1)
+              cleared.value += 1
+              triggerShake('small')
+              spawnCoinBurst(ob.x, ob.y, 30)
+              continue
+            }
+            applyDamage(1)
+            triggerShake('small')
+          } else if (ob.type === 'stump') {
+            if (sawTier.value >= 2) {
+              isle.obstacles.splice(i, 1)
+              recordMetric('stumpsDestroyed', 1)
+              triggerShake('small')
+              spawnCoinBurst(ob.x, ob.y, 10)
+              continue
+            }
+            applyDamage(1)
+            triggerShake('small')
+          } else {
+            // boulder
+            if (sawTier.value >= 4) {
+              isle.obstacles.splice(i, 1)
+              triggerShake('small')
+              spawnCoinBurst(ob.x, ob.y, 20)
+              continue
+            }
+            applyDamage(2)
+            triggerShake('strong')
+          }
+          obAny._cooldown = 0.7
+        }
+      }
+    }
+
+    // Coin magnet: after `coinMagnetMs` post-spawn, pull coins toward the
+    // anchored gear and award them on arrival.
+    const now = performance.now()
+    const magnet = coinMagnetMs.value
+    for (let i = coins.value.length - 1; i >= 0; i--) {
+      const c = coins.value[i]!
+      const age = now - c.spawnedAt
+      if (age >= magnet) {
+        const flightT = Math.min(1, (age - magnet) / 320)
+        c.t = flightT
+        c.x = c.origin.x + (anchorPos.value.x - c.origin.x) * easeIn(flightT)
+        c.y = c.origin.y + (anchorPos.value.y - c.origin.y) * easeIn(flightT)
+        if (flightT >= 1) {
+          const award = c.value ?? COIN_PER_GRASS
+          coins.value.splice(i, 1)
+          addCoins(award)
+          recordMetric('totalCoins', award)
+        }
+      }
+    }
+
+    // Exit-pole hit-test. Touching the pole always marks it cut (visual);
+    // when the player has already met the clear requirement, contact wins
+    // the stage. The pole keeps working as an exit even after being cut.
+    const ex = stage.value.exitX
+    const ey = stage.value.exitY
+    if (distToSegment(ex, ey, ax, ay, bx, by) < 18) {
+      if (!poleCut.value) poleCut.value = true
+      if (reqsMet.value && phase.value === 'playing') {
+        onWin()
+      }
+    }
+  }
+
+  const easeIn = (t: number): number => t * t
+
+  const applyDamage = (n: number) => {
+    life.value = Math.max(0, life.value - n)
+    if (life.value === 0) {
+      onLose('broke')
+    }
+  }
+
+  // ─── Anchor swap ─────────────────────────────────────────────────────────
+
+  const swapAnchor = () => {
+    if (phase.value !== 'playing') return
+    const prevAnchor = { ...anchorPos.value }
+    const newAnchor = { ...swingPos.value }
+
+    // Water death — landing the new anchor over open water kills instantly.
+    if (!isOverIsland(newAnchor.x, newAnchor.y)) {
+      anchorPos.value = newAnchor
+      onLose('splashed')
+      triggerShake('big')
+      return
+    }
+
+    anchorPos.value = newAnchor
+    // The previous anchor becomes the new swing gear; its current
+    // angle relative to the new anchor is the starting `swingAngle`.
+    const dx = prevAnchor.x - newAnchor.x
+    const dy = prevAnchor.y - newAnchor.y
+    swingAngle.value = Math.atan2(dy, dx)
+    swingPos.value = prevAnchor
+    anchorIsLeft.value = !anchorIsLeft.value
+    rotationSign.value = (rotationSign.value === 1 ? -1 : 1)
+  }
+
+  // ─── Win / lose ──────────────────────────────────────────────────────────
+
+  const onWin = () => {
+    phase.value = 'game_over'
+    gameResult.value = 'win'
+    addCoins(stage.value.rewardWin)
+    recordMetric('totalCoins', stage.value.rewardWin)
+    recordMetric('gamesPlayed', 1)
+    recordMetric('gamesWon', 1)
+    // Don't touch campaign progress when the stage is a one-off editor test
+    // — it isn't part of the real progression.
+    if (!testStage.value) {
+      recordMetric('maxStage', currentStageId.value + 1)
+      advanceStage()
+      awardCampaignWin()
+    }
+  }
+
+  const lossReason: Ref<'splashed' | 'broke' | ''> = ref('')
+
+  const onLose = (reason: 'splashed' | 'broke') => {
+    if (phase.value === 'game_over') return
+    phase.value = 'game_over'
+    gameResult.value = 'lose'
+    lossReason.value = reason
+    recordMetric('gamesPlayed', 1)
+    addCoins(stage.value.rewardLose)
+    recordMetric('totalCoins', stage.value.rewardLose)
+  }
+
+  /**
+   * Resurrect the player after a "broke" death (life ran out from obstacle
+   * hits). Refills life to max, bumps every obstacle's cooldown so the chain
+   * isn't insta-killed by the same stump it just died on, and flips the
+   * phase back to playing. Splash deaths can't be resumed — the anchor is
+   * over water, there's nowhere to stand.
+   *
+   * Returns `true` when the resurrection happened, `false` if the current
+   * state isn't eligible (so the caller can decide what to do — e.g. fall
+   * through to the regular loss-reward modal).
+   */
+  const continueAfterDeath = (): boolean => {
+    if (phase.value !== 'game_over') return false
+    if (gameResult.value !== 'lose') return false
+    if (lossReason.value !== 'broke') return false
+    life.value = maxLife.value
+    for (const isle of islands.value) {
+      for (const ob of isle.obstacles) {
+        const obAny = ob as Obstacle & { _cooldown?: number }
+        obAny._cooldown = 1.5
+      }
+    }
+    gameResult.value = ''
+    lossReason.value = ''
+    phase.value = 'playing'
+    return true
+  }
+
+  // ─── Camera ──────────────────────────────────────────────────────────────
+
+  // Stateful camera that eases toward the anchor instead of snapping. Anchor
+  // swaps teleport the player by a full chain-length each click, so without
+  // smoothing the world reads as a hard cut.
+  const cameraPos = ref<Vec2>({ x: 0, y: 0 })
+
+  /** Frame-rate-independent exponential smoothing. tau ≈ 0.18s lands the
+   *  camera within ~5% of the target in roughly half a second — fast enough
+   *  to feel responsive, soft enough to read as motion. */
+  const updateCamera = (dt: number) => {
+    const tau = 0.18
+    const alpha = 1 - Math.exp(-Math.max(0, dt) / tau)
+    cameraPos.value = {
+      x: cameraPos.value.x + (anchorPos.value.x - cameraPos.value.x) * alpha,
+      y: cameraPos.value.y + (anchorPos.value.y - cameraPos.value.y) * alpha
+    }
+  }
+
+  return {
+    // State
+    phase,
+    gameResult,
+    lossReason,
+    life,
+    maxLife,
+    cleared,
+    coins,
+    coinMagnetMs,
+    sawTier,
+    chainLength,
+    poleCut,
+    reqsMet,
+
+    // Robot
+    anchorPos,
+    swingPos,
+    swingAngle,
+    anchorIsLeft,
+    cameraPos,
+
+    // World
+    stage,
+    islands,
+
+    // Lifecycle
+    initGame,
+    startMatch,
+    tick,
+    swapAnchor,
+    updateCamera,
+    continueAfterDeath,
+
+    // Convenience
+    stageReinitSignal,
+    isOverIsland
+  }
+}
+
+export default useMawGame

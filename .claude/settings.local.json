@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cp -r \"C:\\\\Users\\\\konst\\\\chaos-arena\\\\src\" .)",
+      "Bash(cp -r \"C:\\\\Users\\\\konst\\\\chaos-arena\\\\public\" .)",
+      "Bash(cp \"C:\\\\Users\\\\konst\\\\chaos-arena\\\\package.json\" .)",
+      "Bash(cp \"C:\\\\Users\\\\konst\\\\chaos-arena\\\\vite.config.ts\" .)",
+      "Bash(cp \"C:\\\\Users\\\\konst\\\\chaos-arena\\\\tsconfig.json\" .)",
+      "Bash(cp \"C:\\\\Users\\\\konst\\\\chaos-arena\\\\.env\" .env)",
+      "Bash(cp \"C:\\\\Users\\\\konst\\\\chaos-arena\\\\.env.crazy-web\" .)",
+      "Bash(cp \"C:\\\\Users\\\\konst\\\\chaos-arena\\\\.env.gamedistribution\" .)",
+      "Bash(cp \"C:\\\\Users\\\\konst\\\\chaos-arena\\\\.env.glitch\" .)",
+      "Bash(cp \"C:\\\\Users\\\\konst\\\\chaos-arena\\\\.env.itch\" .)",
+      "Bash(cp \"C:\\\\Users\\\\konst\\\\chaos-arena\\\\.env.crazy-web.local\" .env.crazy-web)",
+      "Bash(cp \"C:\\\\Users\\\\konst\\\\chaos-arena\\\\.env.game-distribution.local\" .env.game-distribution)",
+      "Bash(cp \"C:\\\\Users\\\\konst\\\\chaos-arena\\\\.env.glitch.local\" .env.glitch)",
+      "Bash(cp \"C:\\\\Users\\\\konst\\\\chaos-arena\\\\.env.itch.local\" .env.itch)",
+      "Bash(cp \"C:\\\\Users\\\\konst\\\\chaos-arena\\\\.env.wavedash.local\" .env.wavedash)",
+      "Bash(pnpm vue-tsc *)",
+      "Bash(pnpm vite *)",
+      "Bash(cp -r \"C:\\\\Users\\\\konst\\\\chaos-arena\\\\tests\\\\save\" \"C:\\\\Users\\\\konst\\\\Documents\\\\__p\\\\maw-it-down\\\\tests\\\\\" && cp -r \"C:\\\\Users\\\\konst\\\\chaos-arena\\\\tests\\\\platforms\" \"C:\\\\Users\\\\konst\\\\Documents\\\\__p\\\\maw-it-down\\\\tests\\\\\")",
+      "Bash(cp \"C:\\\\Users\\\\konst\\\\chaos-arena\\\\tests\\\\keys.test.ts\" \"C:\\\\Users\\\\konst\\\\Documents\\\\__p\\\\maw-it-down\\\\tests\\\\\" 2>&1; ls \"C:\\\\Users\\\\konst\\\\Documents\\\\__p\\\\maw-it-down\\\\tests\" 2>&1)",
+      "Bash(cp -r \"C:\\\\Users\\\\konst\\\\chaos-arena\\\\tests\\\\save\" \"C:\\\\Users\\\\konst\\\\Documents\\\\__p\\\\maw-it-down\\\\tests\\\\save\")",
+      "Bash(cp -r \"C:\\\\Users\\\\konst\\\\chaos-arena\\\\tests\\\\platforms\" \"C:\\\\Users\\\\konst\\\\Documents\\\\__p\\\\maw-it-down\\\\tests\\\\platforms\")",
+      "Bash(cp \"C:\\\\Users\\\\konst\\\\chaos-arena\\\\tests\\\\keys.test.ts\" \"C:\\\\Users\\\\konst\\\\Documents\\\\__p\\\\maw-it-down\\\\tests\\\\keys.test.ts\")",
+      "Bash(pnpm vitest *)"
+    ]
+  }
+}
