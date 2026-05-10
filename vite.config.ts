@@ -1,8 +1,120 @@
 import { fileURLToPath, URL } from 'node:url'
 import { resolve, dirname } from 'node:path'
-import { readFileSync } from 'node:fs'
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs'
 
-import { defineConfig, loadEnv } from 'vite'
+import { defineConfig, loadEnv, type Plugin } from 'vite'
+
+// ─── Campaign-overrides on-disk persistence ────────────────────────────
+// The level editor writes back into `data/campaign-overrides.json` so the
+// stages live in the repo (committable, fine-tunable in source) rather
+// than only in the user's localStorage. Two surfaces:
+//   1. A virtual module `virtual:campaign-overrides` that ships the
+//      current JSON as the campaign's seed override map. Resolved at
+//      both dev and build time.
+//   2. Dev-only middleware:
+//        POST /__maw/save-override   { id, stage }   → writes to disk
+//        POST /__maw/clear-override  { id }          → removes from disk
+//      Production builds don't expose these — the editor button silently
+//      falls back to localStorage when the endpoint is absent.
+const OVERRIDES_FILE = resolve(
+  fileURLToPath(new URL('./data/campaign-overrides.json', import.meta.url))
+)
+const OVERRIDES_VIRTUAL_ID = 'virtual:campaign-overrides'
+const OVERRIDES_RESOLVED = '\0' + OVERRIDES_VIRTUAL_ID
+
+const ensureOverridesFile = () => {
+  if (!existsSync(OVERRIDES_FILE)) {
+    mkdirSync(dirname(OVERRIDES_FILE), { recursive: true })
+    writeFileSync(OVERRIDES_FILE, '{}\n', 'utf-8')
+  }
+}
+
+const readOverridesJson = (): Record<string, unknown> => {
+  ensureOverridesFile()
+  try {
+    const parsed = JSON.parse(readFileSync(OVERRIDES_FILE, 'utf-8'))
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? parsed as Record<string, unknown>
+      : {}
+  } catch {
+    return {}
+  }
+}
+
+const writeOverridesJson = (data: Record<string, unknown>) => {
+  ensureOverridesFile()
+  writeFileSync(OVERRIDES_FILE, JSON.stringify(data, null, 2) + '\n', 'utf-8')
+}
+
+const readBody = (req: import('node:http').IncomingMessage): Promise<string> =>
+  new Promise((res, rej) => {
+    const chunks: Buffer[] = []
+    req.on('data', c => chunks.push(c))
+    req.on('end', () => res(Buffer.concat(chunks).toString('utf-8')))
+    req.on('error', rej)
+  })
+
+const mawCampaignOverridesPlugin = (): Plugin => ({
+  name: 'maw-campaign-overrides',
+  resolveId(id) {
+    if (id === OVERRIDES_VIRTUAL_ID) return OVERRIDES_RESOLVED
+    return null
+  },
+  load(id) {
+    if (id !== OVERRIDES_RESOLVED) return null
+    return `export default ${JSON.stringify(readOverridesJson())}`
+  },
+  configureServer(server) {
+    // Hot-reload the virtual module if the JSON file is edited by hand.
+    server.watcher.add(OVERRIDES_FILE)
+    server.watcher.on('change', (path) => {
+      if (resolve(path) !== OVERRIDES_FILE) return
+      const mod = server.moduleGraph.getModuleById(OVERRIDES_RESOLVED)
+      if (mod) server.moduleGraph.invalidateModule(mod)
+      server.ws.send({ type: 'full-reload', path: '*' })
+    })
+
+    server.middlewares.use('/__maw/save-override', async (req, res, next) => {
+      if (req.method !== 'POST') { next(); return }
+      try {
+        const body = JSON.parse(await readBody(req)) as { id?: number; stage?: unknown }
+        if (typeof body.id !== 'number' || !body.stage) {
+          res.statusCode = 400
+          res.end(JSON.stringify({ error: 'expected { id: number, stage }' }))
+          return
+        }
+        const data = readOverridesJson()
+        data[String(body.id)] = body.stage
+        writeOverridesJson(data)
+        res.setHeader('Content-Type', 'application/json')
+        res.end(JSON.stringify({ ok: true, id: body.id }))
+      } catch (e) {
+        res.statusCode = 400
+        res.end(JSON.stringify({ error: String((e as Error).message) }))
+      }
+    })
+
+    server.middlewares.use('/__maw/clear-override', async (req, res, next) => {
+      if (req.method !== 'POST') { next(); return }
+      try {
+        const body = JSON.parse(await readBody(req)) as { id?: number }
+        if (typeof body.id !== 'number') {
+          res.statusCode = 400
+          res.end(JSON.stringify({ error: 'expected { id: number }' }))
+          return
+        }
+        const data = readOverridesJson()
+        delete data[String(body.id)]
+        writeOverridesJson(data)
+        res.setHeader('Content-Type', 'application/json')
+        res.end(JSON.stringify({ ok: true, id: body.id }))
+      } catch (e) {
+        res.statusCode = 400
+        res.end(JSON.stringify({ error: String((e as Error).message) }))
+      }
+    })
+  }
+})
 
 // Read the package version directly so APP_VERSION resolves regardless of
 // how vite is invoked. `process.env.npm_package_version` is only set when
@@ -32,6 +144,10 @@ export default defineConfig(({ mode, command }) => {
 
   // Initialize plugins array
   const plugins = []
+
+  // Campaign-overrides plugin — virtual module + dev write endpoints so
+  // editor saves persist to `data/campaign-overrides.json` in the repo.
+  plugins.push(mawCampaignOverridesPlugin())
 
   // Only push the obfuscator if both conditions are met
   if (isProduction && shouldObfuscate) {

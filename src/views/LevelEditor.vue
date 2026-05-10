@@ -3,6 +3,7 @@ import { ref, computed, onMounted, onUnmounted, watch, type Ref } from 'vue'
 import { useRouter } from 'vue-router'
 import type { MawStage, MawIsland, Obstacle } from '@/use/useMawCampaign'
 import { STAGES } from '@/use/useMawCampaign'
+import { pointInIsland, islandPolygonWorld } from '@/use/useIslandShapes'
 import {
   customStages,
   campaignOverrides,
@@ -13,7 +14,6 @@ import {
   setTestStage
 } from '@/use/useCustomStages'
 import {
-  drawWater,
   drawIsland,
   drawObstacle,
   drawGrassBlade,
@@ -91,6 +91,20 @@ const canvasRef = ref<HTMLCanvasElement | null>(null)
 const canvasWidth = ref<number>(0)
 const canvasHeight = ref<number>(0)
 
+/** CSS background-position for the tiled water layer — keeps the bitmap
+ *  anchored to world (0, 0) and zoom-scaled, so the water visually moves
+ *  with the canvas-rendered world (no "islands floating over static
+ *  water" effect). */
+const waterBgStyle = computed(() => {
+  const z = zoom.value
+  const tile = 512 * z
+  return {
+    backgroundSize: `${tile}px ${tile}px`,
+    backgroundPositionX: `${canvasWidth.value / 2 - z * cameraX.value}px`,
+    backgroundPositionY: `${canvasHeight.value / 2 - z * cameraY.value}px`
+  }
+})
+
 const updateCanvasSize = () => {
   const el = canvasRef.value
   if (!el) return
@@ -128,6 +142,99 @@ const newStage = () => {
 
 newStage()
 
+// ─── Undo / redo ──────────────────────────────────────────────────────────
+// Snapshot-based history: every editor action (placement, deletion,
+// drag-move, slider change, import, shape swap) deep-copies the editable
+// state onto `undoStack` BEFORE applying the change. Ctrl+Z pops one off
+// and restores; Ctrl+Shift+Z (or Ctrl+Y) walks back forward through
+// `redoStack`. Stacks reset together on any fresh action so the redo
+// chain only matches the actual edit history.
+interface EditorSnapshot {
+  islands: EditorIsland[]
+  exitX: number
+  exitY: number
+  targetClears: number
+  selection: Selection
+}
+
+const UNDO_LIMIT = 100
+// Refs (not plain arrays) so the Undo/Redo buttons' `:disabled` re-renders
+// as the stacks grow and shrink.
+const undoStack: Ref<EditorSnapshot[]> = ref([])
+const redoStack: Ref<EditorSnapshot[]> = ref([])
+/** When a slider/input fires many rapid changes within this window the
+ *  snapshots collapse to a single undo step — otherwise dragging the
+ *  radius slider would queue dozens of micro-undos. */
+const COALESCE_MS = 350
+let lastSnapshotKey = ''
+let lastSnapshotAt = 0
+
+const cloneIslands = (src: EditorIsland[]): EditorIsland[] =>
+  src.map(i => ({
+    id: i.id,
+    cx: i.cx, cy: i.cy, radius: i.radius, shape: i.shape,
+    grass: i.grass.map(g => [g[0], g[1]] as [number, number]),
+    obstacles: i.obstacles.map(o => ({ ...o }))
+  }))
+
+const captureSnapshot = (): EditorSnapshot => ({
+  islands: cloneIslands(islands.value),
+  exitX: exitX.value,
+  exitY: exitY.value,
+  targetClears: targetClears.value,
+  selection: selection.value ? { ...(selection.value as object) } as Selection : null
+})
+
+/** Push a snapshot of the current state onto the undo stack BEFORE the
+ *  caller mutates anything. Pass a `key` to coalesce rapid repeats of
+ *  the same action type (slider drags, radius nudges, etc.) into a
+ *  single undo step within `COALESCE_MS`. */
+const pushHistory = (key = '') => {
+  const now = performance.now()
+  if (key && key === lastSnapshotKey && (now - lastSnapshotAt) < COALESCE_MS) {
+    lastSnapshotAt = now
+    return
+  }
+  undoStack.value.push(captureSnapshot())
+  if (undoStack.value.length > UNDO_LIMIT) undoStack.value.shift()
+  redoStack.value.length = 0
+  lastSnapshotKey = key
+  lastSnapshotAt = now
+}
+
+const restoreSnapshot = (snap: EditorSnapshot) => {
+  islands.value = cloneIslands(snap.islands)
+  exitX.value = snap.exitX
+  exitY.value = snap.exitY
+  targetClears.value = snap.targetClears
+  selection.value = snap.selection
+  // After a restore, the next pushHistory shouldn't coalesce with the
+  // pre-restore action — clearing the key forces a fresh undo step.
+  lastSnapshotKey = ''
+}
+
+const undo = () => {
+  if (undoStack.value.length === 0) {
+    status.value = 'Nothing to undo.'
+    return
+  }
+  redoStack.value.push(captureSnapshot())
+  if (redoStack.value.length > UNDO_LIMIT) redoStack.value.shift()
+  restoreSnapshot(undoStack.value.pop()!)
+  status.value = `Undo · ${undoStack.value.length} more available`
+}
+
+const redo = () => {
+  if (redoStack.value.length === 0) {
+    status.value = 'Nothing to redo.'
+    return
+  }
+  undoStack.value.push(captureSnapshot())
+  if (undoStack.value.length > UNDO_LIMIT) undoStack.value.shift()
+  restoreSnapshot(redoStack.value.pop()!)
+  status.value = `Redo · ${redoStack.value.length} more available`
+}
+
 // ─── Coordinate conversion ────────────────────────────────────────────────
 const screenToWorld = (sx: number, sy: number) => {
   const w = canvasWidth.value
@@ -141,10 +248,9 @@ const screenToWorld = (sx: number, sy: number) => {
 
 // ─── Hit-tests ────────────────────────────────────────────────────────────
 const islandContains = (isle: EditorIsland, x: number, y: number) => {
-  const dx = x - isle.cx
-  const dy = y - isle.cy
-  if (isle.shape === 'round') return dx * dx + dy * dy <= isle.radius * isle.radius
-  return Math.abs(dx) <= isle.radius && Math.abs(dy) <= isle.radius
+  // Match the gameplay hit-test exactly: both shapes use the polygon
+  // traced from the bitmap (pixel-perfect once the bitmap decodes).
+  return pointInIsland(isle.shape, x, y, isle.cx, isle.cy, isle.radius)
 }
 
 const findIslandAt = (x: number, y: number): EditorIsland | null => {
@@ -209,6 +315,9 @@ const onPointerDown = (e: PointerEvent) => {
     const hit = findEntityAt(wp.x, wp.y)
     selection.value = hit
     if (hit) {
+      // Snapshot before the drag begins so Ctrl+Z restores the position
+      // the entity was at when the user grabbed it.
+      pushHistory()
       dragging = true
       dragMode = 'move'
       dragSelectionAnchor = entityAnchor(hit)
@@ -264,6 +373,7 @@ const onWheel = (e: WheelEvent) => {
 
 // ─── Placement / deletion / move ──────────────────────────────────────────
 const placeAt = (t: Tool, x: number, y: number) => {
+  pushHistory()
   if (t === 'island-round' || t === 'island-square') {
     const isle: EditorIsland = {
       id: newId(),
@@ -336,11 +446,12 @@ const deleteSelection = (sel: Selection) => {
   const isleIdx = islands.value.findIndex(i => i.id === sel.islandId)
   if (isleIdx < 0) return
   const isle = islands.value[isleIdx]!
+  if (sel.type === 'island' && islands.value.length <= 1) {
+    status.value = 'Stage needs at least one island.'
+    return
+  }
+  pushHistory()
   if (sel.type === 'island') {
-    if (islands.value.length <= 1) {
-      status.value = 'Stage needs at least one island.'
-      return
-    }
     islands.value = islands.value.filter(i => i.id !== sel.islandId)
   } else if (sel.type === 'obstacle') {
     isle.obstacles = isle.obstacles.filter((_, i) => i !== sel.obstacleIdx)
@@ -358,15 +469,33 @@ const isTypingTarget = (el: EventTarget | null): boolean => {
 }
 
 const onKeyDown = (e: KeyboardEvent) => {
-  // Only the dedicated Delete key triggers selection removal — Backspace is
-  // reserved for editing the stage-name / target-clears inputs without
-  // also wiping the canvas selection. Skip entirely while focus is on any
-  // form element so typing inside the toolbar inputs is never destructive.
-  if (e.key !== 'Delete') return
+  // Skip entirely while focus is on any form element so typing inside
+  // toolbar inputs never triggers canvas-level shortcuts (and so the
+  // browser's native input-undo on Ctrl+Z keeps working inside the
+  // stage-name field).
   if (isTypingTarget(e.target)) return
-  if (!selection.value) return
-  deleteSelection(selection.value)
-  e.preventDefault()
+
+  // Ctrl/Cmd+Z = undo, Ctrl/Cmd+Shift+Z (or Ctrl+Y) = redo.
+  const modKey = e.ctrlKey || e.metaKey
+  if (modKey && (e.key === 'z' || e.key === 'Z')) {
+    if (e.shiftKey) redo()
+    else undo()
+    e.preventDefault()
+    return
+  }
+  if (modKey && (e.key === 'y' || e.key === 'Y')) {
+    redo()
+    e.preventDefault()
+    return
+  }
+
+  // Delete the current selection. Backspace is reserved so it doesn't
+  // wipe the canvas selection when used to clear a typed value.
+  if (e.key === 'Delete') {
+    if (!selection.value) return
+    deleteSelection(selection.value)
+    e.preventDefault()
+  }
 }
 
 // ─── Selected island properties (radius slider) ───────────────────────────
@@ -380,12 +509,18 @@ const selectedIsland = computed<EditorIsland | null>(() => {
 
 const setSelectedRadius = (r: number) => {
   const isle = selectedIsland.value
-  if (isle) isle.radius = Math.max(40, Math.min(400, r))
+  if (!isle) return
+  // Coalesce: a slider drag fires dozens of changes — collapse them to
+  // one undo step within COALESCE_MS, then start a fresh step on pause.
+  pushHistory(`radius:${isle.id}`)
+  isle.radius = Math.max(40, Math.min(400, r))
 }
 
 const setSelectedShape = (shape: 'round' | 'square') => {
   const isle = selectedIsland.value
-  if (isle) isle.shape = shape
+  if (!isle || isle.shape === shape) return
+  pushHistory()
+  isle.shape = shape
 }
 
 // ─── Save / Load / Test / Back ────────────────────────────────────────────
@@ -422,6 +557,7 @@ const onSave = () => {
  *  becomes whatever the caller passes, so an imported campaign stage saves
  *  to a different slot than the original (a copy-on-edit flow). */
 const loadStageIntoEditor = (s: MawStage, displayName: string) => {
+  pushHistory()
   stageName.value = displayName
   islands.value = s.islands.map(i => ({
     id: newId(),
@@ -514,7 +650,8 @@ const paint = () => {
   ctx.scale(zoom.value, zoom.value)
   ctx.translate(-cameraX.value, -cameraY.value)
 
-  drawWater(ctx, cameraX.value, cameraY.value, w / zoom.value, h / zoom.value)
+  // Water is the wrapper div's tiled CSS background — the canvas stays
+  // transparent so it shows through.
 
   for (const isle of islands.value) drawIsland(ctx, isle)
   for (const isle of islands.value) {
@@ -534,12 +671,18 @@ const paint = () => {
     if (sel.type === 'island') {
       const isle = islands.value.find(i => i.id === sel.islandId)
       if (isle) {
+        // Outline the playable grass polygon for both shapes — same
+        // geometry the gameplay hit-test uses, so what you select is
+        // exactly what you can anchor on. The +4 radius bump puts the
+        // ring just outside the walkable area.
         ctx.beginPath()
-        if (isle.shape === 'round') {
-          ctx.arc(isle.cx, isle.cy, isle.radius + 4, 0, Math.PI * 2)
-        } else {
-          ctx.rect(isle.cx - isle.radius - 4, isle.cy - isle.radius - 4, (isle.radius + 4) * 2, (isle.radius + 4) * 2)
+        const polySel = islandPolygonWorld(isle.shape, isle.cx, isle.cy, isle.radius + 4)
+        for (let i = 0; i < polySel.length; i++) {
+          const [wx, wy] = polySel[i]!
+          if (i === 0) ctx.moveTo(wx, wy)
+          else ctx.lineTo(wx, wy)
         }
+        ctx.closePath()
         ctx.stroke()
       }
     } else if (sel.type === 'exit') {
@@ -676,6 +819,19 @@ const campaignSlotOptions = computed(() =>
         @click="onRevertCampaign"
         title="Restore the procedural built-in stage for this slot"
       ) Revert
+      div.w-px.h-6(class="bg-white/15 mx-1")
+      button.px-3.py-1.rounded(
+        class="bg-slate-700 hover:bg-slate-600 active:scale-95 text-sm disabled:opacity-50"
+        :disabled="undoStack.length === 0"
+        @click="undo"
+        title="Undo (Ctrl+Z)"
+      ) ↶ Undo
+      button.px-3.py-1.rounded(
+        class="bg-slate-700 hover:bg-slate-600 active:scale-95 text-sm disabled:opacity-50"
+        :disabled="redoStack.length === 0"
+        @click="redo"
+        title="Redo (Ctrl+Shift+Z)"
+      ) ↷ Redo
       div.flex-1
       button.px-3.py-1.rounded.font-bold(
         class="bg-yellow-500 hover:bg-yellow-400 active:scale-95 text-sm text-black"
@@ -697,10 +853,11 @@ const campaignSlotOptions = computed(() =>
           @click="tool = t.id"
         ) {{ t.label }}
         div.text-xs.opacity-60.mt-3 Shift+drag = pan, wheel = zoom, right-click = delete
+        div.text-xs.opacity-60 Ctrl+Z undo · Ctrl+Shift+Z redo · Del removes selection
         div.text-xs.opacity-60 Decor (grass / stump / boulder / crystal) snaps to the island under the cursor.
 
       //- Canvas
-      div.flex-1.relative
+      div.flex-1.relative.maw-water-bg(:style="waterBgStyle")
         canvas(
           ref="canvasRef"
           class="block w-full h-full cursor-crosshair touch-none"
@@ -756,3 +913,12 @@ const campaignSlotOptions = computed(() =>
             @click="deleteSelection(selection)"
           ) Delete (DEL)
 </template>
+
+<style scoped lang="sass">
+// Browser-tiled water — the canvas stays transparent so this shows through.
+.maw-water-bg
+  background-color: #3aa6c4
+  background-image: url('/images/props/water_512x512.webp')
+  background-repeat: repeat
+  background-size: 512px 512px
+</style>

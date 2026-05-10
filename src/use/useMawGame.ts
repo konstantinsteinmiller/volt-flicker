@@ -1,5 +1,6 @@
-import { ref, computed, type Ref } from 'vue'
+import { ref, computed, watch, type Ref } from 'vue'
 import useMawCampaign, { type MawStage, type MawIsland, type Obstacle } from '@/use/useMawCampaign'
+import { pointInIsland } from '@/use/useIslandShapes'
 import useMawProgress, { upgradedValue, levelOf } from '@/use/useMawProgress'
 import useMawConfig from '@/use/useMawConfig'
 import { useScreenshake } from '@/use/useScreenshake'
@@ -75,6 +76,15 @@ const useMawGame = () => {
   // Player has 2 base life + Reinforced Frame upgrade.
   const maxLife = computed(() => upgradedValue('maxLife'))
   const life: Ref<number> = ref(maxLife.value)
+  // Buying Reinforced Frame mid-round drops a fresh lit wrench onto the
+  // life badge for the current round — the new slot's pip starts filled
+  // rather than the player having to die down to it. A decrease (e.g.
+  // future cloud-pulled state with a lower max) caps current life to the
+  // new ceiling.
+  watch(maxLife, (next, prev) => {
+    if (next > prev) life.value = Math.min(next, life.value + (next - prev))
+    else if (next < prev) life.value = Math.min(life.value, next)
+  })
   const sawTier = computed(() => levelOf('sawDamage'))
   const coinMagnetMs = computed(() => Math.max(150, upgradedValue('coinMagnetMs')))
   const rotationSpeedMul = computed(() => upgradedValue('rotationSpeed'))
@@ -145,14 +155,12 @@ const useMawGame = () => {
   // ─── Geometry helpers ────────────────────────────────────────────────────
 
   const isOverIsland = (x: number, y: number): boolean => {
+    // Pixel-perfect: once each island bitmap has decoded, `pointInIsland`
+    // samples the actual walkable mask traced from the green grass cap,
+    // so the chain-anchor hit-test matches exactly what the player sees.
+    // Until then, the call falls back to the shape's hand-traced polygon.
     for (const isle of islands.value) {
-      const dx = x - isle.cx
-      const dy = y - isle.cy
-      if (isle.shape === 'round') {
-        if (dx * dx + dy * dy <= isle.radius * isle.radius) return true
-      } else {
-        if (Math.abs(dx) <= isle.radius && Math.abs(dy) <= isle.radius) return true
-      }
+      if (pointInIsland(isle.shape, x, y, isle.cx, isle.cy, isle.radius)) return true
     }
     return false
   }

@@ -28,7 +28,10 @@ import DailyRewards from '@/components/organisms/DailyRewards.vue'
 import BattlePass from '@/components/organisms/BattlePass.vue'
 import AdRewardButton from '@/components/organisms/AdRewardButton.vue'
 import OptionsModal from '@/components/organisms/OptionsModal.vue'
-import AchievementsModal from '@/components/organisms/AchievementsModal.vue'
+//- The crest-styled SpinnerAchievementsModal supersedes the original
+//- AchievementsModal — it shows the same data through the maw-it-down
+//- claim system, just wrapped in nicer artwork.
+import AchievementsModal from '@/components/organisms/SpinnerAchievementsModal.vue'
 import UpgradesModal from '@/components/organisms/UpgradesModal.vue'
 import FIconButton from '@/components/atoms/FIconButton.vue'
 import FMuteButton from '@/components/atoms/FMuteButton.vue'
@@ -48,7 +51,7 @@ import {
 } from '@/use/useMeteorShower'
 import {
   drawIsland,
-  drawWater,
+  drawIslandPlatformBounds,
   drawRobot,
   drawCoin,
   drawObstacle,
@@ -139,6 +142,28 @@ const canvasRef = ref<HTMLCanvasElement | null>(null)
 const canvasWidth = ref(0)
 const canvasHeight = ref(0)
 const uiBtnScale = computed(() => Math.min(2, Math.max(1, canvasWidth.value / 1000)))
+
+// World→screen zoom — kept in sync with the same formula `paint()` uses
+// to set the canvas ctx scale, so the CSS water background can match the
+// world transform exactly.
+const cameraZoom = computed(() =>
+  Math.min(1.3, Math.max(0.7, Math.min(canvasWidth.value, canvasHeight.value) / 800))
+)
+
+/** Anchor the tiled water bitmap to world (0, 0) and scale it with the
+ *  current zoom — the CSS layer then visually scrolls in lockstep with
+ *  the canvas as the camera moves, so islands no longer "float" over a
+ *  static background. The browser still does the tiling on the GPU
+ *  fast path; we just shift its origin per frame. */
+const waterBgStyle = computed(() => {
+  const z = cameraZoom.value
+  const tile = 512 * z
+  return {
+    backgroundSize: `${tile}px ${tile}px`,
+    backgroundPositionX: `${canvasWidth.value / 2 - z * cameraPos.value.x}px`,
+    backgroundPositionY: `${canvasHeight.value / 2 - z * cameraPos.value.y}px`
+  }
+})
 
 const updateCanvasSize = () => {
   const c = canvasRef.value
@@ -361,33 +386,82 @@ const paint = () => {
   const h = canvasHeight.value
   ctx.clearRect(0, 0, w, h)
 
-  // World transform: center on cameraPos.
+  // World transform: center on cameraPos. `cameraZoom` is computed from
+  // the same canvas-size formula and is also bound to the water-bg CSS,
+  // so the two layers stay in lockstep.
   ctx.save()
   ctx.translate(w / 2, h / 2)
-  // Slight zoom so islands feel inhabited but the chain reach is visible.
-  const zoom = Math.min(1.3, Math.max(0.7, Math.min(w, h) / 800))
+  const zoom = cameraZoom.value
   ctx.scale(zoom, zoom)
   ctx.translate(-cameraPos.value.x, -cameraPos.value.y)
 
-  // 1. Water (full-screen tiled background)
-  drawWater(ctx, cameraPos.value.x, cameraPos.value.y, w / zoom, h / zoom)
+  // 1. Water is painted by the browser as a CSS background-image on the
+  //    `.maw-arena` wrapper div — see the template. The canvas stays
+  //    transparent here (`clearRect` above) so the tiled water shows
+  //    through.
+
+  // ─── View-bounds culling ──────────────────────────────────────────────
+  //
+  // Without culling, paint() draws every island and every alive grass
+  // blade on every frame regardless of whether they're visible. With
+  // ~10 islands × hundreds of blades that's 2-3k drawImage calls per
+  // frame even for a screen showing 2-3 islands. Culling drops the
+  // unseen work; the camera-glide / screenshake stutter the player saw
+  // was just frames where the visible band briefly contained more than
+  // usual.
+  const camX = cameraPos.value.x
+  const camY = cameraPos.value.y
+  // Half-extents of the visible region in world space, plus a margin so
+  // partial-edge islands and tall blades aren't popped at the boundary.
+  const VIEW_MARGIN = 80
+  const halfW = w / zoom / 2 + VIEW_MARGIN
+  const halfH = h / zoom / 2 + VIEW_MARGIN
+  const viewMinX = camX - halfW
+  const viewMaxX = camX + halfW
+  const viewMinY = camY - halfH
+  const viewMaxY = camY + halfH
+
+  const visibleIslands = islands.value.filter(isle => {
+    // Both island bitmaps include a cliff hanging ~1.4×r below the
+    // polygon centre, so the cull margin runs that wide to keep the
+    // bitmap on-screen while the playable polygon is still in view.
+    const r = isle.radius * 1.4 + 24
+    return (
+      isle.cx + r >= viewMinX
+      && isle.cx - r <= viewMaxX
+      && isle.cy + r >= viewMinY
+      && isle.cy - r <= viewMaxY
+    )
+  })
 
   // 2. Islands (draw each — order: shadow, body, grass tufts on borders, obstacles, alive grass blades, robot)
-  for (const isle of islands.value) {
+  for (const isle of visibleIslands) {
     drawIsland(ctx, isle)
   }
 
-  for (const isle of islands.value) {
+  for (const isle of visibleIslands) {
     for (const ob of isle.obstacles) {
       drawObstacle(ctx, ob)
     }
     for (const idx of isle.aliveGrass) {
       const [gx, gy] = isle.grass[idx]!
+      // Per-blade culling — cheaper than a drawImage on something that
+      // would be entirely outside the viewport.
+      if (gx < viewMinX || gx > viewMaxX || gy < viewMinY || gy > viewMaxY) continue
       drawGrassBlade(ctx, gx, gy, stage.value.biome, idx)
     }
   }
 
-  // 3. Coins
+  // Debug overlay: dashed yellow outline of each island's playable area
+  // (anchors that land outside it splash the player). Toggle with the
+  // "cmarc" cheat sequence — see useCheats.ts.
+  if (isDebug.value) {
+    for (const isle of visibleIslands) {
+      drawIslandPlatformBounds(ctx, isle)
+    }
+  }
+
+  // 3. Coins (always small, almost always near the player — no cull needed).
   for (const coin of coins.value) {
     drawCoin(ctx, coin.x, coin.y)
   }
@@ -453,8 +527,9 @@ const showStartHint = computed(() =>
 </script>
 
 <template lang="pug">
-  div.maw-arena.relative.w-screen.overflow-hidden.flex.items-center.justify-center(
-    class="bg-[#0d2a18] h-screen h-dvh"
+  div.maw-arena.relative.w-screen.overflow-hidden.flex.items-center.justify-center.maw-water-bg(
+    class="h-screen h-dvh"
+    :style="waterBgStyle"
   )
     canvas(
       ref="canvasRef"
@@ -702,6 +777,13 @@ const showStartHint = computed(() =>
 </template>
 
 <style scoped lang="sass">
+// Browser-tiled water — no canvas draw cost, no bilinear seam.
+.maw-water-bg
+  background-color: #3aa6c4
+  background-image: url('/images/props/water_512x512.webp')
+  background-repeat: repeat
+  background-size: 512px 512px
+
 .countdown-number
   display: inline-block
   text-shadow: 0 0 24px rgba(255, 200, 0, 0.85), 0 0 6px rgba(255, 255, 255, 0.6), 0 4px 0 #000

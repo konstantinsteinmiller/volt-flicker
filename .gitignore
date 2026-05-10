@@ -68,3 +68,4 @@ __screenshots__/
 
 # iOS xcframeworks downloaded by tauri-plugin-levelplay/build.rs
 /src-tauri/plugins/tauri-plugin-levelplay/ios/Frameworks/
+/src/assets/art/

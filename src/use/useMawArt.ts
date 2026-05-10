@@ -1,10 +1,12 @@
 import type { MawIsland, Obstacle, StageBiome } from '@/use/useMawCampaign'
+import { getShapeData, islandPolygonWorld } from '@/use/useIslandShapes'
+import { getCachedImage } from '@/use/useAssets'
 
 /**
  * Programmatic canvas art helpers — drawn in pure 2D so the project ships
  * without any sprite sheets. Each function paints one piece of the world
  * at world-space coordinates; the caller is responsible for transforming
- * the camera. See `art-todo.md` for the inventory of pieces queued up
+ * the camera. See `art-todo-gamedesign.md` for the inventory of pieces queued up
  * for art replacement.
  */
 
@@ -30,55 +32,14 @@ const rrect = (
   ctx.closePath()
 }
 
-// ─── Water — a tiled wave pattern keyed off camera position ─────────────
-export const drawWater = (
-  ctx: CanvasRenderingContext2D,
-  cameraX: number,
-  cameraY: number,
-  worldW: number,
-  worldH: number
-) => {
-  const cellSize = 96
-  const startX = Math.floor((cameraX - worldW / 2) / cellSize) * cellSize
-  const startY = Math.floor((cameraY - worldH / 2) / cellSize) * cellSize
-  const endX = startX + worldW + cellSize * 2
-  const endY = startY + worldH + cellSize * 2
-
-  ctx.fillStyle = '#3aa6c4'
-  ctx.fillRect(startX, startY, endX - startX, endY - startY)
-
-  // Wave streaks — every cell's two arcs share a single beginPath so the
-  // GPU sees ONE stroke command for the entire visible field instead of
-  // ~250 per frame. Each `moveTo` starts a new sub-path within the same
-  // path, which is exactly what we want here.
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.18)'
-  ctx.lineWidth = 4
-  ctx.lineCap = 'round'
-  ctx.beginPath()
-  for (let yy = startY; yy < endY; yy += cellSize) {
-    for (let xx = startX; xx < endX; xx += cellSize) {
-      const off = ((xx * 17 + yy * 31) % 64) - 32
-      ctx.moveTo(xx + 12 + off * 0.4, yy + 28)
-      ctx.quadraticCurveTo(xx + cellSize / 2, yy + 14, xx + cellSize - 12, yy + 28)
-      ctx.moveTo(xx + 18 + off * 0.2, yy + 64)
-      ctx.quadraticCurveTo(xx + cellSize / 2, yy + 50, xx + cellSize - 18, yy + 64)
-    }
-  }
-  ctx.stroke()
-
-  // Sparkles — same trick, one fill for every cell.
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.55)'
-  ctx.beginPath()
-  for (let yy = startY; yy < endY; yy += cellSize) {
-    for (let xx = startX; xx < endX; xx += cellSize) {
-      const sparkleX = xx + ((xx * 7 + yy * 11) % cellSize)
-      const sparkleY = yy + ((xx * 5 + yy * 13) % cellSize)
-      ctx.moveTo(sparkleX + 1.5, sparkleY)
-      ctx.arc(sparkleX, sparkleY, 1.5, 0, TWO_PI)
-    }
-  }
-  ctx.fill()
-}
+// ─── Water — CSS-backed wrapper, not painted on the canvas ─────────────
+// The water tile is set as a `background-image: repeat` on the canvas
+// wrapper divs in MawScene and LevelEditor. The browser tiles the
+// bitmap at the layer level — GPU-composited, no seams from canvas
+// bilinear edge-AA, and the canvas paint loop has zero per-frame water
+// cost. The canvas itself stays transparent on top of it (each frame
+// starts with `clearRect`), so islands / robot / coins composite over
+// the tiled water that's already painted by the browser.
 
 // ─── Island ──────────────────────────────────────────────────────────────
 const biomeColors = (biome: StageBiome): { soil: string; grassDark: string; grassLight: string; ring: string } => {
@@ -97,66 +58,79 @@ const biomeColors = (biome: StageBiome): { soil: string; grassDark: string; gras
   }
 }
 
+// Island art is sourced from per-shape bitmaps; the renderer overlays the
+// bitmap so its grass cap aligns with the shape's playable polygon (see
+// `useIslandShapes.ts`). For the brief moment before the bitmap decodes,
+// we paint the fallback polygon in the biome's grass colour so the player
+// isn't staring at empty water under their robot.
+const ISLAND_IMG_SRC: Record<'round' | 'square', string> = {
+  round: '/images/props/island-round-short-cliff_512x512.webp',
+  square: '/images/props/island-square_512x512.webp'
+}
+
+const islandImages: Record<'round' | 'square', HTMLImageElement | null> = {
+  round: null,
+  square: null
+}
+const getIslandImage = (shape: 'round' | 'square'): HTMLImageElement => {
+  if (!islandImages[shape]) islandImages[shape] = getCachedImage(ISLAND_IMG_SRC[shape])
+  return islandImages[shape]!
+}
+
 export const drawIsland = (ctx: CanvasRenderingContext2D, isle: MawIsland & { biome?: StageBiome }) => {
+  const shape = getShapeData(isle.shape)
+  const imgW = isle.radius * shape.wPerRadius
+  const imgH = isle.radius * shape.hPerRadius
+  const img = getIslandImage(isle.shape)
+  if (img.complete && img.naturalWidth > 0) {
+    ctx.drawImage(
+      img,
+      isle.cx - imgW * shape.cxNorm,
+      isle.cy - imgH * shape.cyNorm,
+      imgW,
+      imgH
+    )
+    return
+  }
+  // Pre-decode fallback — paint the polygon in the biome's grass colour
+  // so the cleared counter doesn't appear to float over open water.
   const colors = biomeColors(((isle as any).biome) ?? 'forest')
-
-  // Drop shadow
-  ctx.fillStyle = 'rgba(0, 0, 0, 0.35)'
-  if (isle.shape === 'round') {
-    ctx.beginPath()
-    ctx.ellipse(isle.cx + 4, isle.cy + 8, isle.radius + 4, isle.radius * 0.55 + 4, 0, 0, TWO_PI)
-    ctx.fill()
-  } else {
-    rrect(ctx, isle.cx - isle.radius - 4, isle.cy - isle.radius * 0.55 - 4, (isle.radius + 4) * 2, (isle.radius * 0.55 + 4) * 2, 18)
-    ctx.fill()
+  ctx.fillStyle = colors.grassDark
+  ctx.beginPath()
+  const poly = islandPolygonWorld(isle.shape, isle.cx, isle.cy, isle.radius)
+  for (let i = 0; i < poly.length; i++) {
+    const [wx, wy] = poly[i]!
+    if (i === 0) ctx.moveTo(wx, wy)
+    else ctx.lineTo(wx, wy)
   }
+  ctx.closePath()
+  ctx.fill()
+}
 
-  // Soil base
-  ctx.fillStyle = colors.soil
-  if (isle.shape === 'round') {
-    ctx.beginPath()
-    ctx.arc(isle.cx, isle.cy + 6, isle.radius, 0, TWO_PI)
-    ctx.fill()
-  } else {
-    rrect(ctx, isle.cx - isle.radius, isle.cy - isle.radius + 6, isle.radius * 2, isle.radius * 2, 22)
-    ctx.fill()
+/** Debug overlay: dashed yellow outline of each island's playable area.
+ *  Both shapes trace the polygon extracted from their bitmap (or the
+ *  fallback polygon until the bitmap decodes) — once the mask is
+ *  available, the outline follows the scalloped grass-edge exactly, so
+ *  what the player sees as green is exactly what they can anchor on.
+ *  Gated by `isDebug` in MawScene. */
+export const drawIslandPlatformBounds = (
+  ctx: CanvasRenderingContext2D,
+  isle: MawIsland
+) => {
+  ctx.save()
+  ctx.strokeStyle = '#ffe066'
+  ctx.lineWidth = 2
+  ctx.setLineDash([8, 6])
+  ctx.beginPath()
+  const poly = islandPolygonWorld(isle.shape, isle.cx, isle.cy, isle.radius)
+  for (let i = 0; i < poly.length; i++) {
+    const [wx, wy] = poly[i]!
+    if (i === 0) ctx.moveTo(wx, wy)
+    else ctx.lineTo(wx, wy)
   }
-
-  // Grass cap
-  const grassGradient = ctx.createRadialGradient(isle.cx, isle.cy - isle.radius * 0.4, 10, isle.cx, isle.cy, isle.radius)
-  grassGradient.addColorStop(0, colors.grassLight)
-  grassGradient.addColorStop(1, colors.grassDark)
-  ctx.fillStyle = grassGradient
-  if (isle.shape === 'round') {
-    ctx.beginPath()
-    ctx.arc(isle.cx, isle.cy, isle.radius, 0, TWO_PI)
-    ctx.fill()
-  } else {
-    rrect(ctx, isle.cx - isle.radius, isle.cy - isle.radius, isle.radius * 2, isle.radius * 2, 18)
-    ctx.fill()
-  }
-
-  // Grass edge tufts — small darker arcs around the perimeter to suggest
-  // depth without needing a sprite sheet. All tufts share a single
-  // beginPath so the rim renders in one stroke instead of N (~30 per
-  // round island).
-  ctx.strokeStyle = colors.ring
-  ctx.lineWidth = 3
-  ctx.lineCap = 'round'
-  if (isle.shape === 'round') {
-    const steps = Math.floor(isle.radius / 8)
-    ctx.beginPath()
-    for (let i = 0; i < steps; i++) {
-      const a = (i / steps) * TWO_PI
-      const ex = isle.cx + Math.cos(a) * (isle.radius - 1)
-      const ey = isle.cy + Math.sin(a) * (isle.radius - 1)
-      const tx = isle.cx + Math.cos(a) * (isle.radius + 5)
-      const ty = isle.cy + Math.sin(a) * (isle.radius + 5)
-      ctx.moveTo(ex, ey)
-      ctx.lineTo(tx, ty)
-    }
-    ctx.stroke()
-  }
+  ctx.closePath()
+  ctx.stroke()
+  ctx.restore()
 }
 
 // ─── Grass blade — atlased ───────────────────────────────────────────────
@@ -199,6 +173,17 @@ const GRASS_FRAME_MS = 90
 const VARIANT_SCALES: readonly number[] = [0.88, 1.0, 1.08, 0.95]
 
 const grassAtlases = new Map<StageBiome, HTMLCanvasElement>()
+
+/** Forest / rocky / boss biomes paint the same green-tuft bitmap (still
+ *  baked through the sway atlas so each blade pulses with the wind).
+ *  Wheat and flower keep their distinct procedural look. */
+const GRASS_BITMAP_SRC = '/images/props/blades-of-grass_128x128.webp'
+const isBitmapGrassBiome = (b: StageBiome) => b !== 'wheat' && b !== 'flower'
+let grassBitmap: HTMLImageElement | null = null
+const getGrassBitmap = (): HTMLImageElement => {
+  if (!grassBitmap) grassBitmap = getCachedImage(GRASS_BITMAP_SRC)
+  return grassBitmap
+}
 
 const drawBladeIntoAtlas = (
   ctx: CanvasRenderingContext2D,
@@ -250,22 +235,19 @@ const drawBladeIntoAtlas = (
     ctx.arc(sway, -6, 1.5, 0, TWO_PI)
     ctx.fill()
   } else {
-    ctx.strokeStyle = colors.grassDark
-    ctx.lineWidth = 2
-    ctx.lineCap = 'round'
-    ctx.beginPath()
-    ctx.moveTo(0, 4)
-    ctx.lineTo(sway, -6)
-    ctx.stroke()
-    ctx.strokeStyle = colors.grassLight
-    ctx.beginPath()
-    ctx.moveTo(-2, 4)
-    ctx.lineTo(sway - 2, -4)
-    ctx.stroke()
-    ctx.beginPath()
-    ctx.moveTo(2, 4)
-    ctx.lineTo(sway + 2, -4)
-    ctx.stroke()
+    // Forest / rocky / boss — bitmap tuft. The blade root in the source
+    // sits at (~64, ~110) of the 128² image; we display a 28×28 patch in
+    // cell-space (visually equivalent to the previous procedural blade)
+    // and rotate around the root by `sway * 0.07` rad to fake the wind.
+    const img = getGrassBitmap()
+    if (img.complete && img.naturalWidth > 0) {
+      const w = 28
+      const h = 28
+      const rootX = w * 0.5
+      const rootY = h * (110 / 128)
+      ctx.rotate(sway * 0.07)
+      ctx.drawImage(img, -rootX, -rootY, w, h)
+    }
   }
   ctx.restore()
 }
@@ -293,12 +275,18 @@ const buildGrassAtlas = (biome: StageBiome): HTMLCanvasElement => {
   return canvas
 }
 
-const getGrassAtlas = (biome: StageBiome): HTMLCanvasElement => {
+const getGrassAtlas = (biome: StageBiome): HTMLCanvasElement | null => {
   let atlas = grassAtlases.get(biome)
-  if (!atlas) {
-    atlas = buildGrassAtlas(biome)
-    grassAtlases.set(biome, atlas)
+  if (atlas) return atlas
+  // Bitmap-backed biomes can't bake their atlas until the source image
+  // has decoded. Returning null defers the bake (and any blade draws)
+  // for ~1 frame instead of caching an empty atlas forever.
+  if (isBitmapGrassBiome(biome)) {
+    const img = getGrassBitmap()
+    if (!img.complete || img.naturalWidth === 0) return null
   }
+  atlas = buildGrassAtlas(biome)
+  grassAtlases.set(biome, atlas)
   return atlas
 }
 
@@ -310,6 +298,7 @@ export const drawGrassBlade = (
   seed: number
 ) => {
   const atlas = getGrassAtlas(biome)
+  if (!atlas) return
   const variant = ((seed % GRASS_VARIANTS) + GRASS_VARIANTS) % GRASS_VARIANTS
   // Per-blade frame offset so adjacent blades within the same variant
   // are at different points in the sway cycle. Mask down to the live
@@ -352,6 +341,10 @@ const BOULDER_W = 70
 const BOULDER_H = 54
 const BOULDER_AX = 32
 const BOULDER_AY = 28
+const CRYSTAL_W = 44
+const CRYSTAL_H = 44
+const CRYSTAL_AX = 22
+const CRYSTAL_AY = 22
 
 const makeSprite = (
   w: number, h: number, ax: number, ay: number,
@@ -394,135 +387,71 @@ const getCoinSprite = (): HTMLCanvasElement => {
   return coinSprite
 }
 
+const STUMP_IMG_SRC = '/images/props/tree-stump_256x256.webp'
 let stumpSprite: HTMLCanvasElement | null = null
-const getStumpSprite = (): HTMLCanvasElement => {
+const getStumpSprite = (): HTMLCanvasElement | null => {
   if (stumpSprite) return stumpSprite
+  const img = getCachedImage(STUMP_IMG_SRC)
+  if (!img.complete || img.naturalWidth === 0) return null
   stumpSprite = makeSprite(STUMP_W, STUMP_H, STUMP_AX, STUMP_AY, (c) => {
-    c.fillStyle = '#3a1e0d'
-    c.beginPath()
-    c.ellipse(3, 6, 22, 12, 0, 0, TWO_PI)
-    c.fill()
-    c.fillStyle = '#7a4a1f'
-    c.beginPath()
-    c.arc(0, 0, 22, 0, TWO_PI)
-    c.fill()
-    c.strokeStyle = '#5a341a'
-    c.lineWidth = 1.5
-    c.beginPath()
-    for (const r of [6, 12, 17]) {
-      c.moveTo(r, 0)
-      c.arc(0, 0, r, 0, TWO_PI)
-    }
-    c.stroke()
-    c.fillStyle = '#a76b32'
-    c.beginPath()
-    c.arc(-2, -2, 3, 0, TWO_PI)
-    c.fill()
+    c.drawImage(img, -STUMP_AX, -STUMP_AY, STUMP_W, STUMP_H)
   })
   return stumpSprite
 }
 
+const BOULDER_IMG_SRC = '/images/props/stone_256x256.webp'
 let boulderSprite: HTMLCanvasElement | null = null
-const getBoulderSprite = (): HTMLCanvasElement => {
+const getBoulderSprite = (): HTMLCanvasElement | null => {
   if (boulderSprite) return boulderSprite
+  const img = getCachedImage(BOULDER_IMG_SRC)
+  if (!img.complete || img.naturalWidth === 0) return null
   boulderSprite = makeSprite(BOULDER_W, BOULDER_H, BOULDER_AX, BOULDER_AY, (c) => {
-    const grad = c.createRadialGradient(-8, -8, 4, 0, 0, 28)
-    grad.addColorStop(0, '#9aa1a6')
-    grad.addColorStop(1, '#3e4448')
-    c.fillStyle = '#1a1c1e'
-    c.beginPath()
-    c.ellipse(4, 8, 30, 14, 0, 0, TWO_PI)
-    c.fill()
-    c.fillStyle = grad
-    c.beginPath()
-    c.arc(0, 0, 28, 0, TWO_PI)
-    c.fill()
-    c.fillStyle = 'rgba(255,255,255,0.18)'
-    c.beginPath()
-    c.arc(-8, -8, 6, 0, TWO_PI)
-    c.fill()
-    c.strokeStyle = '#1a1c1e'
-    c.lineWidth = 2
-    c.beginPath()
-    c.moveTo(-12, 4)
-    c.lineTo(6, -2)
-    c.stroke()
+    c.drawImage(img, -BOULDER_AX, -BOULDER_AY, BOULDER_W, BOULDER_H)
   })
   return boulderSprite
+}
+
+const CRYSTAL_IMG_SRC = '/images/props/crystal-white_256x256.webp'
+let crystalSprite: HTMLCanvasElement | null = null
+const getCrystalSprite = (): HTMLCanvasElement | null => {
+  if (crystalSprite) return crystalSprite
+  const img = getCachedImage(CRYSTAL_IMG_SRC)
+  if (!img.complete || img.naturalWidth === 0) return null
+  crystalSprite = makeSprite(CRYSTAL_W, CRYSTAL_H, CRYSTAL_AX, CRYSTAL_AY, (c) => {
+    c.drawImage(img, -CRYSTAL_AX, -CRYSTAL_AY, CRYSTAL_W, CRYSTAL_H)
+  })
+  return crystalSprite
 }
 
 // ─── Obstacles ───────────────────────────────────────────────────────────
 export const drawObstacle = (ctx: CanvasRenderingContext2D, ob: Obstacle) => {
   if (ob.type === 'crystal') {
-    // Teal-violet gem cluster — a tall central facet plus two side shards.
-    const t = performance.now() * 0.003 + ob.x * 0.01
-    const sparkle = 0.6 + Math.sin(t) * 0.3
-    // Drop shadow
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.35)'
-    ctx.beginPath()
-    ctx.ellipse(ob.x + 2, ob.y + 18, 18, 5, 0, 0, TWO_PI)
-    ctx.fill()
-    // Central facet
-    const grad = ctx.createLinearGradient(ob.x - 8, ob.y - 18, ob.x + 8, ob.y + 14)
-    grad.addColorStop(0, '#d4f7ff')
-    grad.addColorStop(0.4, '#5fd8ff')
-    grad.addColorStop(1, '#1f6e9e')
-    ctx.fillStyle = grad
-    ctx.strokeStyle = '#0a3a5a'
-    ctx.lineWidth = 1.6
-    ctx.beginPath()
-    ctx.moveTo(ob.x, ob.y - 18)
-    ctx.lineTo(ob.x + 9, ob.y - 4)
-    ctx.lineTo(ob.x + 6, ob.y + 14)
-    ctx.lineTo(ob.x - 6, ob.y + 14)
-    ctx.lineTo(ob.x - 9, ob.y - 4)
-    ctx.closePath()
-    ctx.fill()
-    ctx.stroke()
-    // Side shards
-    const shardGrad = ctx.createLinearGradient(ob.x - 18, ob.y - 4, ob.x + 18, ob.y + 12)
-    shardGrad.addColorStop(0, '#a8e9ff')
-    shardGrad.addColorStop(1, '#1e547a')
-    ctx.fillStyle = shardGrad
-    ctx.beginPath()
-    ctx.moveTo(ob.x - 16, ob.y - 2)
-    ctx.lineTo(ob.x - 8, ob.y - 8)
-    ctx.lineTo(ob.x - 6, ob.y + 12)
-    ctx.lineTo(ob.x - 14, ob.y + 12)
-    ctx.closePath()
-    ctx.fill()
-    ctx.stroke()
-    ctx.beginPath()
-    ctx.moveTo(ob.x + 16, ob.y - 2)
-    ctx.lineTo(ob.x + 8, ob.y - 8)
-    ctx.lineTo(ob.x + 6, ob.y + 12)
-    ctx.lineTo(ob.x + 14, ob.y + 12)
-    ctx.closePath()
-    ctx.fill()
-    ctx.stroke()
-    // Highlight stripe
-    ctx.fillStyle = `rgba(255, 255, 255, ${0.35 * sparkle})`
-    ctx.beginPath()
-    ctx.moveTo(ob.x - 3, ob.y - 14)
-    ctx.lineTo(ob.x + 1, ob.y - 14)
-    ctx.lineTo(ob.x + 3, ob.y + 8)
-    ctx.lineTo(ob.x - 1, ob.y + 8)
-    ctx.closePath()
-    ctx.fill()
+    const sprite = getCrystalSprite()
+    if (sprite) {
+      ctx.drawImage(
+        sprite,
+        0, 0, CRYSTAL_W * SPRITE_DPR, CRYSTAL_H * SPRITE_DPR,
+        Math.round(ob.x - CRYSTAL_AX), Math.round(ob.y - CRYSTAL_AY), CRYSTAL_W, CRYSTAL_H
+      )
+    }
   } else if (ob.type === 'stump') {
     const sprite = getStumpSprite()
-    ctx.drawImage(
-      sprite,
-      0, 0, STUMP_W * SPRITE_DPR, STUMP_H * SPRITE_DPR,
-      Math.round(ob.x - STUMP_AX), Math.round(ob.y - STUMP_AY), STUMP_W, STUMP_H
-    )
+    if (sprite) {
+      ctx.drawImage(
+        sprite,
+        0, 0, STUMP_W * SPRITE_DPR, STUMP_H * SPRITE_DPR,
+        Math.round(ob.x - STUMP_AX), Math.round(ob.y - STUMP_AY), STUMP_W, STUMP_H
+      )
+    }
   } else {
     const sprite = getBoulderSprite()
-    ctx.drawImage(
-      sprite,
-      0, 0, BOULDER_W * SPRITE_DPR, BOULDER_H * SPRITE_DPR,
-      Math.round(ob.x - BOULDER_AX), Math.round(ob.y - BOULDER_AY), BOULDER_W, BOULDER_H
-    )
+    if (sprite) {
+      ctx.drawImage(
+        sprite,
+        0, 0, BOULDER_W * SPRITE_DPR, BOULDER_H * SPRITE_DPR,
+        Math.round(ob.x - BOULDER_AX), Math.round(ob.y - BOULDER_AY), BOULDER_W, BOULDER_H
+      )
+    }
   }
 }
 
