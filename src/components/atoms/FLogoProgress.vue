@@ -14,37 +14,12 @@
     )
       div(class="relative flex flex-col items-center")
         div(:style="sizeStyle")
-          //- Programmatic logo: two interlocked gears with a chain saw flicker
-          svg(
-            viewBox="0 0 200 200"
-            class="w-full h-full"
+          img(
+            src="/images/logo/logo_256x256.webp"
+            alt="Maw It Down"
+            class="w-full h-full object-contain"
+            draggable="false"
           )
-            defs
-              radialGradient(id="logoGearOrange" cx="0.4" cy="0.4")
-                stop(offset="0" stop-color="#ffb56b")
-                stop(offset="1" stop-color="#c8430b")
-              radialGradient(id="logoGearTeal" cx="0.4" cy="0.4")
-                stop(offset="0" stop-color="#7fffd9")
-                stop(offset="1" stop-color="#0e7d80")
-            //- Backing chain
-            path(d="M 50 110 L 150 110" stroke="#1a1a1a" stroke-width="14" stroke-linecap="round" opacity="0.85")
-            path(d="M 50 130 L 150 130" stroke="#1a1a1a" stroke-width="14" stroke-linecap="round" opacity="0.85")
-            //- Left gear
-            g(transform="translate(60 120)")
-              circle(r="36" fill="url(#logoGearOrange)" stroke="#1a1a1a" stroke-width="3")
-              template(v-for="i in 12")
-                rect(:transform="`rotate(${i * 30})`" x="-3" y="-44" width="6" height="10" fill="#1a1a1a")
-              circle(r="14" fill="#1a1a1a")
-              circle(r="6" fill="#ffb56b")
-            //- Right gear
-            g(transform="translate(140 120)")
-              circle(r="36" fill="url(#logoGearTeal)" stroke="#1a1a1a" stroke-width="3")
-              template(v-for="i in 12")
-                rect(:transform="`rotate(${i * 30 + 15})`" x="-3" y="-44" width="6" height="10" fill="#1a1a1a")
-              circle(r="14" fill="#1a1a1a")
-              circle(r="6" fill="#7fffd9")
-            //- Title text
-            text(x="100" y="56" text-anchor="middle" font-family="Angry, sans-serif" font-weight="900" font-size="28" fill="#5cd16d" stroke="#0e3a18" stroke-width="2") MAW IT DOWN
 
         //- Loading Text
         div.absolute.-bottom-8(class="mt-0 flex flex-col items-center gap-1")

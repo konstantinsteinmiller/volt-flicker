@@ -166,7 +166,10 @@ export const loadAudioBuffer = async (src: string): Promise<AudioBuffer | null> 
 const CRITICAL_IMAGE_SRCS: ReadonlyArray<string> = [
   '/images/props/chain_256x256.webp',
   '/images/props/chain_450x256.webp',
-  '/images/props/gear_256x256.webp'
+  '/images/props/gear_256x256.webp',
+  // Splash logo — decoded before the splash mounts so the FLogoProgress
+  // <img> never paints a blank box on first frame.
+  '/images/logo/logo_256x256.webp'
 ]
 
 /** Block until `img.complete && naturalWidth > 0` (success) or `error`
