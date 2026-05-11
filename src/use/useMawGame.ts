@@ -140,11 +140,12 @@ const useMawGame = () => {
         cy: src.cy,
         grass: src.grass.map(g => [g[0], g[1]] as [number, number]),
         obstacles: src.obstacles.map(o => ({ ...o })),
+        decor: src.decor ? src.decor.map(d => ({ ...d })) : undefined,
         aliveGrass: new Set(src.grass.map((_, idx) => idx))
       }
       // For moving islands, snap to the motion's position at boot (with
-      // phase) and translate grass + obstacles by the same offset so
-      // everything starts visually aligned with the platform.
+      // phase) and translate grass + obstacles + decor by the same
+      // offset so everything starts visually aligned with the platform.
       if (src.motion) {
         const p = motionPositionAt(src.motion, nowMs)
         const dx = p.x - src.cx
@@ -159,6 +160,12 @@ const useMawGame = () => {
           for (const ob of isle.obstacles) {
             ob.x += dx
             ob.y += dy
+          }
+          if (isle.decor) {
+            for (const d of isle.decor) {
+              d.x += dx
+              d.y += dy
+            }
           }
         }
       }
@@ -201,6 +208,15 @@ const useMawGame = () => {
     // chain actually starts spinning. Editor test stages are excluded
     // because they aren't part of the season's progression.
     if (!testStage.value) awardAttempt()
+    // Begin ghost-trail recording — stamps t=0 + the spawn anchor. The
+    // first swap stamps its delta against this start time. Editor test
+    // runs are excluded because they aren't part of the campaign and
+    // would otherwise overwrite a real stage's recording.
+    if (!testStage.value) {
+      ghostRunStartRecording(currentStageId.value, anchorPos.value.x, anchorPos.value.y)
+    } else {
+      ghostRunReset()
+    }
   }
 
   // ─── Geometry helpers ────────────────────────────────────────────────────
@@ -303,6 +319,12 @@ const useMawGame = () => {
         ob.x += dx
         ob.y += dy
       }
+      if (isle.decor) {
+        for (const d of isle.decor) {
+          d.x += dx
+          d.y += dy
+        }
+      }
       if (anchorOnThis) {
         anchorPos.value = {
           x: anchorPos.value.x + dx,
@@ -354,14 +376,19 @@ const useMawGame = () => {
           obAny._cooldown! -= dt
           continue
         }
-        const radius = ob.type === 'boulder' ? 26 : ob.type === 'crystal' ? 18 : 22
+        const radius =
+          ob.type === 'boulder' ? 26
+          : ob.type === 'crystal' ? 18
+          : ob.type === 'liberty' ? 28
+          : 22 // stump
         if (distToChain(ob.x, ob.y, ax, ay, bx, by) < radius) {
           // Saw-tier gating mirrors the upgrade description:
-          //   • trees    cuttable from saw Lv. 2
-          //   • stones   cuttable from saw Lv. 4
+          //   • trees    cuttable from saw Lv. 1
+          //   • stones   cuttable from saw Lv. 3
           //   • crystals cuttable from saw Lv. 6
+          //   • liberty  cuttable from saw Lv. 8
           // Below the threshold the obstacle hurts the chain instead.
-          // Cut-obstacle coin payouts: stumps 10, stones 20, crystals 30.
+          // Cut-obstacle coin payouts: stumps 10, stones 20, crystals 30, liberty 50.
           // Spawn 5 coin sprites and tag each with the per-coin value so the
           // visual burst stays readable instead of 30 individual coins
           // streaming to the gear at once.
@@ -381,10 +408,25 @@ const useMawGame = () => {
               })
             }
           }
-          if (ob.type === 'crystal') {
+          if (ob.type === 'liberty') {
+            if (sawTier.value >= 8) {
+              isle.obstacles.splice(i, 1)
+              cleared.value += 1
+              recordMetric('libertiesDestroyed', 1)
+              triggerShake('strong')
+              spawnCoinBurst(ob.x, ob.y, 50)
+              continue
+            }
+            // The cat is heavy — un-cut contact ticks 2 damage like a
+            // boulder, but with a bigger shake so the player reads it
+            // as the heaviest obstacle in the game.
+            applyDamage(2)
+            triggerShake('strong')
+          } else if (ob.type === 'crystal') {
             if (sawTier.value >= 6) {
               isle.obstacles.splice(i, 1)
               cleared.value += 1
+              recordMetric('crystalsDestroyed', 1)
               triggerShake('small')
               spawnCoinBurst(ob.x, ob.y, 30)
               continue
@@ -405,6 +447,7 @@ const useMawGame = () => {
             // boulder
             if (sawTier.value >= 3) {
               isle.obstacles.splice(i, 1)
+              recordMetric('bouldersDestroyed', 1)
               triggerShake('small')
               spawnCoinBurst(ob.x, ob.y, 20)
               continue
@@ -476,6 +519,10 @@ const useMawGame = () => {
     }
 
     anchorPos.value = newAnchor
+    // Ghost-trail: stamp the swap so the next attempt can replay the
+    // path. Done only for real campaign runs (test stages bypass the
+    // recording entirely; see startMatch).
+    if (!testStage.value) ghostRunRecordSwap(newAnchor.x, newAnchor.y)
     // The previous anchor becomes the new swing gear; its current
     // angle relative to the new anchor is the starting `swingAngle`.
     const dx = prevAnchor.x - newAnchor.x
@@ -488,6 +535,12 @@ const useMawGame = () => {
 
   // ─── Win / lose ──────────────────────────────────────────────────────────
 
+  /** Last-cleared stage time in ms and whether it was a new record. Set
+   *  by `onWin` so the FReward win modal can render "Best: 12.4s" / 🎉. */
+  const lastClearedTimeMs: Ref<number | null> = ref(null)
+  const lastClearedWasBest: Ref<boolean> = ref(false)
+  const lastClearedPrevBestMs: Ref<number | null> = ref(null)
+
   const onWin = () => {
     phase.value = 'game_over'
     gameResult.value = 'win'
@@ -495,12 +548,39 @@ const useMawGame = () => {
     recordMetric('totalCoins', stage.value.rewardWin)
     recordMetric('gamesPlayed', 1)
     recordMetric('gamesWon', 1)
-    // Don't touch campaign progress when the stage is a one-off editor test
-    // — it isn't part of the real progression.
+    // Commit the ghost recording + speedrun time BEFORE advanceStage so
+    // the record is bound to the stage that was just cleared, not the
+    // one the player is about to roll into.
     if (!testStage.value) {
+      const startMs = liveRunStartMs.value
+      const elapsed = startMs > 0 ? performance.now() - startMs : 0
+      const stamp = ghostRunCommitWin(currentStageId.value, elapsed)
+      lastClearedTimeMs.value = stamp?.time ?? Math.round(elapsed)
+      lastClearedWasBest.value = stamp?.isNewBest ?? false
+      lastClearedPrevBestMs.value = stamp?.prevBest ?? null
       recordMetric('maxStage', currentStageId.value + 1)
+      // ─── Speedrun-related metrics ──────────────────────────────────
+      // New-record beats drive the Speed Demon / Time Trial Pro chains.
+      if (stamp?.isNewBest && stamp.prevBest !== null) {
+        // Only count subsequent record-beats — the very first clear of
+        // a stage isn't "beating" anything, just establishing the bar.
+        recordMetric('newRecordsSet', 1)
+      }
+      const clearedSec = (stamp?.time ?? elapsed) / 1000
+      if (clearedSec > 0 && clearedSec < 10) {
+        recordMetric('subTenSecondWins', 1)
+      }
+      // bestSecondsFloor uses an inverted scale so "higher number = better
+      // time"; see useMawProgress.ts for the rationale. Floored to int.
+      if (clearedSec > 0 && clearedSec < 60) {
+        recordMetric('bestSecondsFloor', Math.floor(60 - clearedSec))
+      }
       advanceStage()
       awardCampaignWin()
+    } else {
+      lastClearedTimeMs.value = null
+      lastClearedWasBest.value = false
+      lastClearedPrevBestMs.value = null
     }
   }
 
@@ -511,6 +591,9 @@ const useMawGame = () => {
     phase.value = 'game_over'
     gameResult.value = 'lose'
     lossReason.value = reason
+    // Drop the partial ghost buffer — dead-end paths shouldn't pollute
+    // the next attempt's replay.
+    ghostRunReset()
     recordMetric('gamesPlayed', 1)
     addCoins(stage.value.rewardLose)
     recordMetric('totalCoins', stage.value.rewardLose)
@@ -582,6 +665,9 @@ const useMawGame = () => {
     poleCut,
     reqsMet,
     isPaused,
+    lastClearedTimeMs,
+    lastClearedWasBest,
+    lastClearedPrevBestMs,
 
     // Robot
     anchorPos,

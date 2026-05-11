@@ -81,8 +81,54 @@ export const loadAudioBuffer = async (src: string): Promise<AudioBuffer | null> 
   return promise
 }
 
+// ─── Critical art-asset preload ────────────────────────────────────────
+// Anything the gameplay scene draws inside its hot path needs to be
+// decoded BEFORE the first frame paints, otherwise the renderer hits
+// `img.complete === false` and silently falls back to its procedural
+// substitute — the player then sees a "flash" of the placeholder.
+// `drawRobot` switches between two chain bitmaps (short / long) keyed
+// off the live chain-upgrade level; when the player toggles between
+// them mid-round, the chain bitmap that wasn't loaded yet causes that
+// flash. Preloading both eliminates the swap pop.
+const CRITICAL_IMAGE_SRCS: ReadonlyArray<string> = [
+  '/images/props/chain_256x256.webp',
+  '/images/props/chain_450x256.webp',
+  '/images/props/gear_256x256.webp'
+]
+
+/** Block until `img.complete && naturalWidth > 0` (success) or `error`
+ *  fires (failure). Cached images that already decoded resolve
+ *  synchronously on the next microtask. */
+const decodeImage = (src: string): Promise<void> => {
+  const img = getCachedImage(src)
+  if (img.complete && img.naturalWidth > 0) return Promise.resolve()
+  return new Promise<void>(resolve => {
+    const done = () => {
+      img.removeEventListener('load', done)
+      img.removeEventListener('error', done)
+      resolve()
+    }
+    img.addEventListener('load', done, { once: true })
+    img.addEventListener('error', done, { once: true })
+  })
+}
+
 export default () => {
   const preloadAssets = async (): Promise<void> => {
+    loadingProgress.value = 0
+    areAllAssetsLoaded.value = false
+    // Kick decoding in parallel; resolve when every critical sprite is
+    // ready. `Promise.allSettled` swallows individual asset errors so a
+    // 404 on one bitmap doesn't strand the splash screen.
+    const tasks = CRITICAL_IMAGE_SRCS.map(decodeImage)
+    let done = 0
+    for (const task of tasks) {
+      task.then(() => {
+        done += 1
+        loadingProgress.value = Math.round((done / tasks.length) * 100)
+      })
+    }
+    await Promise.allSettled(tasks)
     loadingProgress.value = 100
     areAllAssetsLoaded.value = true
   }

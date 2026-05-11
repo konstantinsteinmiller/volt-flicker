@@ -333,16 +333,30 @@ export const islandPolygonWorld = (
   ])
 }
 
-/** Rejection-sample one world-space point inside the polygon, with a
- *  WORLD-aware inset so grass blades don't poke off the green island.
- *  Blades render ~28 wu tall with anchor at 26/36 from the top of the
- *  cell, so the visible body extends ~26 wu UP from the anchor and only
- *  ~10 wu down — that asymmetry is mirrored in the top vs bottom inset.
- *  Returns null on the rare miss; callers fall back to the island
- *  centre. */
+/** World-space margins applied to `sampleInsideIsland` so anchors stay
+ *  on the FLAT top of the green silhouette, not in the scalloped
+ *  overhang at the bottom or against the side-edge bumps. Defaults are
+ *  tuned for grass blades; callers placing larger sprites (stumps,
+ *  boulders, crystals) pass bigger numbers to keep the sprite body
+ *  fully inside the visible ground surface. */
+export interface SampleMargin {
+  /** Horizontal margin from the polygon's left + right extremes. */
+  x?: number
+  /** Top margin — accounts for the grass blade's vertical extent above
+   *  its anchor (~26 wu for a default cell). */
+  top?: number
+  /** Bottom margin — large by default to push anchors UP off the
+   *  front-overhang scallops, which the polygon counts as walkable but
+   *  visually drape over the cliff rock. */
+  bot?: number
+}
+
+/** Rejection-sample one world-space point inside the polygon. Returns
+ *  null on the rare miss; callers fall back to the island centre. */
 export const sampleInsideIsland = (
   shape: IslandShape, cx: number, cy: number, radius: number,
-  rng: () => number, attempts = 24
+  rng: () => number, attempts = 24,
+  margin: SampleMargin = {}
 ): [number, number] | null => {
   const d = shapeData[shape]
   let minN = 1, maxN = 0, minM = 1, maxM = 0
@@ -352,14 +366,17 @@ export const sampleInsideIsland = (
     if (v[1] < minM) minM = v[1]
     if (v[1] > maxM) maxM = v[1]
   }
-  // Polygon coords are in normalised image-space; the inset has to be
-  // expressed in those same units to be meaningful, so we convert
-  // world-space margins through the per-island image footprint.
   const imgWWorld = radius * d.wPerRadius
   const imgHWorld = radius * d.hPerRadius
-  const insetXNorm = 10 / imgWWorld   // ~7-px-wide grass tuft + buffer
-  const insetTopNorm = 28 / imgHWorld // blade extends ~26 wu above anchor
-  const insetBotNorm = 8 / imgHWorld  // small drop below anchor
+  // Default world-unit insets, calibrated against the round + square
+  // bitmaps so a blade or small obstacle anchor at the inset boundary
+  // still looks like it grows out of green grass — not the overhang.
+  const mX = margin.x ?? 14
+  const mTop = margin.top ?? 32
+  const mBot = margin.bot ?? 52
+  const insetXNorm = mX / imgWWorld
+  const insetTopNorm = mTop / imgHWorld
+  const insetBotNorm = mBot / imgHWorld
   const nLo = minN + insetXNorm
   const nHi = maxN - insetXNorm
   const mLo = minM + insetTopNorm

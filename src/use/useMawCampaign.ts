@@ -8,8 +8,21 @@ import { islandEdgeAlong, sampleInsideIsland } from '@/use/useIslandShapes'
 export type StageBiome = 'forest' | 'wheat' | 'flower' | 'rocky' | 'boss'
 
 export interface Obstacle {
-  type: 'stump' | 'boulder' | 'crystal'
+  /** stump  — cuttable at saw Lv 1, damage 1
+   *  boulder — cuttable at saw Lv 3, damage 2
+   *  crystal — cuttable at saw Lv 6, damage 1
+   *  liberty — cuttable at saw Lv 8, damage 2 (LIBERTY-CAT statue) */
+  type: 'stump' | 'boulder' | 'crystal' | 'liberty'
   /** Game-space position relative to island origin. */
+  x: number
+  y: number
+}
+
+/** Cosmetic-only props (litter, signposts, fluff). No collision, no
+ *  hit-test, no coin payout — just visual decoration tied to the
+ *  island so it follows along on moving platforms. */
+export interface Decor {
+  type: 'libertyTrash'
   x: number
   y: number
 }
@@ -43,6 +56,9 @@ export interface MawIsland {
   /** Pre-baked grass blade positions inside the island. Each tuple is [x,y]. */
   grass: Array<[number, number]>
   obstacles: Obstacle[]
+  /** Cosmetic-only props (no collision). Optional so legacy saves /
+   *  procedural stages without decor keep their existing shape. */
+  decor?: Decor[]
   /** Optional ping-pong path. */
   motion?: MovementSpec
 }
@@ -155,9 +171,19 @@ const placeObstaclesOnIsland = (
   const minBetween = 56
   const minFromExit = 64
   const out: Obstacle[] = []
+  // Per-type sampling margin — boulders are the widest sprite (70 wu)
+  // so they need the biggest inset to keep the whole bitmap on the
+  // green ground. Crystals are smallest; stumps in between. Liberty
+  // statues are TALL (130 wu) so the top margin is the largest of all.
+  const margins: Record<Obstacle['type'], { x: number; top: number; bot: number }> = {
+    boulder: { x: 38, top: 48, bot: 64 },
+    stump:   { x: 34, top: 44, bot: 60 },
+    crystal: { x: 26, top: 38, bot: 56 },
+    liberty: { x: 36, top: 78, bot: 60 }
+  }
   for (const type of types) {
     for (let attempt = 0; attempt < 40; attempt++) {
-      const p = sampleInsideIsland(shape, cx, cy, radius, rng)
+      const p = sampleInsideIsland(shape, cx, cy, radius, rng, 24, margins[type])
       if (!p) break
       const [ox, oy] = p
       if (Math.hypot(ox - cx, oy - cy) < minFromCenter) continue
@@ -210,6 +236,23 @@ interface StageParams {
   /** How many non-home / non-exit main-path islands have motion. Stages
    *  6+ introduce moving platforms directly on the route to the pole. */
   movingMainIslands: number
+  /** Edge-to-edge water gap between consecutive islands, world units.
+   *  Base chain reach is 96 wu; with `movingAmplitude` the effective gap
+   *  swings ±2·amp so this needs to leave headroom for that. */
+  waterGap: number
+  /** ±amplitude of moving-island motion (world units). The total motion
+   *  span is 2·amplitude. Late stages crank this to force chain-length
+   *  upgrades. */
+  movingAmplitude: number
+  /** How the `movingMainIslands` slots are arranged across the main
+   *  path:
+   *    'spread'  — evenly distributed (default; existing behaviour)
+   *    'cluster' — the moving islands appear consecutively in the
+   *                middle of the path (e.g. "3 in a row" puzzle)
+   *    'all'     — EVERY interior main-path island moves, regardless of
+   *                `movingMainIslands` (the count is ignored)
+   */
+  movingLayout: 'spread' | 'cluster' | 'all'
 }
 
 /** Moving-island counts per stage. Stages 2–3 host the gameplay-preview
@@ -243,34 +286,50 @@ const movingCounts = (id: number, isBoss: boolean) => {
   return { side: 0, main: 0 }
 }
 
+/** Defaults shared across the gentler stages (1-9). Stages past 10
+ *  override `waterGap` / `movingAmplitude` / `movingLayout` to crank
+ *  the challenge curve. */
+const STAGE_DEFAULTS = {
+  waterGap: 60,
+  movingAmplitude: 24,
+  movingLayout: 'spread' as const
+}
+
 const stageParams = (id: number, isBoss: boolean): StageParams => {
   const moving = movingCounts(id, isBoss)
   if (isBoss) {
     if (id === 10) return {
-      // First boss — first deep moving-island stretch, but the islands
-      // are still wide enough that practised players can hit timing.
+      // First boss — first deep moving-island stretch. Wide platforms +
+      // a single crystal introduce the "shiny obstacle" idea before the
+      // crystal floods of stages 13+.
       tiers: 8, islandRadiusRange: [108, 132],
-      obstacleBudget: { stumps: 4, boulders: 2, crystals: 0 },
+      obstacleBudget: { stumps: 4, boulders: 3, crystals: 1 },
       sideBranches: 2, pathTurnAmplitude: 0.7,
-      forceRound: false, targetClears: 240, rewardWin: 500,
-      movingSideBranches: moving.side, movingMainIslands: moving.main
+      forceRound: false, targetClears: 260, rewardWin: 600,
+      movingSideBranches: moving.side, movingMainIslands: moving.main,
+      waterGap: 64, movingAmplitude: 28, movingLayout: 'spread'
     }
     if (id === 15) return {
-      // Mid-boss — narrower platforms + crystals now in play. The pace
-      // jumps noticeably over 14.
+      // Mid-boss — three moving islands clustered in the middle of the
+      // path so the player has to chain-time across them in sequence.
+      // Crystals + boulders are abundant; gap pushes Lv 2 chain.
       tiers: 10, islandRadiusRange: [95, 120],
-      obstacleBudget: { stumps: 5, boulders: 4, crystals: 2 },
+      obstacleBudget: { stumps: 6, boulders: 5, crystals: 4 },
       sideBranches: 3, pathTurnAmplitude: 0.85,
-      forceRound: false, targetClears: 380, rewardWin: 1000,
-      movingSideBranches: moving.side, movingMainIslands: moving.main
+      forceRound: false, targetClears: 420, rewardWin: 1200,
+      movingSideBranches: moving.side, movingMainIslands: moving.main,
+      waterGap: 74, movingAmplitude: 32, movingLayout: 'cluster'
     }
-    // Final boss (id === 20). MAW-A-HERO gate.
+    // Final boss (id === 20). MAW-A-HERO gate — EVERY interior main-
+    // path island moves AND the gap is tight enough that the player
+    // needs chainLength Lv 2+ just to cross at base reach (96 vs 86).
     return {
       tiers: 12, islandRadiusRange: [88, 115],
-      obstacleBudget: { stumps: 6, boulders: 6, crystals: 4 },
+      obstacleBudget: { stumps: 8, boulders: 7, crystals: 7 },
       sideBranches: 4, pathTurnAmplitude: 0.95,
-      forceRound: false, targetClears: 520, rewardWin: 2000,
-      movingSideBranches: moving.side, movingMainIslands: moving.main
+      forceRound: false, targetClears: 560, rewardWin: 2500,
+      movingSideBranches: moving.side, movingMainIslands: moving.main,
+      waterGap: 86, movingAmplitude: 40, movingLayout: 'all'
     }
   }
   if (id === 1) return {
@@ -278,7 +337,8 @@ const stageParams = (id: number, isBoss: boolean): StageParams => {
     obstacleBudget: { stumps: 0, boulders: 0, crystals: 0 },
     sideBranches: 0, pathTurnAmplitude: 0.3,
     forceRound: true, targetClears: 30, rewardWin: 60,
-    movingSideBranches: 0, movingMainIslands: 0
+    movingSideBranches: 0, movingMainIslands: 0,
+    ...STAGE_DEFAULTS
   }
   if (id === 2) return {
     tiers: 5, islandRadiusRange: [110, 130],
@@ -286,14 +346,16 @@ const stageParams = (id: number, isBoss: boolean): StageParams => {
     sideBranches: 1,
     pathTurnAmplitude: 0.4,
     forceRound: true, targetClears: 50, rewardWin: 80,
-    movingSideBranches: 1, movingMainIslands: 0
+    movingSideBranches: 1, movingMainIslands: 0,
+    ...STAGE_DEFAULTS
   }
   if (id === 3) return {
     tiers: 5, islandRadiusRange: [105, 128],
     obstacleBudget: { stumps: 1, boulders: 0, crystals: 0 },
     sideBranches: 1, pathTurnAmplitude: 0.45,
     forceRound: false, targetClears: 70, rewardWin: 130,
-    movingSideBranches: 1, movingMainIslands: 0
+    movingSideBranches: 1, movingMainIslands: 0,
+    ...STAGE_DEFAULTS
   }
   // Forest mid (4–9): stumps appear at 3, boulders at 6, moving from 6.
   if (id <= 9) {
@@ -312,28 +374,96 @@ const stageParams = (id: number, isBoss: boolean): StageParams => {
       targetClears: 70 + local * 15,
       rewardWin: 110 + local * 30,
       movingSideBranches: moving.side,
-      movingMainIslands: moving.main
+      movingMainIslands: moving.main,
+      ...STAGE_DEFAULTS
     }
   }
-  // Wheat / flower endgame (11–19): crystals start at 13, side branches
-  // grow, moving-island counts ramp hard (see movingCounts above) into
-  // bosses at 15 and 20.
-  const local = id - 11 // 0..8 (skipping 15 which is boss)
+  // ─── Wheat / flower endgame (11-19) ───────────────────────────────
+  // Hand-tuned per stage rather than a smooth formula — gives every
+  // attempt a distinct flavour. Highlights:
+  //   • 13 / 17 — "cluster" moving-island puzzles (3+ in a row)
+  //   • 19    — "all" layout — every interior island moves
+  //   • Crystals scale aggressively past 13 since the player has had
+  //     plenty of time to buy saw Lv 6 by then
+  //   • waterGap creeps from 62 → 82, forcing chain Lv 2+ by stage 18
+  if (id === 11) return {
+    tiers: 8, islandRadiusRange: [95, 120],
+    obstacleBudget: { stumps: 3, boulders: 2, crystals: 1 },
+    sideBranches: 2, pathTurnAmplitude: 0.62,
+    forceRound: false, targetClears: 200, rewardWin: 360,
+    movingSideBranches: moving.side, movingMainIslands: moving.main,
+    waterGap: 64, movingAmplitude: 26, movingLayout: 'spread'
+  }
+  if (id === 12) return {
+    tiers: 8, islandRadiusRange: [92, 118],
+    obstacleBudget: { stumps: 4, boulders: 2, crystals: 2 },
+    sideBranches: 2, pathTurnAmplitude: 0.65,
+    forceRound: false, targetClears: 220, rewardWin: 420,
+    movingSideBranches: moving.side, movingMainIslands: moving.main,
+    waterGap: 66, movingAmplitude: 28, movingLayout: 'spread'
+  }
+  if (id === 13) return {
+    tiers: 9, islandRadiusRange: [90, 115],
+    obstacleBudget: { stumps: 4, boulders: 3, crystals: 3 },
+    sideBranches: 2, pathTurnAmplitude: 0.68,
+    forceRound: false, targetClears: 240, rewardWin: 480,
+    movingSideBranches: moving.side, movingMainIslands: moving.main,
+    waterGap: 68, movingAmplitude: 28, movingLayout: 'cluster'
+  }
+  if (id === 14) return {
+    tiers: 9, islandRadiusRange: [88, 112],
+    obstacleBudget: { stumps: 5, boulders: 3, crystals: 3 },
+    sideBranches: 3, pathTurnAmplitude: 0.72,
+    forceRound: false, targetClears: 270, rewardWin: 560,
+    movingSideBranches: moving.side, movingMainIslands: moving.main,
+    waterGap: 70, movingAmplitude: 30, movingLayout: 'spread'
+  }
+  if (id === 16) return {
+    tiers: 10, islandRadiusRange: [88, 112],
+    obstacleBudget: { stumps: 5, boulders: 4, crystals: 4 },
+    sideBranches: 3, pathTurnAmplitude: 0.76,
+    forceRound: false, targetClears: 300, rewardWin: 680,
+    movingSideBranches: moving.side, movingMainIslands: moving.main,
+    waterGap: 72, movingAmplitude: 30, movingLayout: 'spread'
+  }
+  if (id === 17) return {
+    // "3-in-a-row" set piece — the cluster layout lines up 4 moving
+    // platforms in succession, so the player has to time three swaps
+    // through synced motion.
+    tiers: 10, islandRadiusRange: [85, 108],
+    obstacleBudget: { stumps: 6, boulders: 5, crystals: 5 },
+    sideBranches: 3, pathTurnAmplitude: 0.78,
+    forceRound: false, targetClears: 320, rewardWin: 760,
+    movingSideBranches: moving.side, movingMainIslands: moving.main,
+    waterGap: 76, movingAmplitude: 32, movingLayout: 'cluster'
+  }
+  if (id === 18) return {
+    tiers: 11, islandRadiusRange: [85, 108],
+    obstacleBudget: { stumps: 6, boulders: 5, crystals: 6 },
+    sideBranches: 3, pathTurnAmplitude: 0.8,
+    forceRound: false, targetClears: 350, rewardWin: 880,
+    movingSideBranches: moving.side, movingMainIslands: moving.main,
+    waterGap: 78, movingAmplitude: 34, movingLayout: 'spread'
+  }
+  if (id === 19) return {
+    // "Everything moves" — EVERY interior main-path island has motion.
+    // The pre-boss test of the player's chain reach AND their timing.
+    tiers: 11, islandRadiusRange: [82, 105],
+    obstacleBudget: { stumps: 7, boulders: 6, crystals: 6 },
+    sideBranches: 3, pathTurnAmplitude: 0.82,
+    forceRound: false, targetClears: 380, rewardWin: 1000,
+    movingSideBranches: moving.side, movingMainIslands: moving.main,
+    waterGap: 82, movingAmplitude: 32, movingLayout: 'all'
+  }
+  // Fallback for any id I haven't enumerated (shouldn't happen with
+  // STAGES of length 20; here purely defensively for future expansion).
   return {
-    tiers: 7 + Math.floor(local / 2),
-    islandRadiusRange: [92, 118],
-    obstacleBudget: {
-      stumps: 3 + Math.floor(local / 2),
-      boulders: 1 + Math.floor(local / 3),
-      crystals: id >= 13 ? Math.min(3, Math.floor((id - 12) / 2)) : 0
-    },
-    sideBranches: 1 + Math.floor(local / 3),
-    pathTurnAmplitude: 0.6 + local * 0.025,
-    forceRound: false,
-    targetClears: 170 + local * 18,
-    rewardWin: 320 + local * 45,
-    movingSideBranches: moving.side,
-    movingMainIslands: moving.main
+    tiers: 8, islandRadiusRange: [92, 118],
+    obstacleBudget: { stumps: 4, boulders: 3, crystals: 3 },
+    sideBranches: 2, pathTurnAmplitude: 0.7,
+    forceRound: false, targetClears: 240, rewardWin: 500,
+    movingSideBranches: moving.side, movingMainIslands: moving.main,
+    ...STAGE_DEFAULTS
   }
 }
 
@@ -353,8 +483,10 @@ const buildStage = (
 
   // Layout budget. Two islands are always reachable in one swap because
   // we leave exactly WATER_GAP between the two polygon edges along the
-  // travel direction — well under the player's base 96-unit chain.
-  const WATER_GAP = 60
+  // travel direction. Base chain reach is 96 wu; per-stage gaps go up
+  // to 86 wu on the final boss, so chainLength upgrades become a real
+  // requirement past stage 17.
+  const WATER_GAP = params.waterGap
 
   const islands: MawIsland[] = []
   // Home island — launching pad. No obstacle on tutorial stages so the
@@ -424,12 +556,14 @@ const buildStage = (
 
   // ─── Attach motion specs ────────────────────────────────────────────
   // Motion direction = perpendicular to the local travel axis, so the
-  // platform slides side-to-side as the player approaches. Amplitudes:
+  // platform slides side-to-side as the player approaches.
+  //
+  // Amplitudes:
   //   • side-branch teasers — wider swing (50 wu) because the gap to a
   //     side branch is non-critical and the bigger motion reads better
   //     as a "look at this!" demo
-  //   • main-path moving islands — tighter swing (24 wu) so the chain
-  //     can still bridge the WATER_GAP (60 wu) even at worst phase
+  //   • main-path moving islands — `params.movingAmplitude` so each
+  //     stage can dial timing difficulty independently of `waterGap`
   // Period randomised per island in [2.2s, 4.4s] so neighbours don't
   // beat in unison.
   const attachMotion = (
@@ -453,22 +587,36 @@ const buildStage = (
     const angle = sideBranchAngles[s]
     if (isle && angle !== undefined) attachMotion(isle, angle, 50)
   }
-  // Main path — pick islands from the interior of the path (never home,
-  // never exit), spread out evenly. `path[k]` corresponds to `islands[k]`
-  // for k in [0, tiers].
-  if (params.movingMainIslands > 0 && params.tiers >= 3) {
-    const interior: number[] = []
-    for (let k = 1; k < params.tiers; k++) interior.push(k) // skip exit (= tiers)
-    // Even spacing — pick `n` islands roughly evenly distributed across
-    // the interior so multiple moving platforms aren't bunched up.
+  // Main path layout — `params.movingLayout` controls the pattern:
+  //   • 'all'     — every interior main-path island moves (`movingMainIslands`
+  //                 is ignored). Reserved for the "everything moves" set
+  //                 pieces on stage 19 and the final boss.
+  //   • 'cluster' — the moving islands are placed CONSECUTIVELY in the
+  //                 middle of the path, so the player has to chain
+  //                 swap-timings ("3 in a row" puzzle).
+  //   • 'spread'  — evenly distributed; the default behaviour.
+  const interior: number[] = []
+  for (let k = 1; k < params.tiers; k++) interior.push(k)
+  let mainSlots: number[] = []
+  if (params.movingLayout === 'all') {
+    mainSlots = interior.slice()
+  } else if (params.movingMainIslands > 0 && interior.length > 0) {
     const n = Math.min(params.movingMainIslands, interior.length)
-    for (let j = 0; j < n; j++) {
-      const slot = Math.floor((j + 0.5) * interior.length / n)
-      const pathIdx = interior[slot]!
-      const isle = islands[pathIdx]
-      const angle = path[pathIdx]!.angle
-      if (isle) attachMotion(isle, angle, 24)
+    if (params.movingLayout === 'cluster') {
+      // Centre the run inside the interior so it doesn't bunch against
+      // the home or exit island.
+      const startIdx = Math.max(0, Math.floor((interior.length - n) / 2))
+      for (let j = 0; j < n; j++) mainSlots.push(interior[startIdx + j]!)
+    } else {
+      for (let j = 0; j < n; j++) {
+        mainSlots.push(interior[Math.floor((j + 0.5) * interior.length / n)]!)
+      }
     }
+  }
+  for (const pathIdx of mainSlots) {
+    const isle = islands[pathIdx]
+    const angle = path[pathIdx]!.angle
+    if (isle) attachMotion(isle, angle, params.movingAmplitude)
   }
 
   // Exit pole sits at the centre of the last main-path island.

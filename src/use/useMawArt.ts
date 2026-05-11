@@ -314,6 +314,18 @@ const CRYSTAL_W = 44
 const CRYSTAL_H = 44
 const CRYSTAL_AX = 22
 const CRYSTAL_AY = 22
+// Liberty cat — TALL statue with a base. Anchor at the base centre so
+// `(ob.x, ob.y)` lands on the ground, and the cat rises 110 wu above.
+const LIBERTY_W = 70
+const LIBERTY_H = 112
+const LIBERTY_AX = 35
+const LIBERTY_AY = 100
+// Liberty trash — pure-cosmetic litter pile, no collision. Anchor at
+// the centre of the bitmap.
+const LIB_TRASH_W = 56
+const LIB_TRASH_H = 36
+const LIB_TRASH_AX = 28
+const LIB_TRASH_AY = 22
 
 const makeSprite = (
   w: number, h: number, ax: number, ay: number,
@@ -375,6 +387,25 @@ const getCrystalSprite = (): HTMLCanvasElement | null => {
   return crystalSprite
 }
 
+const LIBERTY_IMG_SRC = '/images/props/liberty-cat.webp'
+let libertySprite: HTMLCanvasElement | null = null
+const getLibertySprite = (): HTMLCanvasElement | null => {
+  if (libertySprite) return libertySprite
+  const img = getCachedImage(LIBERTY_IMG_SRC)
+  if (!img.complete || img.naturalWidth === 0) return null
+  libertySprite = makeSprite(LIBERTY_W, LIBERTY_H, LIBERTY_AX, LIBERTY_AY, (c) => {
+    c.drawImage(img, -LIBERTY_AX, -LIBERTY_AY, LIBERTY_W, LIBERTY_H)
+  })
+  return libertySprite
+}
+
+const LIB_TRASH_IMG_SRC = '/images/props/liberty-trash.webp'
+let libTrashImage: HTMLImageElement | null = null
+const getLibTrashImage = (): HTMLImageElement => {
+  if (!libTrashImage) libTrashImage = getCachedImage(LIB_TRASH_IMG_SRC)
+  return libTrashImage
+}
+
 // ─── Obstacles ───────────────────────────────────────────────────────────
 export const drawObstacle = (ctx: CanvasRenderingContext2D, ob: Obstacle) => {
   if (ob.type === 'crystal') {
@@ -395,6 +426,15 @@ export const drawObstacle = (ctx: CanvasRenderingContext2D, ob: Obstacle) => {
         Math.round(ob.x - STUMP_AX), Math.round(ob.y - STUMP_AY), STUMP_W, STUMP_H
       )
     }
+  } else if (ob.type === 'liberty') {
+    const sprite = getLibertySprite()
+    if (sprite) {
+      ctx.drawImage(
+        sprite,
+        0, 0, LIBERTY_W * SPRITE_DPR, LIBERTY_H * SPRITE_DPR,
+        Math.round(ob.x - LIBERTY_AX), Math.round(ob.y - LIBERTY_AY), LIBERTY_W, LIBERTY_H
+      )
+    }
   } else {
     const sprite = getBoulderSprite()
     if (sprite) {
@@ -404,6 +444,21 @@ export const drawObstacle = (ctx: CanvasRenderingContext2D, ob: Obstacle) => {
         Math.round(ob.x - BOULDER_AX), Math.round(ob.y - BOULDER_AY), BOULDER_W, BOULDER_H
       )
     }
+  }
+}
+
+// ─── Decor (cosmetic, no collision) ───────────────────────────────────
+/** Renders one cosmetic prop at its world position. Decor lives on the
+ *  `MawIsland.decor` array; no hit-test, no coin payout, just art. */
+export const drawDecor = (ctx: CanvasRenderingContext2D, type: string, x: number, y: number) => {
+  if (type === 'libertyTrash') {
+    const img = getLibTrashImage()
+    if (!img.complete || img.naturalWidth === 0) return
+    ctx.drawImage(
+      img,
+      Math.round(x - LIB_TRASH_AX), Math.round(y - LIB_TRASH_AY),
+      LIB_TRASH_W, LIB_TRASH_H
+    )
   }
 }
 

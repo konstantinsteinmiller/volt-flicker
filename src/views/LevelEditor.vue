@@ -17,7 +17,8 @@ import {
   drawIsland,
   drawObstacle,
   drawGrassBlade,
-  drawExitPole
+  drawExitPole,
+  drawDecor
 } from '@/use/useMawArt'
 
 /**
@@ -41,7 +42,9 @@ type Tool =
   | 'stump'
   | 'boulder'
   | 'crystal'
+  | 'liberty'
   | 'grass'
+  | 'libertyTrash'
   | 'exit'
 
 interface EditorIsland extends MawIsland {
@@ -51,11 +54,12 @@ interface EditorIsland extends MawIsland {
 interface SelectedIsland { type: 'island'; islandId: string }
 interface SelectedObstacle { type: 'obstacle'; islandId: string; obstacleIdx: number }
 interface SelectedGrass { type: 'grass'; islandId: string; grassIdx: number }
+interface SelectedDecor { type: 'decor'; islandId: string; decorIdx: number }
 interface SelectedExit { type: 'exit' }
 /** Editor selection for one endpoint of an island's motion path. The
  *  user can drag these handles to retune where the platform travels. */
 interface SelectedMotion { type: 'motion'; islandId: string; endpoint: 'a' | 'b' }
-type Selection = SelectedIsland | SelectedObstacle | SelectedGrass | SelectedExit | SelectedMotion | null
+type Selection = SelectedIsland | SelectedObstacle | SelectedGrass | SelectedDecor | SelectedExit | SelectedMotion | null
 
 const router = useRouter()
 
@@ -178,6 +182,7 @@ const cloneIslands = (src: EditorIsland[]): EditorIsland[] =>
     cx: i.cx, cy: i.cy, radius: i.radius, shape: i.shape,
     grass: i.grass.map(g => [g[0], g[1]] as [number, number]),
     obstacles: i.obstacles.map(o => ({ ...o })),
+    decor: i.decor ? i.decor.map(d => ({ ...d })) : undefined,
     motion: i.motion ? { ...i.motion } : undefined
   }))
 
@@ -280,14 +285,28 @@ const findEntityAt = (x: number, y: number): Selection => {
   }
   // Exit pole next — small target, draw on top.
   if (Math.hypot(x - exitX.value, y - exitY.value) <= 22) return { type: 'exit' }
-  // Then obstacles / grass on top of islands (pick smaller hit-radius first).
+  // Then obstacles / decor / grass on top of islands (pick smaller hit-
+  // radius first so smaller props win the click over larger surrounding
+  // ones).
   for (let i = islands.value.length - 1; i >= 0; i--) {
     const isle = islands.value[i]!
     for (let j = isle.obstacles.length - 1; j >= 0; j--) {
       const ob = isle.obstacles[j]!
-      const r = ob.type === 'boulder' ? 28 : ob.type === 'crystal' ? 18 : 22
+      const r =
+        ob.type === 'boulder' ? 28
+        : ob.type === 'crystal' ? 18
+        : ob.type === 'liberty' ? 28
+        : 22
       if (Math.hypot(x - ob.x, y - ob.y) <= r) {
         return { type: 'obstacle', islandId: isle.id, obstacleIdx: j }
+      }
+    }
+    if (isle.decor) {
+      for (let j = isle.decor.length - 1; j >= 0; j--) {
+        const d = isle.decor[j]!
+        if (Math.hypot(x - d.x, y - d.y) <= 22) {
+          return { type: 'decor', islandId: isle.id, decorIdx: j }
+        }
       }
     }
     for (let j = isle.grass.length - 1; j >= 0; j--) {
@@ -311,7 +330,8 @@ const motionEditingIsland = computed<EditorIsland | null>(() => {
   if (!sel) return null
   let islandId: string | null = null
   if (sel.type === 'island' || sel.type === 'motion'
-    || sel.type === 'obstacle' || sel.type === 'grass') islandId = sel.islandId
+    || sel.type === 'obstacle' || sel.type === 'grass'
+    || sel.type === 'decor') islandId = sel.islandId
   if (!islandId) return null
   const isle = islands.value.find(i => i.id === islandId)
   return (isle && isle.motion) ? isle : null
@@ -371,6 +391,10 @@ const entityAnchor = (sel: Selection) => {
     return sel.endpoint === 'a'
       ? { x: isle.motion.ax, y: isle.motion.ay }
       : { x: isle.motion.bx, y: isle.motion.by }
+  }
+  if (sel.type === 'decor') {
+    const d = isle.decor?.[sel.decorIdx]
+    return d ? { x: d.x, y: d.y } : { x: isle.cx, y: isle.cy }
   }
   const g = isle.grass[sel.grassIdx]!
   return { x: g[0], y: g[1] }
@@ -441,7 +465,18 @@ const placeAt = (t: Tool, x: number, y: number) => {
     selection.value = { type: 'grass', islandId: host.id, grassIdx: host.grass.length - 1 }
     return
   }
-  const obType: Obstacle['type'] = t === 'stump' ? 'stump' : t === 'boulder' ? 'boulder' : 'crystal'
+  if (t === 'libertyTrash') {
+    const decor = host.decor ? [...host.decor] : []
+    decor.push({ type: 'libertyTrash', x, y })
+    host.decor = decor
+    selection.value = { type: 'decor', islandId: host.id, decorIdx: decor.length - 1 }
+    return
+  }
+  const obType: Obstacle['type'] =
+    t === 'stump' ? 'stump'
+    : t === 'boulder' ? 'boulder'
+    : t === 'crystal' ? 'crystal'
+    : 'liberty'
   host.obstacles = [...host.obstacles, { type: obType, x, y }]
   selection.value = { type: 'obstacle', islandId: host.id, obstacleIdx: host.obstacles.length - 1 }
 }
@@ -459,11 +494,14 @@ const moveSelection = (sel: Selection, x: number, y: number) => {
   if (sel.type === 'island') {
     const dx = x - isle.cx
     const dy = y - isle.cy
-    // Move the island and bring its grass + obstacles + motion path along.
+    // Move the island and bring its grass + obstacles + decor + motion path along.
     isle.cx = x
     isle.cy = y
     isle.grass = isle.grass.map(([gx, gy]) => [gx + dx, gy + dy])
     isle.obstacles = isle.obstacles.map(o => ({ ...o, x: o.x + dx, y: o.y + dy }))
+    if (isle.decor) {
+      isle.decor = isle.decor.map(d => ({ ...d, x: d.x + dx, y: d.y + dy }))
+    }
     if (isle.motion) {
       isle.motion = {
         ...isle.motion,
@@ -477,6 +515,11 @@ const moveSelection = (sel: Selection, x: number, y: number) => {
   }
   if (sel.type === 'obstacle') {
     isle.obstacles[sel.obstacleIdx] = { ...isle.obstacles[sel.obstacleIdx]!, x, y }
+    return
+  }
+  if (sel.type === 'decor') {
+    if (!isle.decor) return
+    isle.decor[sel.decorIdx] = { ...isle.decor[sel.decorIdx]!, x, y }
     return
   }
   if (sel.type === 'motion') {
@@ -513,6 +556,8 @@ const deleteSelection = (sel: Selection) => {
     islands.value = islands.value.filter(i => i.id !== sel.islandId)
   } else if (sel.type === 'obstacle') {
     isle.obstacles = isle.obstacles.filter((_, i) => i !== sel.obstacleIdx)
+  } else if (sel.type === 'decor') {
+    if (isle.decor) isle.decor = isle.decor.filter((_, i) => i !== sel.decorIdx)
   } else {
     isle.grass = isle.grass.filter((_, i) => i !== sel.grassIdx)
   }
@@ -638,6 +683,7 @@ const buildStage = (): MawStage => ({
     cx: i.cx, cy: i.cy, radius: i.radius, shape: i.shape,
     grass: i.grass.map(g => [g[0], g[1]] as [number, number]),
     obstacles: i.obstacles.map(o => ({ ...o })),
+    ...(i.decor && i.decor.length ? { decor: i.decor.map(d => ({ ...d })) } : {}),
     ...(i.motion ? { motion: { ...i.motion } } : {})
   })),
   isBoss: false,
@@ -667,6 +713,7 @@ const loadStageIntoEditor = (s: MawStage, displayName: string) => {
     cx: i.cx, cy: i.cy, radius: i.radius, shape: i.shape,
     grass: i.grass.map(g => [g[0], g[1]] as [number, number]),
     obstacles: i.obstacles.map(o => ({ ...o })),
+    decor: i.decor ? i.decor.map(d => ({ ...d })) : undefined,
     motion: i.motion ? { ...i.motion } : undefined
   }))
   exitX.value = s.exitX
@@ -760,6 +807,9 @@ const paint = () => {
   for (const isle of islands.value) drawIsland(ctx, isle)
   for (const isle of islands.value) {
     for (const ob of isle.obstacles) drawObstacle(ctx, ob)
+    if (isle.decor) {
+      for (const d of isle.decor) drawDecor(ctx, d.type, d.x, d.y)
+    }
     for (let i = 0; i < isle.grass.length; i++) {
       const [gx, gy] = isle.grass[i]!
       drawGrassBlade(ctx, gx, gy, 'forest', i)
@@ -873,6 +923,8 @@ const tools: Array<{ id: Tool; label: string }> = [
   { id: 'stump',          label: 'Tree Stump' },
   { id: 'boulder',        label: 'Boulder' },
   { id: 'crystal',        label: 'Crystal' },
+  { id: 'liberty',        label: 'Liberty Cat (Lv8)' },
+  { id: 'libertyTrash',   label: 'Trash Pile (decor)' },
   { id: 'exit',           label: 'Exit Pole' }
 ]
 
@@ -993,7 +1045,7 @@ const campaignSlotOptions = computed(() =>
         ) {{ t.label }}
         div.text-xs.opacity-60.mt-3 Shift+drag = pan, wheel = zoom, right-click = delete
         div.text-xs.opacity-60 Ctrl+Z undo · Ctrl+Shift+Z redo · Del removes selection
-        div.text-xs.opacity-60 Decor (grass / stump / boulder / crystal) snaps to the island under the cursor.
+        div.text-xs.opacity-60 Decor (grass / stump / boulder / crystal / liberty / trash) snaps to the island under the cursor.
 
       //- Canvas
       div.flex-1.relative.maw-water-bg(:style="waterBgStyle")

@@ -12,14 +12,15 @@
       }"
       @click="handleOverlayClick"
     )
-      //- Programmatic ribbon header
+      //- Parchment-ribbon header. Bitmap background scales to fit the
+      //- responsive wrap; the slot content (or a fallback "Rewards"
+      //- label) renders on top of the ribbon, centred horizontally and
+      //- biased above the bottom curl so the tails stay visible.
       div.ribbon-wrap.relative.mb-10(
         v-if="$slots.ribbon"
         :class="{ '!mb-2 -mt-2': isMobileLandscape, 'is-desktop': !isMobileLandscape && !isMobilePortrait }"
       )
         div.ribbon-banner
-          div.ribbon-tail.ribbon-tail-left
-          div.ribbon-tail.ribbon-tail-right
           div.ribbon-content
             slot(name="ribbon")
               span.text-white.font-black.uppercase.italic.game-text {{ t('rewards') }}
@@ -112,42 +113,36 @@ onUnmounted(() => {
       width: 70vw
       max-width: 360px
 
+// Parchment ribbon bitmap (553×188 source). The aspect ratio is built
+// into the wrap's `aspect-ratio` so the image scales without distorting
+// the curled tails. We use `background-image` rather than an `<img>`
+// so the slot content can layer cleanly on top without z-index gymnastics.
 .ribbon-banner
   position: relative
-  height: 70px
+  aspect-ratio: 553 / 188
+  width: 100%
+  background-image: url('/images/bg/parchment-ribbon_553x188.webp')
+  background-repeat: no-repeat
+  background-position: center
+  background-size: contain
   display: flex
   align-items: center
   justify-content: center
-  background: linear-gradient(180deg, #b08454 0%, #8a5a30 60%, #5a341a 100%)
-  border-top: 3px solid #d4a674
-  border-bottom: 3px solid #3a1f0c
-  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 230, 200, 0.4)
   filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.5))
-
-.ribbon-tail
-  position: absolute
-  top: 8px
-  bottom: 8px
-  width: 28px
-  background: linear-gradient(180deg, #6a3f1c 0%, #3a1f0c 100%)
-  border: 2px solid #2a1407
-
-.ribbon-tail-left
-  left: -22px
-  clip-path: polygon(100% 0, 0 50%, 100% 100%)
-
-.ribbon-tail-right
-  right: -22px
-  clip-path: polygon(0 0, 100% 50%, 0 100%)
 
 .ribbon-content
   position: relative
-  z-index: 2
+  // The ribbon art's flat parchment panel sits ABOVE the bottom curl,
+  // so the content lifts ~14% of the banner height to land visually
+  // centred on that panel.
+  margin-top: -14%
   display: flex
   align-items: center
   justify-content: center
   text-align: center
-  padding: 0 28px
+  // Leave generous horizontal room on each side so wider labels don't
+  // crash into the tail folds.
+  padding: 0 18%
 
 @media (orientation: landscape) and (max-height: 500px)
   .ribbon-wrap

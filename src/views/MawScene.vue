@@ -18,6 +18,7 @@ import useMawProgress, {
   chainScrollLessonLearnt,
   chainScrollHintShownCount,
   markChainScrollHintShown,
+  ensureChainScrollBaseline,
   gamesPlayedTotal,
   upgradeCost
 } from '@/use/useMawProgress'
@@ -30,6 +31,13 @@ import useCheats from '@/use/useCheats'
 import { spawnCoinExplosion } from '@/use/useCoinExplosion'
 import { stopGameplay, startGameplay, triggerHappytime } from '@/use/useCrazyGames'
 import { isInterstitialReady, showMidgameAd, isRewardedReady, showRewardedAd } from '@/use/useAds'
+import SpeedrunButton from '@/components/organisms/SpeedrunButton.vue'
+import {
+  ghostAnchorAt,
+  hasGhostForStage,
+  ghostBestTime,
+  liveRunStartMs
+} from '@/use/useMawGhost'
 
 import StageBadge from '@/components/StageBadge.vue'
 import LifeBadge from '@/components/atoms/LifeBadge.vue'
@@ -68,7 +76,8 @@ import {
   drawCoin,
   drawObstacle,
   drawGrassBlade,
-  drawExitPole
+  drawExitPole,
+  drawDecor
 } from '@/use/useMawArt'
 
 useCheats()
@@ -118,6 +127,9 @@ const {
   chainLength,
   isOverIsland,
   isPaused,
+  lastClearedTimeMs,
+  lastClearedWasBest,
+  lastClearedPrevBestMs,
   poleCut,
   reqsMet
 } = useMawGame()
@@ -125,6 +137,21 @@ const {
 const { coins: coinTotal } = useMawConfig()
 const { currentStageId, currentStage, stageReinitSignal, resetCampaign, isLastStage } = useMawCampaign()
 const { } = useMawProgress()
+
+// ─── Speedrun timer + ghost replay ──────────────────────────────────────
+// `liveElapsedMs` is the wall-clock time since the current attempt's
+// `startMatch()`. Updated every animation frame from the existing
+// renderLoop (no extra rAF) so the SpeedrunButton timer reads live.
+const liveElapsedMs = ref(0)
+
+/** Best-time readout for the current stage, surfaced in the win modal. */
+const stageBestTimeMs = computed(() => ghostBestTime(currentStageId.value))
+const formatTimeMs = (ms: number | null): string => {
+  if (ms === null || ms <= 0) return '—'
+  const s = Math.floor(ms / 1000)
+  const tenth = Math.floor((ms % 1000) / 100)
+  return `${s}.${tenth}s`
+}
 
 // ─── MAW-A-HERO completion ──────────────────────────────────────────────
 // Fires when the player wins the very last stage of the 20-stage
@@ -187,7 +214,7 @@ onMounted(() => {
  *  only visible for the first `HINT_VISIBLE_MS` of gameplay each time
  *  (after that it auto-hides so it doesn't crowd the screen for the
  *  rest of the round). */
-const HINT_VISIBLE_MS = 3000
+const HINT_VISIBLE_MS = 5000
 const showChainScrollHintThisGame = ref(false)
 const chainScrollHintWithShine = ref(false)
 const chainScrollHintExpired = ref(false)
@@ -202,8 +229,14 @@ const evaluateChainScrollHint = () => {
   chainScrollHintWithShine.value = false
   chainScrollHintExpired.value = false
   if (!isDesktop.value) return
-  const baseline = chainUpgradeFirstGameCount.value
-  if (baseline === null) return // upgrade hasn't been bought yet
+  // Gate on the player actually OWNING the chain upgrade rather than on
+  // the historical baseline — otherwise players who upgraded before the
+  // hint code shipped (so their baseline was never stamped) would never
+  // see the hint. `ensureChainScrollBaseline` lazily stamps `now` if the
+  // baseline is still null, so the cadence kicks off from this attempt.
+  if (levelOf('chainLength') < 1) return
+  ensureChainScrollBaseline()
+  const baseline = chainUpgradeFirstGameCount.value ?? gamesPlayedTotal.value
   const since = gamesPlayedTotal.value - baseline
   if (since < 0) return
   // Cadence: every 2nd attempt after the chain upgrade unlocks
@@ -566,6 +599,13 @@ const renderLoop = (now: number) => {
     tick(dt)
   }
 
+  // Speedrun + ghost timer — driven off the engine's `liveRunStartMs`
+  // so the timer freezes on pause/loss and resets when a new attempt
+  // begins, without any per-state plumbing.
+  liveElapsedMs.value = liveRunStartMs.value > 0 && phase.value === 'playing'
+    ? Math.max(0, now - liveRunStartMs.value)
+    : 0
+
   // Smooth camera every frame so anchor swaps glide rather than snap.
   updateCamera(dt)
 
@@ -639,6 +679,14 @@ const paint = () => {
     for (const ob of isle.obstacles) {
       drawObstacle(ctx, ob)
     }
+    // Cosmetic decor (e.g. liberty-trash) — drawn AFTER grass + obstacles
+    // so it sits on top of the blades without being affected by cuts.
+    if (isle.decor) {
+      for (const d of isle.decor) {
+        if (d.x < viewMinX || d.x > viewMaxX || d.y < viewMinY || d.y > viewMaxY) continue
+        drawDecor(ctx, d.type, d.x, d.y)
+      }
+    }
     for (const idx of isle.aliveGrass) {
       const [gx, gy] = isle.grass[idx]!
       // Per-blade culling — cheaper than a drawImage on something that
@@ -665,6 +713,33 @@ const paint = () => {
   // 3b. Exit pole — drawn before the robot so the chain visibly passes
   // over it when cutting it down.
   drawExitPole(ctx, stage.value.exitX, stage.value.exitY, poleCut.value, reqsMet.value)
+
+  // 3c. Ghost robot — replays the player's previous attempt at the
+  // current stage. The recorded swap log only stores anchor positions;
+  // the swing gear orbits at the engine's base speed so the silhouette
+  // reads as "what you did" without bloating the save. Drawn before the
+  // live robot so the player's current run sits on top.
+  if (
+    phase.value === 'playing'
+    && hasGhostForStage(currentStageId.value)
+    && liveElapsedMs.value > 0
+  ) {
+    const ghostA = ghostAnchorAt(currentStageId.value, liveElapsedMs.value)
+    if (ghostA) {
+      // Ghost swing — anchor + base chain reach + slowly rotating angle
+      // so the chain doesn't sit perfectly still on a stationary anchor.
+      const tSec = liveElapsedMs.value / 1000
+      const ghostAngle = tSec * 2.1
+      const ghostSwing = {
+        x: ghostA.x + Math.cos(ghostAngle) * chainLength.value,
+        y: ghostA.y + Math.sin(ghostAngle) * chainLength.value
+      }
+      ctx.save()
+      ctx.globalAlpha = 0.32
+      drawRobot(ctx, ghostA, ghostSwing, ghostAngle, true, liveChainLevel.value)
+      ctx.restore()
+    }
+  }
 
   // 4. Robot
   if (phase.value !== 'idle') {
@@ -804,34 +879,43 @@ const showStartHint = computed(() =>
               span.font-bold.uppercase.tracking-wider(class="text-[10px] text-yellow-300") Tip
               span.game-text(class="text-xs sm:text-sm") Upgrade Sharper Saw to Lv 1 to cut tree stumps
 
-        div.flex.flex-col.items-end.gap-2
-          CoinBadge(ref="coinBadgeRef")
-          TreasureChest(:target-el="coinBadgeEl")
+        //- Top-right HUD: SpeedrunButton (with its own live timer
+        //- underneath) sits LEFT of the CoinBadge, then the existing
+        //- right-column stack continues from the badge downward.
+        div.flex.items-start.gap-2.pointer-events-auto
+          SpeedrunButton(
+            :elapsed-ms="liveElapsedMs"
+            :stage-id="currentStageId"
+            :is-playing="phase === 'playing'"
+          )
+          div.flex.flex-col.items-end.gap-2
+            CoinBadge(ref="coinBadgeRef")
+            TreasureChest(:target-el="coinBadgeEl")
 
-          //- Chain-length quick adjust: step the live chain reach
-          //- up/down through the player's purchased upgrade tiers.
-          //- Disabled if there's nothing to step into.
-          div.flex.items-center.gap-1.pointer-events-auto(v-if="purchasedChainLevel > 0")
-            button.chain-adjust-btn(
-              type="button"
-              :disabled="!canChainDown"
-              @click="onChainMinus"
-              :title="`Shorter chain (Lv. ${liveChainLevel} / ${purchasedChainLevel})`"
-            )
-              svg(viewBox="0 0 24 24" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round")
-                path(d="M9.5 6.5 L7 9 a3.5 3.5 0 0 0 5 5 l1-1")
-                path(d="M14.5 17.5 L17 15 a3.5 3.5 0 0 0 -5 -5 l-1 1")
-              span.text-xs.font-black.game-text -1
-            button.chain-adjust-btn(
-              type="button"
-              :disabled="!canChainUp"
-              @click="onChainPlus"
-              :title="`Longer chain (Lv. ${liveChainLevel} / ${purchasedChainLevel})`"
-            )
-              svg(viewBox="0 0 24 24" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round")
-                path(d="M9.5 6.5 L7 9 a3.5 3.5 0 0 0 5 5 l1-1")
-                path(d="M14.5 17.5 L17 15 a3.5 3.5 0 0 0 -5 -5 l-1 1")
-              span.text-xs.font-black.game-text +1
+            //- Chain-length quick adjust: step the live chain reach
+            //- up/down through the player's purchased upgrade tiers.
+            //- Disabled if there's nothing to step into.
+            div.mt-4.flex.items-center.gap-1.pointer-events-auto(v-if="purchasedChainLevel > 0")
+              button.chain-adjust-btn(
+                type="button"
+                :disabled="!canChainDown"
+                @click="onChainMinus"
+                :title="`Shorter chain (Lv. ${liveChainLevel} / ${purchasedChainLevel})`"
+              )
+                svg(viewBox="0 0 24 24" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round")
+                  path(d="M9.5 6.5 L7 9 a3.5 3.5 0 0 0 5 5 l1-1")
+                  path(d="M14.5 17.5 L17 15 a3.5 3.5 0 0 0 -5 -5 l-1 1")
+                span.text-xs.font-black.game-text -1
+              button.chain-adjust-btn(
+                type="button"
+                :disabled="!canChainUp"
+                @click="onChainPlus"
+                :title="`Longer chain (Lv. ${liveChainLevel} / ${purchasedChainLevel})`"
+              )
+                svg(viewBox="0 0 24 24" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round")
+                  path(d="M9.5 6.5 L7 9 a3.5 3.5 0 0 0 5 5 l1-1")
+                  path(d="M14.5 17.5 L17 15 a3.5 3.5 0 0 0 -5 -5 l-1 1")
+                span.text-xs.font-black.game-text +1
 
       //- Center: Tap-to-start / countdown / target counter
       div.absolute.flex.items-center.justify-center(class="inset-0 z-[10] pointer-events-none")
@@ -1028,6 +1112,29 @@ const showStartHint = computed(() =>
           v-if="gameResult === 'lose'"
           class="text-sm sm:text-base opacity-80"
         ) {{ lossReason === 'splashed' ? t('maw.splashed') : t('maw.broke') }}
+        //- Speedrun readout on win: current attempt time, best-ever
+        //- time, and a "🎉 New record" callout when the current run
+        //- beat the previous best.
+        div.win-time-readout.flex.flex-col.items-center.gap-1(
+          v-if="gameResult === 'win' && lastClearedTimeMs !== null"
+        )
+          div.flex.items-center.gap-2
+            span.opacity-70.uppercase.tracking-wider.text-xs Time
+            span.font-mono.font-black.text-yellow-200(class="text-base sm:text-xl") {{ formatTimeMs(lastClearedTimeMs) }}
+          div.flex.items-center.gap-2(v-if="stageBestTimeMs !== null")
+            span.opacity-70.uppercase.tracking-wider.text-xs Best
+            span.font-mono.font-black(
+              class="text-base sm:text-xl"
+              :class="lastClearedWasBest ? 'text-emerald-300' : 'text-white'"
+            ) {{ formatTimeMs(stageBestTimeMs) }}
+          div.text-emerald-300.font-black.game-text.tracking-wide(
+            v-if="lastClearedWasBest && lastClearedPrevBestMs !== null"
+            class="text-sm sm:text-base"
+          ) 🎉 New record! (was {{ formatTimeMs(lastClearedPrevBestMs) }})
+          div.text-emerald-300.font-black.game-text.tracking-wide(
+            v-else-if="lastClearedWasBest"
+            class="text-sm sm:text-base"
+          ) 🎉 First clear — set the bar!
         //- Sharper-saw onboarding hint — only on the lose screen, only
         //- until the player has actually bought saw level 2.
         div.saw-hint-banner.pointer-events-none(

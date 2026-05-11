@@ -142,7 +142,7 @@ onUnmounted(() => {
       )
 
     //- Status label
-    div.absolute.text-center(class="-bottom-3 left-1/2 -translate-x-1/2")
+    div.absolute.text-center(class="-bottom-4 left-1/2 -translate-x-1/2")
       span.game-text.font-black.text-white.text-shadow-sm(
         v-if="!isReady"
         class="text-[9px] sm:text-[10px] tracking-wide"
@@ -153,7 +153,7 @@ onUnmounted(() => {
         :style="{ background: auraColor, boxShadow: `0 0 14px ${auraColor}` }"
       )
         IconCoin(class="w-3 h-3 text-yellow-100")
-        span.game-text.font-black.text-white(class="text-[9px] sm:text-[10px]") +{{ currentReward }}
+        span.game-text.font-black.text-white.mr-4(class="text-[9px] sm:text-[10px]") +{{ currentReward }}
 </template>
 
 <style scoped lang="sass">
