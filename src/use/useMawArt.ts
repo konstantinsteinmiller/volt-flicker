@@ -6,7 +6,7 @@ import { getCachedImage } from '@/use/useAssets'
  * Programmatic canvas art helpers — drawn in pure 2D so the project ships
  * without any sprite sheets. Each function paints one piece of the world
  * at world-space coordinates; the caller is responsible for transforming
- * the camera. See `art-todo-gamedesign.md` for the inventory of pieces queued up
+ * the camera. See `art-gamedesign-todo.md` for the inventory of pieces queued up
  * for art replacement.
  */
 

@@ -176,7 +176,18 @@ export default defineConfig(({ mode, command }) => {
           // `@/utils/gameDistributionPlugin` (~500 LOC) via dynamic
           // import so non-GD builds don't ship the GD SDK code.
           // Same obfuscator-vs-dynamic-import constraint as above.
-          /use[\\/]ads[\\/]GameDistributionProvider\.ts$/
+          /use[\\/]ads[\\/]GameDistributionProvider\.ts$/,
+          // useMawCampaign lazy-loads the heavy `useStageBuilder`
+          // chunk via `await import('@/use/useStageBuilder')` so all
+          // 20 stage builds stay off the boot critical path. The
+          // obfuscator's stringArray rewrite would inline the chunk
+          // back into the parent, undoing the split.
+          /use[\\/]useMawCampaign\.ts$/,
+          // useAssets.preloadAssets dynamic-imports the campaign module
+          // so the gameplay shared-chunk loads in parallel with the
+          // splash render instead of blocking the entry parse. Same
+          // obfuscator-vs-dynamic-import constraint as above.
+          /use[\\/]useAssets\.ts$/
         ],
         // ─── Obfuscation profile (tuned 2026-04-30) ─────────────────────
         // The previous profile enabled every aggressive transform the

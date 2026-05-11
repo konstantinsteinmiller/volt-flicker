@@ -22,7 +22,8 @@ import useMawProgress, {
   gamesPlayedTotal,
   upgradeCost
 } from '@/use/useMawProgress'
-import useSounds, { useMusic } from '@/use/useSound'
+import useSounds, { useMusic, type LoopHandle } from '@/use/useSound'
+import { schedulePreloadOnIdle } from '@/use/useSoundPreload'
 import { useScreenshake } from '@/use/useScreenshake'
 import useUser from '@/use/useUser'
 import useBottomSafe from '@/use/useBottomSafe'
@@ -98,8 +99,26 @@ const exitTestStage = () => {
 }
 
 const { t } = useI18n()
-const { playSound } = useSounds()
+const { playSound, playLoop } = useSounds()
 const { startBattleMusic, stopBattleMusic } = useMusic()
+
+// ─── Chain whir loop ────────────────────────────────────────────────────
+// Continuous mow-robot sound that plays for the duration of an active
+// attempt. Stops on game-over / idle / pause / spotlight, restarts on
+// resume. Volume is intentionally low (-24 dB-ish ratio) so it sits
+// under the battle music without masking grass-cut variants.
+let chainLoop: LoopHandle | null = null
+const stopChainLoop = () => {
+  if (chainLoop) {
+    chainLoop.stop()
+    chainLoop = null
+  }
+}
+const startChainLoop = () => {
+  if (chainLoop) return
+  chainLoop = playLoop('mow-loop', 0.035)
+}
+onUnmounted(() => stopChainLoop())
 const { shakeStyle } = useScreenshake()
 const { } = useUser()
 
@@ -134,7 +153,7 @@ const {
   reqsMet
 } = useMawGame()
 
-const { coins: coinTotal } = useMawConfig()
+const { coins: coinTotal, spendCoins, addCoins } = useMawConfig()
 const { currentStageId, currentStage, stageReinitSignal, resetCampaign, isLastStage } = useMawCampaign()
 const { } = useMawProgress()
 
@@ -153,7 +172,7 @@ const formatTimeMs = (ms: number | null): string => {
   return `${s}.${tenth}s`
 }
 
-// ─── MAW-A-HERO completion ──────────────────────────────────────────────
+// ─── MOW-A-HERO completion ──────────────────────────────────────────────
 // Fires when the player wins the very last stage of the 20-stage
 // campaign. Shows a separate fancy reward screen with a celebration
 // sound + CG SDK happytime (CG builds only — already gated by
@@ -206,6 +225,11 @@ onMounted(() => {
     typeof window !== 'undefined'
     && typeof window.matchMedia === 'function'
     && window.matchMedia('(hover: hover) and (pointer: fine)').matches
+  // SFX preload runs on the first idle slot after the gameplay scene has
+  // painted. Pushes ~16 ogg decodes off the critical path so the splash
+  // hides as fast as possible; by the time the player swings the chain
+  // into the first grass blade, every cut/hit sample is cached.
+  schedulePreloadOnIdle()
 })
 
 /** Decided at game-start (via `evaluateChainScrollHint`) — whether THIS
@@ -288,6 +312,10 @@ watch(sawSpotlightArmed, (armed) => {
   if (armed) {
     isPaused.value = true
     stopBattleMusic()
+    // Drama stinger the moment the spotlight conditions arm — clear
+    // audible cue that the player has earned a "you must upgrade
+    // before you continue" beat.
+    playSound('reward-continue', 0.12)
   } else {
     isPaused.value = false
     // Restart music only if we're back in a live match — otherwise the
@@ -441,20 +469,30 @@ const beginPlay = async () => {
   triggerHappytime()
 }
 
+// Drive the chain-whir loop off `phase` + `isPaused`. Started on the
+// first frame of any `'playing'` state, stopped on any other phase or
+// when the saw-spotlight pause flips on (pause watch lives below).
+watch([phase, isPaused], ([p, paused]) => {
+  if (p === 'playing' && !paused) startChainLoop()
+  else stopChainLoop()
+}, { immediate: true })
+
 watch(phase, (p) => {
   if (p === 'game_over') {
     stopBattleMusic()
     if (gameResult.value === 'win') {
-      // Campaign clear — final stage win triggers the MAW-A-HERO Hall of
+      // Campaign clear — final stage win triggers the MOW-A-HERO Hall of
       // Fame reward instead of the standard per-stage reward modal.
       // `advanceStage()` (in useMawGame.onWin) stops incrementing past
       // STAGES.length, so currentStageId stays parked on the final stage
       // and `isLastStage` is still true at this point.
       if (isLastStage.value && !testStage.value) {
         showHeroReward.value = true
-        // Celebration: a louder pop of the existing reward jingle plus
+        // Celebration: the win stinger fires at full reward volume
+        // (`onWin` also fires `win` at 0.18, but the second hit on the
+        // MOW-A-HERO path emphasises the final-boss moment) plus the
         // CG SDK happytime (a no-op on non-CG builds).
-        playSound('reward-continue', 0.18)
+        playSound('win', 0.22)
         triggerHappytime()
         return
       }
@@ -463,16 +501,23 @@ watch(phase, (p) => {
       return
     }
     // Loss path — play the per-reason death sound, then decide between
-    // the watch-ad continue offer (only for "broke" deaths and only
-    // while the rewarded provider is ready) or the standard loss-reward
-    // modal. Splash deaths drop the player over open water with nowhere
-    // to stand on resume, so they always go straight to the modal.
-    playSound(lossReason.value === 'splashed' ? 'splash-death' : 'break-down-death', 0.12)
-    const eligible =
+    // the continue-offer modal and the standard loss-reward modal.
+    //
+    // The continue-offer is shown when EITHER:
+    //   • the ad path is eligible — "broke" deaths only (a splash drops
+    //     the player over open water and the ad SDK still has the same
+    //     15s cooldown gate it always did), OR
+    //   • the coin-revive path is eligible — player has ≥ REVIVE_COIN_COST
+    //     coins. Available for BOTH death types so late-game players
+    //     have something to spend their stockpile on. Coin cooldown is
+    //     implicit (the cost is a natural throttle).
+    playSound(lossReason.value === 'splashed' ? 'water-splash' : 'chainsaw-break', 0.12)
+    const adEligible =
       lossReason.value === 'broke'
       && isRewardedReady.value
       && (Date.now() - lastContinueOfferAt) >= CONTINUE_AD_COOLDOWN_MS
-    if (eligible) {
+    const coinEligible = coinTotal.value >= REVIVE_COIN_COST
+    if (adEligible || coinEligible) {
       showContinueOffer.value = true
     } else {
       showReward.value = true
@@ -485,6 +530,9 @@ watch(stageReinitSignal, () => {
 })
 
 const onContinue = async () => {
+  // Soft confirmation chime — fires once when the player accepts the
+  // reward CTA (tap / click / Space / Enter on the FReward overlay).
+  playSound('reward-continue', 0.08)
   showReward.value = false
   // Interstitial cadence is now driven from `beginPlay` at attempt start
   // (every 3rd attempt, in its own `ad_break` phase) — this handler just
@@ -525,6 +573,41 @@ const onSkipContinueAd = () => {
   // Stamp the cooldown so the player isn't re-prompted instantly if they
   // die again within 15s of an explicit skip.
   lastContinueOfferAt = Date.now()
+  showContinueOffer.value = false
+  showReward.value = true
+}
+
+// ─── Coin-revive (fair alternative to a rewarded ad) ────────────────────
+// Spendable revive for late-game players sitting on a coin stockpile.
+// Works for BOTH death types — including the previously-fatal splash —
+// because `continueAfterDeath()` now puts the anchor back on the last
+// safe island when reviving from a splash. Cost is sized to feel
+// meaningful even after maxed upgrades but well within reach of anyone
+// who's bought everything that matters.
+const REVIVE_COIN_COST = 1000
+
+/** Per-death eligibility flags surfaced to the template so each button
+ *  can render its own visible/disabled state. */
+const continueAdAvailable = computed(() =>
+  lossReason.value === 'broke'
+  && isRewardedReady.value
+  && (Date.now() - lastContinueOfferAt) >= CONTINUE_AD_COOLDOWN_MS
+)
+const continueCoinAvailable = computed(() => coinTotal.value >= REVIVE_COIN_COST)
+
+const onAcceptContinueCoins = () => {
+  if (isAdInFlight.value) return
+  if (!continueCoinAvailable.value) return
+  if (!spendCoins(REVIVE_COIN_COST)) return
+  const resumed = continueAfterDeath()
+  if (resumed) {
+    showContinueOffer.value = false
+    startBattleMusic()
+    return
+  }
+  // continueAfterDeath rejected (state mismatch) — refund the coins so
+  // the player isn't penalised for an engine-side bail.
+  addCoins(REVIVE_COIN_COST)
   showContinueOffer.value = false
   showReward.value = true
 }
@@ -1084,11 +1167,25 @@ const showStartHint = computed(() =>
         )
           div.font-black.uppercase.tracking-wider.game-text.text-yellow-300(class="text-2xl sm:text-3xl") {{ t('maw.continueOfferTitle') }}
           div.text-white.game-text.text-center.opacity-80(class="text-sm sm:text-base") {{ t('maw.continueOfferBody') }}
+          //- Watch-ad path — only offered for broke deaths and only
+          //- when the rewarded SDK is ready + the 15s cooldown has
+          //- elapsed (eligibility computed by `continueAdAvailable`).
           button.cursor-pointer.transition-transform(
+            v-if="continueAdAvailable"
             class="w-full px-4 py-2 rounded-lg bg-gradient-to-b from-emerald-400 to-emerald-700 border-2 border-emerald-200 text-white font-black uppercase game-text hover:scale-[103%] active:scale-95 disabled:opacity-50 disabled:cursor-wait"
             :disabled="isAdInFlight"
             @click="onAcceptContinueAd"
           ) ▶ {{ t('maw.watchAdAndContinue') }}
+          //- Coin-revive path — available for BOTH death types. Splash
+          //- deaths use the pre-splash safe anchor in `continueAfterDeath`.
+          button.cursor-pointer.transition-transform.flex.items-center.justify-center.gap-2(
+            v-if="continueCoinAvailable"
+            class="w-full px-4 py-2 rounded-lg bg-gradient-to-b from-amber-400 to-amber-700 border-2 border-amber-200 text-white font-black uppercase game-text hover:scale-[103%] active:scale-95 disabled:opacity-50 disabled:cursor-wait"
+            :disabled="isAdInFlight"
+            @click="onAcceptContinueCoins"
+          )
+            IconCoin(class="w-5 h-5")
+            span Continue · {{ REVIVE_COIN_COST }}
           button.cursor-pointer.transition-transform(
             class="w-full px-4 py-2 rounded-lg bg-slate-700 border-2 border-slate-500 text-white font-bold uppercase game-text hover:scale-[103%] active:scale-95 disabled:opacity-50"
             :disabled="isAdInFlight"
@@ -1162,7 +1259,7 @@ const showStartHint = computed(() =>
       :restrict-to-id="forceSawUpgradeOnly ? 'sawDamage' : null"
     )
 
-    //- MAW-A-HERO end-of-campaign reward. Replaces the normal win-FReward
+    //- MOW-A-HERO end-of-campaign reward. Replaces the normal win-FReward
     //- when the player finishes stage 20. Click / Space / Enter or the
     //- explicit button start the campaign over from stage 1 (upgrades
     //- and coins are untouched).
@@ -1172,13 +1269,13 @@ const showStartHint = computed(() =>
       @continue="onRestartCampaign"
     )
       template(#ribbon)
-        span.text-white.font-black.uppercase.italic.game-text(class="sm:text-2xl") MAW-A-HERO
+        span.text-white.font-black.uppercase.italic.game-text(class="sm:text-2xl") MOW-A-HERO
       div.hero-reward.flex.flex-col.items-center.gap-4.text-center
         div.font-black.uppercase.tracking-wider.game-text.text-yellow-300(class="text-3xl sm:text-5xl")
           | Congratulations!
         div.text-white.game-text(class="text-base sm:text-lg max-w-md leading-snug")
           | You have completed every course and are a true
-          span.text-yellow-300.font-black  MAW-A-HERO
+          span.text-yellow-300.font-black  MOW-A-HERO
           | .
           br
           | Your name will enter the Hall of Fame.
@@ -1211,7 +1308,7 @@ const showStartHint = computed(() =>
   line-height: 1.15
   text-shadow: 1px 1px 0 #000
 
-// MAW-A-HERO end-of-campaign reward — fancier than the per-stage win
+// MOW-A-HERO end-of-campaign reward — fancier than the per-stage win
 // modal so the player feels the moment.
 .hero-reward
   padding: 0 1rem

@@ -2,8 +2,26 @@ import { defineConfig } from 'vitest/config'
 import vue from '@vitejs/plugin-vue'
 import path from 'path'
 
+// Stub for the `virtual:campaign-overrides` module that the production
+// build provides via the `mawCampaignOverridesPlugin` in vite.config.ts.
+// Tests don't run through that plugin, so any module that statically
+// imports the virtual id (e.g. `useCustomStages.ts`) blows up at resolve
+// time. This minimal plugin returns an empty overrides object — tests
+// don't need real editor overrides.
+const stubCampaignOverridesPlugin = () => ({
+  name: 'stub-campaign-overrides',
+  resolveId(id: string) {
+    if (id === 'virtual:campaign-overrides') return '\0virtual:campaign-overrides'
+    return null
+  },
+  load(id: string) {
+    if (id === '\0virtual:campaign-overrides') return 'export default {}'
+    return null
+  }
+})
+
 export default defineConfig({
-  plugins: [vue()],
+  plugins: [vue(), stubCampaignOverridesPlugin()],
   // Vite's production config (`vite.config.ts`) injects `APP_VERSION` at
   // build time via `define`. Vitest doesn't run that plugin, so any
   // module that reads `APP_VERSION` at import time (e.g. `useUser.ts`)

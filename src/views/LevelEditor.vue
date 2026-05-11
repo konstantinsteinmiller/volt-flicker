@@ -2,7 +2,7 @@
 import { ref, computed, onMounted, onUnmounted, watch, type Ref } from 'vue'
 import { useRouter } from 'vue-router'
 import type { MawStage, MawIsland, Obstacle, MovementSpec } from '@/use/useMawCampaign'
-import { STAGES } from '@/use/useMawCampaign'
+import { loadAllStages } from '@/use/useMawCampaign'
 import { pointInIsland, islandPolygonWorld } from '@/use/useIslandShapes'
 import {
   customStages,
@@ -735,7 +735,7 @@ const onImportCampaign = () => {
   const key = campaignName.value
   if (!key) return
   const idStr = key.split(':')[0]!
-  const stage = STAGES.find(s => String(s.id) === idStr)
+  const stage = campaignStages.value.find(s => String(s.id) === idStr)
   if (!stage) return
   // If this slot already has an override, load that instead so the editor
   // shows what currently plays in-game rather than the procedural baseline.
@@ -897,11 +897,20 @@ const renderLoop = () => {
   raf = requestAnimationFrame(renderLoop)
 }
 
+// Campaign stages are built lazily — the editor needs all 20 to populate
+// the Import / Overwrite dropdowns. `loadAllStages()` resolves a list of
+// every built stage; the local `campaignStages` ref drives the computed
+// lists below. While the load is in flight the dropdowns just stay empty.
+const campaignStages: Ref<MawStage[]> = ref([])
+
 onMounted(() => {
   updateCanvasSize()
   window.addEventListener('resize', updateCanvasSize)
   window.addEventListener('keydown', onKeyDown)
   raf = requestAnimationFrame(renderLoop)
+  void loadAllStages().then(stages => {
+    campaignStages.value = stages
+  })
 })
 
 onUnmounted(() => {
@@ -937,13 +946,13 @@ const selectedSlotHasOverride = computed(() => {
   return typeof id === 'number' && Boolean(campaignOverrides.value[id])
 })
 const campaignList = computed(() =>
-  STAGES.map(s => {
+  campaignStages.value.map(s => {
     const overridden = campaignOverrides.value[s.id] ? ' ✎' : ''
     return { key: `${s.id}:${s.name}`, label: `${s.id} — ${s.name}${s.isBoss ? ' (boss)' : ''}${overridden}` }
   })
 )
 const campaignSlotOptions = computed(() =>
-  STAGES.map(s => ({
+  campaignStages.value.map(s => ({
     id: s.id,
     label: `Stage ${s.id} — ${s.name}${campaignOverrides.value[s.id] ? ' ✎' : ''}`
   }))

@@ -156,7 +156,9 @@ watch(done, (isDone) => {
   inset: 0
   z-index: 150
   background-color: #0d2a18
-  background-image: radial-gradient(circle at 30% 20%, #1c4a2c 0%, #0d2a18 70%)
+  background-image: url('/images/bg/bg-tile_400x400.webp')
+  background-repeat: repeat
+  background-size: 400px 400px
 
 .splash-fade-leave-active
   transition: opacity 0.4s ease-out

@@ -16,6 +16,15 @@ export const resourceCache = {
 
 let sharedAudioCtx: AudioContext | null = null
 let resumeListenerArmed = false
+let visibilityListenerArmed = false
+/** Counts every active reason the audio layer should be globally
+ *  silent (tab hidden, rewarded ad mid-show, interstitial mid-show).
+ *  Each `suspendAllAudio()` increments, each `resumeAllAudio()`
+ *  decrements; the AudioContext only resumes when the counter hits 0.
+ *  This stops a "rewarded-ad finishes while the tab is hidden" race
+ *  from accidentally re-unmuting the game underneath the backgrounded
+ *  tab. */
+let suspendDepth = 0
 
 export const getAudioContext = (): AudioContext | null => {
   if (sharedAudioCtx) return sharedAudioCtx
@@ -27,6 +36,7 @@ export const getAudioContext = (): AudioContext | null => {
     return null
   }
   armResumeOnGesture()
+  armVisibilitySuspend()
   return sharedAudioCtx
 }
 
@@ -34,12 +44,75 @@ const armResumeOnGesture = (): void => {
   if (resumeListenerArmed) return
   resumeListenerArmed = true
   const resume = () => {
-    if (sharedAudioCtx && sharedAudioCtx.state === 'suspended') {
+    if (sharedAudioCtx && sharedAudioCtx.state === 'suspended' && suspendDepth === 0) {
       void sharedAudioCtx.resume()
     }
   }
   window.addEventListener('pointerdown', resume, { once: true })
   window.addEventListener('keydown', resume, { once: true })
+}
+
+/** Bookkeeping for HTMLAudio elements (music, fallback SFX path) so
+ *  the suspend/resume helpers can pause + restart them alongside the
+ *  Web Audio context. Loops register on creation in useSound. */
+const trackedAudioElements = new Set<HTMLAudioElement>()
+const pausedByGlobalSuspend = new WeakSet<HTMLAudioElement>()
+
+export const registerHtmlAudio = (el: HTMLAudioElement) => {
+  trackedAudioElements.add(el)
+}
+export const unregisterHtmlAudio = (el: HTMLAudioElement) => {
+  trackedAudioElements.delete(el)
+  pausedByGlobalSuspend.delete(el)
+}
+
+/** Suspend all engine audio — Web Audio context goes to `suspended`
+ *  and any registered HTMLAudio element is paused (and remembered so a
+ *  later resume can restart only the ones we actually paused). Stacks:
+ *  multiple `suspendAllAudio()` calls require matching `resume` calls
+ *  before audio plays again. */
+export const suspendAllAudio = (): void => {
+  suspendDepth += 1
+  if (sharedAudioCtx && sharedAudioCtx.state === 'running') {
+    void sharedAudioCtx.suspend()
+  }
+  for (const el of trackedAudioElements) {
+    if (!el.paused) {
+      pausedByGlobalSuspend.add(el)
+      try { el.pause() } catch { /* ignore */ }
+    }
+  }
+}
+
+export const resumeAllAudio = (): void => {
+  suspendDepth = Math.max(0, suspendDepth - 1)
+  if (suspendDepth > 0) return
+  if (sharedAudioCtx && sharedAudioCtx.state === 'suspended') {
+    void sharedAudioCtx.resume()
+  }
+  for (const el of trackedAudioElements) {
+    if (pausedByGlobalSuspend.has(el)) {
+      pausedByGlobalSuspend.delete(el)
+      void el.play().catch(() => { /* autoplay blocked / element gone */ })
+    }
+  }
+}
+
+const armVisibilitySuspend = (): void => {
+  if (visibilityListenerArmed) return
+  visibilityListenerArmed = true
+  if (typeof document === 'undefined') return
+  let visibilityHidden = false
+  document.addEventListener('visibilitychange', () => {
+    const hidden = document.visibilityState === 'hidden'
+    if (hidden && !visibilityHidden) {
+      visibilityHidden = true
+      suspendAllAudio()
+    } else if (!hidden && visibilityHidden) {
+      visibilityHidden = false
+      resumeAllAudio()
+    }
+  })
 }
 
 export const getCachedImage = (src: string): HTMLImageElement => {
@@ -117,10 +190,30 @@ export default () => {
   const preloadAssets = async (): Promise<void> => {
     loadingProgress.value = 0
     areAllAssetsLoaded.value = false
+    // Stage build runs in parallel with the critical-image decode.
+    // Without this, the splash hides as soon as the bitmaps land but the
+    // first frame still has to wait on the procedural stage build, which
+    // can spike ~30-80 ms on mid-tier mobile. We block on the stage the
+    // player will actually see — `currentStageId` (saved progress, may be
+    // 1 for first-timers or N for resumes).
+    //
+    // The dynamic import keeps the gameplay-code chunk off the entry
+    // bundle. The shared chunk that contains useMawCampaign / useMawArt /
+    // useMawGame loads in PARALLEL with the static splash render — so the
+    // player sees the bg-tile and animated logo immediately while the
+    // gameplay bytes stream in. `useStageBuilder` is a second-level lazy
+    // chunk (dynamic-imported by `useMawCampaign.ensureStage`) so the
+    // procedural build code is its own ~10 kB chunk.
+    const stageTask = (async () => {
+      const campaign = await import('@/use/useMawCampaign')
+      const { currentStageId } = campaign.default()
+      await campaign.ensureStage(currentStageId.value)
+    })()
     // Kick decoding in parallel; resolve when every critical sprite is
     // ready. `Promise.allSettled` swallows individual asset errors so a
     // 404 on one bitmap doesn't strand the splash screen.
-    const tasks = CRITICAL_IMAGE_SRCS.map(decodeImage)
+    const imageTasks = CRITICAL_IMAGE_SRCS.map(decodeImage)
+    const tasks: Promise<unknown>[] = [...imageTasks, stageTask]
     let done = 0
     for (const task of tasks) {
       task.then(() => {

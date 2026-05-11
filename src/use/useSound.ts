@@ -1,6 +1,6 @@
 import { prependBaseUrl } from '@/utils/function'
 import useUser from '@/use/useUser'
-import { getAudioContext, loadAudioBuffer, resourceCache } from '@/use/useAssets'
+import { getAudioContext, loadAudioBuffer, resourceCache, registerHtmlAudio, unregisterHtmlAudio } from '@/use/useAssets'
 
 import { ref, onMounted, watch, onUnmounted } from 'vue'
 
@@ -42,8 +42,12 @@ export const useMusic = () => {
       audio.volume = 0
       audio.preload = 'auto'
       bgMusic.value = audio
+      // Register with the global suspend/resume registry so tab-hide
+      // and ad-show both halt the music track and resume it after.
+      registerHtmlAudio(audio)
     })
     onUnmounted(() => {
+      if (bgMusic.value) unregisterHtmlAudio(bgMusic.value)
       bgMusic.value?.pause()
       bgMusic.value?.removeAttribute('src')
       bgMusic.value = null
@@ -180,6 +184,14 @@ export type SoundHandle = Pick<
   'addEventListener' | 'removeEventListener'
 >
 
+/** Handle returned by `playLoop`. Persistent looping voices (chain whir,
+ *  ambient drones) live for the duration of a play state — the caller
+ *  is responsible for `stop()` when the state changes. */
+export interface LoopHandle {
+  stop: () => void
+  setVolume: (ratio: number) => void
+}
+
 const makeWebAudioHandle = (source: AudioBufferSourceNode): SoundHandle => {
   // AudioBufferSourceNode is already an EventTarget and fires 'ended' when
   // playback finishes or stop() is called. We just need to ignore 'error'
@@ -205,11 +217,13 @@ const useSounds = () => {
   const playViaWebAudio = (
     ctx: AudioContext,
     buffer: AudioBuffer,
-    ratio: number
+    ratio: number,
+    pitch: number
   ): SoundHandle | null => {
     try {
       const source = ctx.createBufferSource()
       source.buffer = buffer
+      if (pitch !== 1) source.playbackRate.value = pitch
       const gain = ctx.createGain()
       gain.gain.value = clampVolume(ratio)
       source.connect(gain).connect(ctx.destination)
@@ -239,14 +253,14 @@ const useSounds = () => {
     return audio
   }
 
-  const playSound = (effect: string, ratio = 0.025): SoundHandle | null => {
+  const playSound = (effect: string, ratio = 0.025, pitch = 1): SoundHandle | null => {
     const src = prependBaseUrl(`audio/sfx/${effect}.ogg`)
 
     // Fast path: preloaded AudioBuffer + Web Audio.
     const buffer = resourceCache.audioBuffers.get(src)
     const ctx = getAudioContext()
     if (ctx && buffer) {
-      return playViaWebAudio(ctx, buffer, ratio)
+      return playViaWebAudio(ctx, buffer, ratio, pitch)
     }
 
     // Slow path: Web Audio available but buffer not yet decoded. Kick off
@@ -257,11 +271,83 @@ const useSounds = () => {
     }
 
     // Fallback: HTMLAudio (also used when Web Audio is unavailable).
+    // Pitch is ignored here — HTMLAudio's playbackRate works but the
+    // fallback path is intentionally bare-bones, and any modern browser
+    // that hits it isn't sweating a fixed-pitch SFX.
     return playViaHtmlAudio(src, ratio)
   }
 
+  /** Random-variant helper — fires one of `prefix-1` … `prefix-count`
+   *  with a small per-call pitch jitter so a rapid burst (e.g. mowing a
+   *  whole grass cluster) doesn't sound like a machine gun. */
+  const playRandomVariant = (
+    prefix: string,
+    count: number,
+    ratio = 0.04,
+    pitchJitter = 0.08
+  ): SoundHandle | null => {
+    if (count < 1) return null
+    const idx = 1 + Math.floor(Math.random() * count)
+    const pitch = 1 + (Math.random() - 0.5) * pitchJitter * 2
+    return playSound(`${prefix}-${idx}`, ratio, pitch)
+  }
+
+  /** Start a looping sample. Returns a handle whose `.stop()` ends the
+   *  voice and `.setVolume()` retunes its gain. `playSound` plays one-
+   *  shots; this is for chain-saw whirs, ambient drones, anything that
+   *  should pulse for the duration of a state. */
+  const playLoop = (effect: string, ratio = 0.025): LoopHandle | null => {
+    const src = prependBaseUrl(`audio/sfx/${effect}.ogg`)
+    const ctx = getAudioContext()
+    if (!ctx) return null
+    let source: AudioBufferSourceNode | null = null
+    let gain: GainNode | null = null
+    let stopped = false
+    const begin = (buffer: AudioBuffer) => {
+      if (stopped) return
+      try {
+        source = ctx.createBufferSource()
+        source.buffer = buffer
+        source.loop = true
+        gain = ctx.createGain()
+        gain.gain.value = clampVolume(ratio)
+        source.connect(gain).connect(ctx.destination)
+        source.start()
+      } catch (e) {
+        console.warn('[sfx] loop start failed', e)
+      }
+    }
+    const buffer = resourceCache.audioBuffers.get(src)
+    if (buffer) {
+      begin(buffer)
+    } else {
+      // Defer until decoded. If the user stops the loop before decode
+      // resolves, `stopped` short-circuits inside `begin`.
+      void loadAudioBuffer(src).then(b => { if (b) begin(b) })
+    }
+    return {
+      stop: () => {
+        stopped = true
+        if (source) {
+          try { source.stop() } catch { /* already stopped */ }
+          try { source.disconnect() } catch { /* no-op */ }
+          source = null
+        }
+        if (gain) {
+          try { gain.disconnect() } catch { /* no-op */ }
+          gain = null
+        }
+      },
+      setVolume: (r: number) => {
+        if (gain) gain.gain.value = clampVolume(r)
+      }
+    }
+  }
+
   return {
-    playSound
+    playSound,
+    playRandomVariant,
+    playLoop
   }
 }
 

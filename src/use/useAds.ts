@@ -23,6 +23,7 @@ import { isCrazyWeb, isWaveDash, isItch, isGlitch, isGameDistribution, isNative,
 import type { AdProvider } from './ads/types'
 import { resolveAdProvider } from '@/platforms/resolveAdProvider'
 import { isRewardedThrottled, recordRewardedGranted } from '@/use/useRewardedThrottle'
+import { suspendAllAudio, resumeAllAudio } from '@/use/useAssets'
 
 const provider: AdProvider = resolveAdProvider({
   flags: { isCrazyWeb, isWaveDash, isItch, isGlitch, isGameDistribution },
@@ -77,16 +78,31 @@ export const showRewardedAd = async (): Promise<boolean> => {
   // already hidden via `isRewardedReady`, so this branch only fires
   // if a placement somehow bypassed that check.
   if (isRewardedThrottled.value) return false
-  const granted = await provider.showRewardedAd()
-  if (granted) {
-    recordRewardedGranted()
-  } else if (provider.isAdsBlocked.value) {
-    isAdsBlockedModalShown.value = true
+  // Mute the game while the ad plays. `try/finally` so a thrown
+  // SDK error can't strand the engine in a permanent suspended
+  // state — the resume always runs.
+  suspendAllAudio()
+  try {
+    const granted = await provider.showRewardedAd()
+    if (granted) {
+      recordRewardedGranted()
+    } else if (provider.isAdsBlocked.value) {
+      isAdsBlockedModalShown.value = true
+    }
+    return granted
+  } finally {
+    resumeAllAudio()
   }
-  return granted
 }
 
-export const showMidgameAd = (): Promise<void> => provider.showMidgameAd()
+export const showMidgameAd = async (): Promise<void> => {
+  suspendAllAudio()
+  try {
+    await provider.showMidgameAd()
+  } finally {
+    resumeAllAudio()
+  }
+}
 
 const useAds = () => ({
   adProviderName,

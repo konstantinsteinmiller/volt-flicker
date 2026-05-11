@@ -23,7 +23,18 @@
       "Bash(cp -r \"C:\\\\Users\\\\konst\\\\chaos-arena\\\\tests\\\\save\" \"C:\\\\Users\\\\konst\\\\Documents\\\\__p\\\\maw-it-down\\\\tests\\\\save\")",
       "Bash(cp -r \"C:\\\\Users\\\\konst\\\\chaos-arena\\\\tests\\\\platforms\" \"C:\\\\Users\\\\konst\\\\Documents\\\\__p\\\\maw-it-down\\\\tests\\\\platforms\")",
       "Bash(cp \"C:\\\\Users\\\\konst\\\\chaos-arena\\\\tests\\\\keys.test.ts\" \"C:\\\\Users\\\\konst\\\\Documents\\\\__p\\\\maw-it-down\\\\tests\\\\keys.test.ts\")",
-      "Bash(pnpm vitest *)"
+      "Bash(pnpm vitest *)",
+      "PowerShell(npx vue-tsc --noEmit 2>&1 | Select-Object -First 100)",
+      "PowerShell(npx vue-tsc --noEmit 2>&1 | Select-Object -First 80)",
+      "PowerShell(npx vitest run tests/useMawCampaign.test.ts 2>&1 | Select-Object -Last 40)",
+      "PowerShell(npx vitest run tests/useMawCampaign.test.ts 2>&1 | Select-Object -Last 30)",
+      "PowerShell(npx vitest run tests/useMawCampaign.test.ts 2>&1 | Select-Object -Last 15)",
+      "PowerShell(npx vitest run 2>&1 | Select-Object -Last 20)",
+      "PowerShell(npx vitest run tests/useMawGame.test.ts 2>&1 | Select-Object -Last 80)",
+      "PowerShell(npx vue-tsc --noEmit 2>&1 | Select-Object -First 30)",
+      "PowerShell(npx vite build 2>&1 | Select-Object -Last 60)",
+      "PowerShell(npx vite build 2>&1 | Select-Object -Last 30)",
+      "PowerShell(npx vite build 2>&1 | Select-Object -Last 25)"
     ]
   }
 }

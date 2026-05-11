@@ -1,6 +1,6 @@
 import { onMounted, onUnmounted, ref } from 'vue'
 import useMawConfig from '@/use/useMawConfig'
-import useMawCampaign, { STAGES } from '@/use/useMawCampaign'
+import useMawCampaign, { STAGE_COUNT, STAGE_NAMES } from '@/use/useMawCampaign'
 import { setState } from '@/use/useMawState'
 import { toggleDebug } from '@/use/useMatch'
 
@@ -49,8 +49,8 @@ const useCheats = () => {
   const { addCoins } = useMawConfig()
 
   const setStage = (stageId: number) => {
-    if (stageId < 1 || stageId > STAGES.length) {
-      console.warn(`[CHEAT] Invalid stage ${stageId}. Must be 1-${STAGES.length}.`)
+    if (stageId < 1 || stageId > STAGE_COUNT) {
+      console.warn(`[CHEAT] Invalid stage ${stageId}. Must be 1-${STAGE_COUNT}.`)
       return
     }
     // Route through `setStageId` so both the persisted save AND the
@@ -60,7 +60,7 @@ const useCheats = () => {
     // stage transition.
     const { setStageId } = useMawCampaign()
     setStageId(stageId)
-    console.warn(`[CHEAT] Stage set to ${stageId} (${STAGES[stageId - 1]?.name}).`)
+    console.warn(`[CHEAT] Stage set to ${stageId} (${STAGE_NAMES[stageId - 1]}).`)
   }
 
   const cheatsMap: Record<string, () => void> = {

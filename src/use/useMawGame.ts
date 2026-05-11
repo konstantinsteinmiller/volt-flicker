@@ -9,6 +9,7 @@ import {
   ghostRunReset,
   liveRunStartMs
 } from '@/use/useMawGhost'
+import useSounds from '@/use/useSound'
 import useMawConfig from '@/use/useMawConfig'
 import { useScreenshake } from '@/use/useScreenshake'
 import { spawnCoinExplosion } from '@/use/useCoinExplosion'
@@ -72,6 +73,31 @@ const useMawGame = () => {
   const { currentStage, currentStageId, advanceStage, stageReinitSignal } = useMawCampaign()
   const { addCoins } = useMawConfig()
   const { recordMetric } = useMawProgress()
+  const { playSound, playRandomVariant } = useSounds()
+  // Grass-cut audio throttle. Hundreds of blades can fall in a single
+  // chain sweep, and without rate-limiting the SFX layer melts into a
+  // wash of clicks. Two gates work together:
+  //   • a 30 ms minimum interval between consecutive cut-sound starts —
+  //     so even the densest mow can't trigger more than ~33 voices/s
+  //   • a 4-voice ceiling on simultaneous playback, tracked via the
+  //     `ended` event on each returned SoundHandle
+  // A new voice is only spawned when BOTH gates are open.
+  const GRASS_CUT_MIN_INTERVAL_MS = 30
+  const GRASS_CUT_MAX_VOICES = 4
+  let lastGrassCutAt = 0
+  let activeGrassCutVoices = 0
+  const tryPlayGrassCut = () => {
+    const now = performance.now()
+    if (now - lastGrassCutAt < GRASS_CUT_MIN_INTERVAL_MS) return
+    if (activeGrassCutVoices >= GRASS_CUT_MAX_VOICES) return
+    const handle = playRandomVariant('grass-cut', 3, 0.05, 0.08)
+    if (!handle) return
+    lastGrassCutAt = now
+    activeGrassCutVoices += 1
+    handle.addEventListener('ended', () => {
+      activeGrassCutVoices = Math.max(0, activeGrassCutVoices - 1)
+    })
+  }
   const { triggerShake } = useScreenshake()
   const { awardAttempt, awardCampaignWin } = useBattlePass()
 
@@ -356,6 +382,11 @@ const useMawGame = () => {
           isle.aliveGrass.delete(idx)
           cleared.value += 1
           recordMetric('totalGrass', 1)
+          // Random `grass-cut-{1,2,3}` with ±8 % pitch jitter so a wide
+          // sweep doesn't sound like one note retriggering. The throttle
+          // (30 ms min interval, 4 simultaneous voice ceiling) lives
+          // inside `tryPlayGrassCut`.
+          tryPlayGrassCut()
           if (Math.random() < COIN_DROP_CHANCE) {
             coins.value.push({
               x: gx, y: gy, t: 0,
@@ -427,6 +458,7 @@ const useMawGame = () => {
               isle.obstacles.splice(i, 1)
               cleared.value += 1
               recordMetric('crystalsDestroyed', 1)
+              playSound('crystal-cut', 0.08)
               triggerShake('small')
               spawnCoinBurst(ob.x, ob.y, 30)
               continue
@@ -437,6 +469,7 @@ const useMawGame = () => {
             if (sawTier.value >= 1) {
               isle.obstacles.splice(i, 1)
               recordMetric('stumpsDestroyed', 1)
+              playSound('wood-cut', 0.08)
               triggerShake('small')
               spawnCoinBurst(ob.x, ob.y, 10)
               continue
@@ -448,6 +481,7 @@ const useMawGame = () => {
             if (sawTier.value >= 3) {
               isle.obstacles.splice(i, 1)
               recordMetric('bouldersDestroyed', 1)
+              playSound('stone-cut', 0.08)
               triggerShake('small')
               spawnCoinBurst(ob.x, ob.y, 20)
               continue
@@ -477,6 +511,14 @@ const useMawGame = () => {
           coins.value.splice(i, 1)
           addCoins(award)
           recordMetric('totalCoins', award)
+          // Throttled coin ding — a mowing burst can land 10+ coins on
+          // the gear in a single frame, so only one ding plays per
+          // 200 ms window to keep the pickup readable.
+          const now2 = performance.now()
+          if (now2 - lastCoinPickupSoundAt >= COIN_PICKUP_MIN_INTERVAL_MS) {
+            playSound('coin-pickup', 0.06)
+            lastCoinPickupSoundAt = now2
+          }
         }
       }
     }
@@ -498,12 +540,39 @@ const useMawGame = () => {
 
   const applyDamage = (n: number) => {
     life.value = Math.max(0, life.value - n)
+    // Metallic clank whenever the chain takes damage without cutting
+    // (stumps below saw Lv 1, boulders below Lv 3, crystals below Lv 6,
+    // liberty cats below Lv 8). Skipped on the lethal hit so the
+    // `break-down-death` sound played by the loss watcher in MawScene
+    // doesn't overlap with this clank — that final tick needs its own
+    // beat to read as "you died" rather than "another bonk".
+    if (life.value > 0) playSound('obstacle-hit', 0.07)
     if (life.value === 0) {
       onLose('broke')
     }
   }
 
   // ─── Anchor swap ─────────────────────────────────────────────────────────
+
+  /** Last anchor that was confirmed on solid ground. Captured at the
+   *  moment the player splashes so the coin-revive path has somewhere
+   *  to put the robot back. Initialised to the spawn point so a
+   *  pre-first-swap splash (shouldn't be possible, but…) still resolves. */
+  const lastSafeAnchor: Ref<Vec2> = ref({ x: 0, y: 0 })
+
+  // Throttle the kachunk SFX so a rage-clicking player doesn't get a
+  // machine-gun stream — at 50 ms it caps at ~20 voices/s which is well
+  // below the engine's swap rate (most players swap 1-4× per second).
+  const ANCHOR_SWAP_MIN_INTERVAL_MS = 50
+  let lastAnchorSwapSoundAt = 0
+
+  // Coin-pickup ding throttle — magnetised coins arrive at the gear in
+  // tight bursts (one full mowing pass can drop 10+ coins inside a
+  // single frame). 200 ms between dings is short enough to feel
+  // responsive but long enough that a wide burst doesn't sound like
+  // one continuous trill.
+  const COIN_PICKUP_MIN_INTERVAL_MS = 200
+  let lastCoinPickupSoundAt = 0
 
   const swapAnchor = () => {
     if (phase.value !== 'playing') return
@@ -512,6 +581,9 @@ const useMawGame = () => {
 
     // Water death — landing the new anchor over open water kills instantly.
     if (!isOverIsland(newAnchor.x, newAnchor.y)) {
+      // Remember the pre-splash safe anchor so a coin-revive can put
+      // the robot back on the island the player was standing on.
+      lastSafeAnchor.value = prevAnchor
       anchorPos.value = newAnchor
       onLose('splashed')
       triggerShake('big')
@@ -519,6 +591,13 @@ const useMawGame = () => {
     }
 
     anchorPos.value = newAnchor
+    // Mechanical kachunk on every successful swap, throttled so a
+    // rage-clicking player can't trigger a cascade.
+    const now = performance.now()
+    if (now - lastAnchorSwapSoundAt >= ANCHOR_SWAP_MIN_INTERVAL_MS) {
+      playSound('anchor-swap', 0.06)
+      lastAnchorSwapSoundAt = now
+    }
     // Ghost-trail: stamp the swap so the next attempt can replay the
     // path. Done only for real campaign runs (test stages bypass the
     // recording entirely; see startMatch).
@@ -544,6 +623,11 @@ const useMawGame = () => {
   const onWin = () => {
     phase.value = 'game_over'
     gameResult.value = 'win'
+    // Triumphant stinger the instant the chain touches the pole. Fires
+    // BEFORE the MOW-A-HERO completion path in MawScene's phase watch
+    // takes over with its louder reward-jingle on the final stage, so
+    // the cue still lands cleanly on stages 1-19.
+    playSound('win', 0.18)
     addCoins(stage.value.rewardWin)
     recordMetric('totalCoins', stage.value.rewardWin)
     recordMetric('gamesPlayed', 1)
@@ -604,26 +688,45 @@ const useMawGame = () => {
   }
 
   /**
-   * Resurrect the player after a "broke" death (life ran out from obstacle
-   * hits). Refills life to max, bumps every obstacle's cooldown so the chain
-   * isn't insta-killed by the same stump it just died on, and flips the
-   * phase back to playing. Splash deaths can't be resumed — the anchor is
-   * over water, there's nowhere to stand.
+   * Resurrect the player from either kind of death.
    *
-   * Returns `true` when the resurrection happened, `false` if the current
-   * state isn't eligible (so the caller can decide what to do — e.g. fall
-   * through to the regular loss-reward modal).
+   *   • `'broke'` — life ran out from obstacle hits. Refills life to max
+   *     and bumps every obstacle's cooldown so the chain isn't
+   *     insta-killed by the same stump it just died on.
+   *   • `'splashed'` — the anchor landed over open water. The pre-splash
+   *     safe anchor (captured in `swapAnchor`) is restored and the
+   *     swing gear is re-seated at the chain length so the player has
+   *     somewhere to stand again.
+   *
+   * Returns `true` when the resurrection happened, `false` if the
+   * current state isn't eligible (so the caller can decide what to do —
+   * e.g. fall through to the regular loss-reward modal).
    */
   const continueAfterDeath = (): boolean => {
     if (phase.value !== 'game_over') return false
     if (gameResult.value !== 'lose') return false
-    if (lossReason.value !== 'broke') return false
-    life.value = maxLife.value
-    for (const isle of islands.value) {
-      for (const ob of isle.obstacles) {
-        const obAny = ob as Obstacle & { _cooldown?: number }
-        obAny._cooldown = 1.5
+    if (lossReason.value === 'broke') {
+      life.value = maxLife.value
+      for (const isle of islands.value) {
+        for (const ob of isle.obstacles) {
+          const obAny = ob as Obstacle & { _cooldown?: number }
+          obAny._cooldown = 1.5
+        }
       }
+    } else if (lossReason.value === 'splashed') {
+      // Teleport the anchor back to the last island the player was on,
+      // top up life (a splash is brutal — leave them with full HP so the
+      // 1000-coin / ad investment doesn't feel wasted) and re-seat the
+      // swing gear at the chain length so the orbit picks back up.
+      anchorPos.value = { ...lastSafeAnchor.value }
+      life.value = maxLife.value
+      swingAngle.value = 0
+      swingPos.value = {
+        x: anchorPos.value.x + chainLength.value,
+        y: anchorPos.value.y
+      }
+    } else {
+      return false
     }
     gameResult.value = ''
     lossReason.value = ''

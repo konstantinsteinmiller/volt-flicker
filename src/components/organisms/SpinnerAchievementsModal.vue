@@ -73,7 +73,7 @@ const onClaim = (id: string, sourceEl: EventTarget | null) => {
   const reward = claimAchievement(id)
   if (reward <= 0) return
   addCoins(reward)
-  playSound('reward-continue', 0.06)
+  playSound('level-up', 0.08)
   if (sourceEl instanceof HTMLElement && props.targetEl) {
     spawnCoinExplosion({ sourceEl, targetEl: props.targetEl })
   }

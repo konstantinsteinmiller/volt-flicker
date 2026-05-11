@@ -36,7 +36,7 @@ Goal: add tactile, satisfying juice. Soft, layered, never disturbing — every s
 
 ## End-of-campaign
 
-- **maw-a-hero** — full celebration sting (5-7 s) on the final Hall-of-Fame reward screen; layer over the existing `triggerHappytime` CG SDK call.
+- **mow-a-hero** — full celebration sting (5-7 s) on the final Hall-of-Fame reward screen; layer over the existing `triggerHappytime` CG SDK call.
 
 ## Tuning notes
 

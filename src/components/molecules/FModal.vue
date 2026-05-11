@@ -1,6 +1,8 @@
 <script setup lang="ts">
+import { watch } from 'vue'
 import FTabs, { type TabOption } from '@/components/atoms/FTabs.vue'
 import { isMobileLandscape, isMobilePortrait } from '@/use/useUser'
+import useSounds from '@/use/useSound'
 
 interface Props {
   modelValue: boolean | any
@@ -21,6 +23,15 @@ const emit = defineEmits(['update:modelValue', 'update:activeTab'])
 // and Vue warns about extraneous attrs. Opt out of auto-inherit and forward
 // $attrs explicitly onto the actual modal container below.
 defineOptions({ inheritAttrs: false })
+
+// Single audio cue every time the modal flips from closed → open.
+// Living in FModal means every consumer (Upgrades, Achievements, Daily,
+// Options, etc.) inherits it for free without each one wiring its own
+// playSound call.
+const { playSound } = useSounds()
+watch(() => props.modelValue, (open, prev) => {
+  if (open && !prev) playSound('modal-open', 0.07)
+})
 
 const close = () => {
   emit('update:modelValue', false)

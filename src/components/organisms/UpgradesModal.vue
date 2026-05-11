@@ -71,7 +71,7 @@ const onBuy = (id: string) => {
   if (!card || card.maxed || !card.affordable || card.locked) return
   if (!spendCoins(card.cost)) return
   buyUpgrade(card.id as any)
-  playSound('reward-continue', 0.06)
+  playSound('level-up', 0.08)
 }
 
 // ─── Watch-ad upgrade path ─────────────────────────────────────────────
@@ -119,7 +119,7 @@ const onWatchAdForUpgrade = async (id: string) => {
     const granted = await showRewardedAd()
     if (!granted) return
     buyUpgrade(card.id as any)
-    playSound('reward-continue', 0.06)
+    playSound('level-up', 0.08)
     // Stamp the cooldown only on a SUCCESSFUL grant — a no-fill / closed
     // ad shouldn't penalise the player. Mirrored to localStorage so a
     // refresh respects the timer.
