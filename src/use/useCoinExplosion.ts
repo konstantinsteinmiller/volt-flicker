@@ -5,12 +5,11 @@
  * element (typically the CoinBadge in the HUD).
  */
 
-const COIN_SVG =
-  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" style="width:20px;height:20px">' +
-  '<circle cx="12" cy="12" r="11" fill="black"/>' +
-  '<circle cx="12" cy="12" r="10" fill="#fde047"/>' +
-  '<text x="12" y="18" text-anchor="middle" font-size="16" font-weight="bold" fill="#2f920e">$</text>' +
-  '</svg>'
+// Bitmap coin sprite — same 20×20 footprint as the previous SVG so the
+// burst geometry and badge fly-in math don't change.
+const COIN_HTML =
+  '<img src="/images/props/coin_128x128.webp" alt="" draggable="false" ' +
+  'style="width:20px;height:20px;display:block;user-select:none;" />'
 
 export interface CoinExplosionOptions {
   /** Element the coins burst out of. */
@@ -39,7 +38,7 @@ export function spawnCoinExplosion(opts: CoinExplosionOptions) {
 
   for (let i = 0; i < count; i++) {
     const el = document.createElement('div')
-    el.innerHTML = COIN_SVG
+    el.innerHTML = COIN_HTML
     el.style.cssText =
       'position:absolute;left:0;top:0;pointer-events:none;z-index:100;will-change:transform,opacity;'
     el.style.transform = `translate(${cx - 10}px,${cy - 10}px)`

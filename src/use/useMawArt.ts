@@ -174,15 +174,26 @@ const VARIANT_SCALES: readonly number[] = [0.88, 1.0, 1.08, 0.95]
 
 const grassAtlases = new Map<StageBiome, HTMLCanvasElement>()
 
-/** Forest / rocky / boss biomes paint the same green-tuft bitmap (still
- *  baked through the sway atlas so each blade pulses with the wind).
- *  Wheat and flower keep their distinct procedural look. */
-const GRASS_BITMAP_SRC = '/images/props/blades-of-grass_128x128.webp'
-const isBitmapGrassBiome = (b: StageBiome) => b !== 'wheat' && b !== 'flower'
-let grassBitmap: HTMLImageElement | null = null
-const getGrassBitmap = (): HTMLImageElement => {
-  if (!grassBitmap) grassBitmap = getCachedImage(GRASS_BITMAP_SRC)
-  return grassBitmap
+/** Per-biome grass-tuft bitmap. Forest / rocky / boss share the green
+ *  blades tuft; wheat gets the golden ears; flower gets the reed/cattail
+ *  tuft. Each bitmap is anchored at its base-centre — the stems converge
+ *  near (image_w / 2, image_h * 0.86) in all three sources, so the sway
+ *  atlas can use one shared anchor offset. */
+const GRASS_BITMAP_SRCS: Record<StageBiome, string> = {
+  forest: '/images/props/blades-of-grass_128x128.webp',
+  rocky: '/images/props/blades-of-grass_128x128.webp',
+  boss: '/images/props/blades-of-grass_128x128.webp',
+  wheat: '/images/props/wheat_128x128.webp',
+  flower: '/images/props/reed_128x128.webp'
+}
+const grassBitmaps = new Map<StageBiome, HTMLImageElement>()
+const getGrassBitmap = (biome: StageBiome): HTMLImageElement => {
+  let img = grassBitmaps.get(biome)
+  if (!img) {
+    img = getCachedImage(GRASS_BITMAP_SRCS[biome])
+    grassBitmaps.set(biome, img)
+  }
+  return img
 }
 
 const drawBladeIntoAtlas = (
@@ -196,58 +207,18 @@ const drawBladeIntoAtlas = (
   ctx.save()
   ctx.translate(ox + GRASS_ANCHOR_X, oy + GRASS_ANCHOR_Y)
   ctx.scale(VARIANT_SCALES[variant]!, VARIANT_SCALES[variant]!)
-  const colors = biomeColors(biome)
-  if (biome === 'wheat') {
-    ctx.fillStyle = colors.grassLight
-    ctx.strokeStyle = '#5a3a14'
-    ctx.lineWidth = 1.2
-    ctx.beginPath()
-    ctx.moveTo(0, 8)
-    ctx.lineTo(sway, -4)
-    ctx.lineTo(sway + 2, -10)
-    ctx.lineTo(sway - 2, -10)
-    ctx.lineTo(sway, -4)
-    ctx.stroke()
-    ctx.beginPath()
-    ctx.ellipse(sway, -12, 3, 5, 0, 0, TWO_PI)
-    ctx.fill()
-  } else if (biome === 'flower') {
-    ctx.fillStyle = colors.grassDark
-    ctx.beginPath()
-    ctx.moveTo(0, 6)
-    ctx.lineTo(sway, -4)
-    ctx.lineTo(sway + 1, -4)
-    ctx.lineTo(1, 6)
-    ctx.fill()
-    // Per-variant petal hue — atlas can only cache deterministic colours,
-    // so the previous per-blade `seed * 73 % 360` collapses to one of
-    // four fixed hues across the field.
-    const hueSeed = (variant * 73) % 360
-    ctx.fillStyle = `hsl(${hueSeed}, 80%, 65%)`
-    for (let i = 0; i < 5; i++) {
-      const a = (i / 5) * TWO_PI
-      ctx.beginPath()
-      ctx.ellipse(sway + Math.cos(a) * 3, -6 + Math.sin(a) * 3, 2.4, 2.4, 0, 0, TWO_PI)
-      ctx.fill()
-    }
-    ctx.fillStyle = '#ffd55a'
-    ctx.beginPath()
-    ctx.arc(sway, -6, 1.5, 0, TWO_PI)
-    ctx.fill()
-  } else {
-    // Forest / rocky / boss — bitmap tuft. The blade root in the source
-    // sits at (~64, ~110) of the 128² image; we display a 28×28 patch in
-    // cell-space (visually equivalent to the previous procedural blade)
-    // and rotate around the root by `sway * 0.07` rad to fake the wind.
-    const img = getGrassBitmap()
-    if (img.complete && img.naturalWidth > 0) {
-      const w = 28
-      const h = 28
-      const rootX = w * 0.5
-      const rootY = h * (110 / 128)
-      ctx.rotate(sway * 0.07)
-      ctx.drawImage(img, -rootX, -rootY, w, h)
-    }
+  // The tuft's base in each source bitmap sits at ~(64, 110) of 128² —
+  // we display a 28×28 patch in cell-space (visually equivalent to the
+  // previous procedural blade) and rotate around the root by sway·0.07
+  // rad to fake the wind without baking N rotated copies.
+  const img = getGrassBitmap(biome)
+  if (img.complete && img.naturalWidth > 0) {
+    const w = 28
+    const h = 28
+    const rootX = w * 0.5
+    const rootY = h * (110 / 128)
+    ctx.rotate(sway * 0.07)
+    ctx.drawImage(img, -rootX, -rootY, w, h)
   }
   ctx.restore()
 }
@@ -278,13 +249,10 @@ const buildGrassAtlas = (biome: StageBiome): HTMLCanvasElement => {
 const getGrassAtlas = (biome: StageBiome): HTMLCanvasElement | null => {
   let atlas = grassAtlases.get(biome)
   if (atlas) return atlas
-  // Bitmap-backed biomes can't bake their atlas until the source image
-  // has decoded. Returning null defers the bake (and any blade draws)
-  // for ~1 frame instead of caching an empty atlas forever.
-  if (isBitmapGrassBiome(biome)) {
-    const img = getGrassBitmap()
-    if (!img.complete || img.naturalWidth === 0) return null
-  }
+  // Can't bake until the source bitmap has decoded — defer the bake (and
+  // any blade draws) for ~1 frame instead of caching an empty atlas.
+  const img = getGrassBitmap(biome)
+  if (!img.complete || img.naturalWidth === 0) return null
   atlas = buildGrassAtlas(biome)
   grassAtlases.set(biome, atlas)
   return atlas
@@ -329,6 +297,7 @@ export const drawGrassBlade = (
 // transform's zoom range.
 
 const SPRITE_DPR = 2
+const COIN_IMG_SRC = '/images/props/coin_128x128.webp'
 const COIN_W = 24
 const COIN_H = 24
 const COIN_AX = 12
@@ -364,27 +333,10 @@ const makeSprite = (
   return canvas
 }
 
-let coinSprite: HTMLCanvasElement | null = null
-const getCoinSprite = (): HTMLCanvasElement => {
-  if (coinSprite) return coinSprite
-  coinSprite = makeSprite(COIN_W, COIN_H, COIN_AX, COIN_AY, (c) => {
-    const grad = c.createRadialGradient(-2, -2, 1, 0, 0, 8)
-    grad.addColorStop(0, '#fff7b0')
-    grad.addColorStop(1, '#b8860b')
-    c.fillStyle = grad
-    c.beginPath()
-    c.arc(0, 0, 8, 0, TWO_PI)
-    c.fill()
-    c.strokeStyle = '#5a3408'
-    c.lineWidth = 1.5
-    c.stroke()
-    c.fillStyle = '#5a3408'
-    c.font = 'bold 10px sans-serif'
-    c.textAlign = 'center'
-    c.textBaseline = 'middle'
-    c.fillText('$', 0, 1)
-  })
-  return coinSprite
+let coinImage: HTMLImageElement | null = null
+const getCoinImage = (): HTMLImageElement => {
+  if (!coinImage) coinImage = getCachedImage(COIN_IMG_SRC)
+  return coinImage
 }
 
 const STUMP_IMG_SRC = '/images/props/tree-stump_256x256.webp'
@@ -457,107 +409,66 @@ export const drawObstacle = (ctx: CanvasRenderingContext2D, ob: Obstacle) => {
 
 // ─── Coin ────────────────────────────────────────────────────────────────
 export const drawCoin = (ctx: CanvasRenderingContext2D, x: number, y: number) => {
-  const sprite = getCoinSprite()
+  const img = getCoinImage()
+  if (!img.complete || img.naturalWidth === 0) return
   ctx.drawImage(
-    sprite,
-    0, 0, COIN_W * SPRITE_DPR, COIN_H * SPRITE_DPR,
-    Math.round(x - COIN_AX), Math.round(y - COIN_AY), COIN_W, COIN_H
+    img,
+    Math.round(x - COIN_AX), Math.round(y - COIN_AY),
+    COIN_W, COIN_H
   )
 }
 
 // ─── Exit pole (golf-style flag) ─────────────────────────────────────────
-/**
- * The exit pole. Touching it with the chain after `targetClears` is met
- * finishes the stage. It can be cut visually (flag droops + pole leans)
- * but still works as an exit either way. `reqsMet` flips the flag from
- * red to green so the player knows when they can leave.
- */
+// The exit pole is the bitmap at `/images/props/pole_256x256.webp`. The
+// world anchor (x, y) maps to the base/cup of the pole (image-norm
+// (0.51, 0.90)), so the pole rises 72 world units above the anchor and
+// the cup sits ~8 below — matching the previous procedural footprint.
+// A pulsing green halo behind the flag fires when `reqsMet` is true to
+// telegraph "touch me to win"; `cut` is now purely a gameplay-side flag
+// (the chain has touched me at least once) with no visual effect on the
+// pole, since the bitmap is static.
+const EXIT_POLE_SRC = '/images/props/pole_256x256.webp'
+const EXIT_POLE_W = 80
+const EXIT_POLE_H = 80
+const EXIT_POLE_AX_NORM = 0.51
+const EXIT_POLE_AY_NORM = 0.90
+
+let exitPoleImage: HTMLImageElement | null = null
+const getExitPoleImage = (): HTMLImageElement => {
+  if (!exitPoleImage) exitPoleImage = getCachedImage(EXIT_POLE_SRC)
+  return exitPoleImage
+}
+
 export const drawExitPole = (
   ctx: CanvasRenderingContext2D,
   x: number,
   y: number,
-  cut: boolean,
+  _cut: boolean,
   reqsMet: boolean
 ) => {
-  const poleHeight = 56
-  const baseY = y + 4
-  const topY = y - poleHeight
-  const lean = cut ? 0.35 : 0
-  const topX = x + Math.sin(lean) * poleHeight
-  const topYAdj = baseY - Math.cos(lean) * poleHeight
-
-  // Cup at the base (golf hole).
-  ctx.fillStyle = '#1a0e05'
-  ctx.beginPath()
-  ctx.ellipse(x, baseY, 11, 4, 0, 0, TWO_PI)
-  ctx.fill()
-  ctx.strokeStyle = '#0a0502'
-  ctx.lineWidth = 1.5
-  ctx.stroke()
-
-  // Pole body.
-  ctx.strokeStyle = '#e8e2d3'
-  ctx.lineWidth = 4
-  ctx.lineCap = 'round'
-  ctx.beginPath()
-  ctx.moveTo(x, baseY)
-  ctx.lineTo(topX, topYAdj)
-  ctx.stroke()
-  // Subtle dark side for depth.
-  ctx.strokeStyle = '#7c7368'
-  ctx.lineWidth = 1.5
-  ctx.beginPath()
-  ctx.moveTo(x + 1.5, baseY - 2)
-  ctx.lineTo(topX + 1.5, topYAdj + 2)
-  ctx.stroke()
-
-  // Glow when requirements are met (telegraphs the win).
+  // Green halo behind the flag when the player can win — pulses so it
+  // reads as "active" even when stationary on the screen edge.
   if (reqsMet) {
     const pulse = 0.55 + Math.sin(performance.now() * 0.006) * 0.25
-    const grad = ctx.createRadialGradient(topX, topYAdj, 4, topX, topYAdj, 32)
+    const flagX = x
+    const flagY = y - EXIT_POLE_H * 0.65
+    const grad = ctx.createRadialGradient(flagX, flagY, 4, flagX, flagY, 40)
     grad.addColorStop(0, `rgba(120, 255, 160, ${pulse})`)
     grad.addColorStop(1, 'rgba(120, 255, 160, 0)')
     ctx.fillStyle = grad
     ctx.beginPath()
-    ctx.arc(topX, topYAdj, 32, 0, TWO_PI)
+    ctx.arc(flagX, flagY, 40, 0, TWO_PI)
     ctx.fill()
   }
 
-  // Flag.
-  const flagFill = reqsMet ? '#3ad36b' : '#f24a3a'
-  const flagShade = reqsMet ? '#1f8a44' : '#a0231a'
-  ctx.fillStyle = flagFill
-  ctx.strokeStyle = flagShade
-  ctx.lineWidth = 1.5
-  if (cut) {
-    // Droopy flag — folds down past the top of the pole.
-    ctx.beginPath()
-    ctx.moveTo(topX, topYAdj)
-    ctx.lineTo(topX + 14, topYAdj + 18)
-    ctx.lineTo(topX - 1, topYAdj + 9)
-    ctx.closePath()
-    ctx.fill()
-    ctx.stroke()
-  } else {
-    // Triangular flag flapping in the wind.
-    const wave = Math.sin(performance.now() * 0.005) * 2
-    ctx.beginPath()
-    ctx.moveTo(topX, topYAdj)
-    ctx.lineTo(topX + 22, topYAdj + 6 + wave)
-    ctx.lineTo(topX, topYAdj + 14)
-    ctx.closePath()
-    ctx.fill()
-    ctx.stroke()
-  }
-
-  // Top knob.
-  ctx.fillStyle = '#f8df7e'
-  ctx.beginPath()
-  ctx.arc(topX, topYAdj - 1, 2.6, 0, TWO_PI)
-  ctx.fill()
-  ctx.strokeStyle = '#7a5b1e'
-  ctx.lineWidth = 1
-  ctx.stroke()
+  const img = getExitPoleImage()
+  if (!img.complete || img.naturalWidth === 0) return
+  ctx.drawImage(
+    img,
+    x - EXIT_POLE_W * EXIT_POLE_AX_NORM,
+    y - EXIT_POLE_H * EXIT_POLE_AY_NORM,
+    EXIT_POLE_W, EXIT_POLE_H
+  )
 }
 
 // ─── Robot (two gears + chain) ───────────────────────────────────────────
@@ -669,13 +580,165 @@ const drawChainSegment = (
   ctx.stroke()
 }
 
+// ─── Bitmap robot art ─────────────────────────────────────────────────────
+// Two chain art variants — both share the same 256-px-tall canvas and a
+// matching 80-px-wide rounded end-cap on each side; the long variant
+// has a wider middle so the 3-slice stretch doesn't visibly elongate the
+// body once the player buys chain-length upgrades. Selected per-frame
+// by drawRobot's `chainLevel` parameter.
+interface ChainArt {
+  src: string
+  /** Source width in pixels. */
+  total: number
+  /** Width of each rounded end-cap slice in source pixels — same in both
+   *  variants so the in-world end-cap render size and hole alignment
+   *  don't shift when we swap art. */
+  endW: number
+}
+
+const CHAIN_ART_SHORT: ChainArt = {
+  src: '/images/props/chain_256x256.webp',
+  total: 256,
+  endW: 80
+}
+const CHAIN_ART_LONG: ChainArt = {
+  src: '/images/props/chain_450x256.webp',
+  total: 450,
+  endW: 80
+}
+const ROBOT_GEAR_SRC = '/images/props/gear_256x256.webp'
+
+const CHAIN_SRC_HEIGHT = 256
+
+/** Each end-cap renders at exactly the gear's hit footprint so the link
+ *  hole sits over the gear with no offset shimmer when the chain stretches. */
+const CHAIN_END_WORLD_W = 64
+/** Vertical chain thickness in world. Tuned so the chain content (which
+ *  fills roughly the middle 150 px of the 256-px-tall source) reads at
+ *  a similar girth to the previous procedural two-line chain. */
+const CHAIN_WORLD_H = 60
+
+/** Gear visual diameter in world. Matches `GEAR_HIT_RADIUS = 32` × 2 in
+ *  `useMawGame.ts`, so the dashed debug ring lines up exactly with the
+ *  bitmap teeth tips. */
+const GEAR_WORLD_D = 64
+
+const chainImages = new Map<string, HTMLImageElement>()
+const getChainArtImage = (art: ChainArt): HTMLImageElement => {
+  let img = chainImages.get(art.src)
+  if (!img) {
+    img = getCachedImage(art.src)
+    chainImages.set(art.src, img)
+  }
+  return img
+}
+
+let gearImage: HTMLImageElement | null = null
+const getGearImage = (): HTMLImageElement => {
+  if (!gearImage) gearImage = getCachedImage(ROBOT_GEAR_SRC)
+  return gearImage
+}
+
+const drawRobotBitmap = (
+  ctx: CanvasRenderingContext2D,
+  anchor: { x: number; y: number },
+  swing: { x: number; y: number },
+  swingAngle: number,
+  chainImg: HTMLImageElement,
+  chainArt: ChainArt,
+  gearImg: HTMLImageElement
+) => {
+  const dx = swing.x - anchor.x
+  const dy = swing.y - anchor.y
+  const angle = Math.atan2(dy, dx)
+  const distance = Math.hypot(dx, dy)
+
+  // ─── Chain (3-slice) ──────────────────────────────────────────────────
+  ctx.save()
+  ctx.translate((anchor.x + swing.x) / 2, (anchor.y + swing.y) / 2)
+  ctx.rotate(angle)
+  const halfD = distance / 2
+  const halfEnd = CHAIN_END_WORLD_W / 2
+  const halfH = CHAIN_WORLD_H / 2
+  const srcMidX = chainArt.endW
+  const srcMidW = chainArt.total - 2 * chainArt.endW
+  const srcRightX = chainArt.total - chainArt.endW
+
+  // Left end-cap — centred on the anchor gear at (-halfD, 0) in local space.
+  ctx.drawImage(
+    chainImg,
+    0, 0, chainArt.endW, CHAIN_SRC_HEIGHT,
+    -halfD - halfEnd, -halfH, CHAIN_END_WORLD_W, CHAIN_WORLD_H
+  )
+  // Middle — stretches across the gap when the gears are further apart
+  // than the two end caps combined. When they're closer (shouldn't happen
+  // in normal play), we skip drawing it to avoid a flipped slice.
+  const midWorldW = distance - CHAIN_END_WORLD_W
+  if (midWorldW > 0) {
+    ctx.drawImage(
+      chainImg,
+      srcMidX, 0, srcMidW, CHAIN_SRC_HEIGHT,
+      -halfD + halfEnd, -halfH, midWorldW, CHAIN_WORLD_H
+    )
+  }
+  // Right end-cap — centred on the swing gear at (+halfD, 0).
+  ctx.drawImage(
+    chainImg,
+    srcRightX, 0, chainArt.endW, CHAIN_SRC_HEIGHT,
+    halfD - halfEnd, -halfH, CHAIN_END_WORLD_W, CHAIN_WORLD_H
+  )
+  ctx.restore()
+
+  // ─── Gears ────────────────────────────────────────────────────────────
+  // Anchor stays still — that's the visual cue for "this is the pivot".
+  // The swing gear rotates at swingAngle*4 so the saw teeth spin around
+  // the orbit, reading as motion even when the player isn't swapping.
+  ctx.save()
+  ctx.translate(anchor.x, anchor.y)
+  ctx.drawImage(
+    gearImg,
+    -GEAR_WORLD_D / 2, -GEAR_WORLD_D / 2,
+    GEAR_WORLD_D, GEAR_WORLD_D
+  )
+  ctx.restore()
+
+  ctx.save()
+  ctx.translate(swing.x, swing.y)
+  ctx.rotate(swingAngle * 4)
+  ctx.drawImage(
+    gearImg,
+    -GEAR_WORLD_D / 2, -GEAR_WORLD_D / 2,
+    GEAR_WORLD_D, GEAR_WORLD_D
+  )
+  ctx.restore()
+}
+
 export const drawRobot = (
   ctx: CanvasRenderingContext2D,
   anchor: { x: number; y: number },
   swing: { x: number; y: number },
   swingAngle: number,
-  anchorIsLeft: boolean = true
+  anchorIsLeft: boolean = true,
+  /** Effective chain-length upgrade level. 0 → use the 256-wide short
+   *  art (less compression at base reach); 1+ → use the 450-wide art
+   *  whose longer middle slice prevents visible stretching once the
+   *  player has bought any chain upgrade. */
+  chainLevel: number = 0
 ) => {
+  // Try the bitmap path first — once the chosen chain art + the gear
+  // have decoded. If either is missing/still loading, fall through to
+  // the original procedural draw so the player never sees a half-
+  // rendered robot.
+  const chainArt: ChainArt = chainLevel >= 1 ? CHAIN_ART_LONG : CHAIN_ART_SHORT
+  const chainImg = getChainArtImage(chainArt)
+  const gearImg = getGearImage()
+  if (chainImg.complete && chainImg.naturalWidth > 0
+    && gearImg.complete && gearImg.naturalWidth > 0) {
+    drawRobotBitmap(ctx, anchor, swing, swingAngle, chainImg, chainArt, gearImg)
+    return
+  }
+
+  // ─── Procedural fallback ──────────────────────────────────────────────
   const radius = 26
 
   // Chain — two parallel sides for the two-gear chain look.
@@ -690,4 +753,58 @@ export const drawRobot = (
   const swingColor: 'orange' | 'teal' = anchorIsLeft ? 'teal' : 'orange'
   drawGear(ctx, anchor.x, anchor.y, radius, anchorColor, 0)
   drawGear(ctx, swing.x, swing.y, radius, swingColor, swingAngle * 4)
+}
+
+/** Debug overlay for the robot's cut/damage hit-test geometry. After the
+ *  hit-test fix, the chain's effective shape is:
+ *    • along the body — a rectangle of width 2·cutR around the segment
+ *      between the gear centres
+ *    • at each gear end — a circle of radius (cutR + 32) so anything
+ *      visually touching the teeth (gear visual radius = 32) counts as
+ *      "on the chain"
+ *  We paint translucent layers per obstacle category (boulder 26,
+ *  stump 22, crystal 18, grass 14) and a dashed yellow ring at the gear
+ *  teeth-tip radius for visual reference. */
+export const drawRobotHitBoxes = (
+  ctx: CanvasRenderingContext2D,
+  anchor: { x: number; y: number },
+  swing: { x: number; y: number }
+) => {
+  const GEAR = 32
+  const layers: ReadonlyArray<[number, string]> = [
+    [26, 'rgba(255, 120, 120, 0.18)'], // boulder
+    [22, 'rgba(220, 160, 120, 0.18)'], // stump
+    [18, 'rgba(140, 200, 255, 0.20)'], // crystal
+    [14, 'rgba(180, 255, 140, 0.30)']  // grass
+  ]
+  ctx.save()
+  for (const [r, color] of layers) {
+    // Rectangle body — butt caps so the rectangle ends square at the
+    // gear centres; the endpoint circles below add the gear halo.
+    ctx.lineCap = 'butt'
+    ctx.strokeStyle = color
+    ctx.lineWidth = r * 2
+    ctx.beginPath()
+    ctx.moveTo(anchor.x, anchor.y)
+    ctx.lineTo(swing.x, swing.y)
+    ctx.stroke()
+    // Gear halo at each endpoint, radius cutR + GEAR.
+    ctx.fillStyle = color
+    for (const p of [anchor, swing]) {
+      ctx.beginPath()
+      ctx.arc(p.x, p.y, r + GEAR, 0, TWO_PI)
+      ctx.fill()
+    }
+  }
+  // Dashed yellow gear-edge ring so the player can see where the visual
+  // teeth tips end vs the much wider hit halo.
+  ctx.lineWidth = 1.5
+  ctx.setLineDash([6, 4])
+  ctx.strokeStyle = '#ffe066'
+  for (const p of [anchor, swing]) {
+    ctx.beginPath()
+    ctx.arc(p.x, p.y, GEAR, 0, TWO_PI)
+    ctx.stroke()
+  }
+  ctx.restore()
 }

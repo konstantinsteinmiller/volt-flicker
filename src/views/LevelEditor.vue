@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch, type Ref } from 'vue'
 import { useRouter } from 'vue-router'
-import type { MawStage, MawIsland, Obstacle } from '@/use/useMawCampaign'
+import type { MawStage, MawIsland, Obstacle, MovementSpec } from '@/use/useMawCampaign'
 import { STAGES } from '@/use/useMawCampaign'
 import { pointInIsland, islandPolygonWorld } from '@/use/useIslandShapes'
 import {
@@ -52,7 +52,10 @@ interface SelectedIsland { type: 'island'; islandId: string }
 interface SelectedObstacle { type: 'obstacle'; islandId: string; obstacleIdx: number }
 interface SelectedGrass { type: 'grass'; islandId: string; grassIdx: number }
 interface SelectedExit { type: 'exit' }
-type Selection = SelectedIsland | SelectedObstacle | SelectedGrass | SelectedExit | null
+/** Editor selection for one endpoint of an island's motion path. The
+ *  user can drag these handles to retune where the platform travels. */
+interface SelectedMotion { type: 'motion'; islandId: string; endpoint: 'a' | 'b' }
+type Selection = SelectedIsland | SelectedObstacle | SelectedGrass | SelectedExit | SelectedMotion | null
 
 const router = useRouter()
 
@@ -174,7 +177,8 @@ const cloneIslands = (src: EditorIsland[]): EditorIsland[] =>
     id: i.id,
     cx: i.cx, cy: i.cy, radius: i.radius, shape: i.shape,
     grass: i.grass.map(g => [g[0], g[1]] as [number, number]),
-    obstacles: i.obstacles.map(o => ({ ...o }))
+    obstacles: i.obstacles.map(o => ({ ...o })),
+    motion: i.motion ? { ...i.motion } : undefined
   }))
 
 const captureSnapshot = (): EditorSnapshot => ({
@@ -262,7 +266,19 @@ const findIslandAt = (x: number, y: number): EditorIsland | null => {
 }
 
 const findEntityAt = (x: number, y: number): Selection => {
-  // Exit pole first — small target, draw on top.
+  // Motion handles for the currently-edited island always come first so
+  // they're clickable even when stacked over an island body or each
+  // other. They only exist for the active selection chain.
+  const motionIsle = motionEditingIsland.value
+  if (motionIsle?.motion) {
+    if (Math.hypot(x - motionIsle.motion.ax, y - motionIsle.motion.ay) <= 14) {
+      return { type: 'motion', islandId: motionIsle.id, endpoint: 'a' }
+    }
+    if (Math.hypot(x - motionIsle.motion.bx, y - motionIsle.motion.by) <= 14) {
+      return { type: 'motion', islandId: motionIsle.id, endpoint: 'b' }
+    }
+  }
+  // Exit pole next — small target, draw on top.
   if (Math.hypot(x - exitX.value, y - exitY.value) <= 22) return { type: 'exit' }
   // Then obstacles / grass on top of islands (pick smaller hit-radius first).
   for (let i = islands.value.length - 1; i >= 0; i--) {
@@ -286,6 +302,20 @@ const findEntityAt = (x: number, y: number): Selection => {
   if (isle) return { type: 'island', islandId: isle.id }
   return null
 }
+
+/** Currently-relevant island for motion editing. Resolved from whichever
+ *  selection is active so the dashed path + handles stay on screen while
+ *  the user is dragging an endpoint or sub-decor on the same island. */
+const motionEditingIsland = computed<EditorIsland | null>(() => {
+  const sel = selection.value
+  if (!sel) return null
+  let islandId: string | null = null
+  if (sel.type === 'island' || sel.type === 'motion'
+    || sel.type === 'obstacle' || sel.type === 'grass') islandId = sel.islandId
+  if (!islandId) return null
+  const isle = islands.value.find(i => i.id === islandId)
+  return (isle && isle.motion) ? isle : null
+})
 
 // ─── Pointer handling ─────────────────────────────────────────────────────
 const onPointerDown = (e: PointerEvent) => {
@@ -336,6 +366,12 @@ const entityAnchor = (sel: Selection) => {
   if (!isle) return { x: 0, y: 0 }
   if (sel.type === 'island') return { x: isle.cx, y: isle.cy }
   if (sel.type === 'obstacle') return { x: isle.obstacles[sel.obstacleIdx]!.x, y: isle.obstacles[sel.obstacleIdx]!.y }
+  if (sel.type === 'motion') {
+    if (!isle.motion) return { x: isle.cx, y: isle.cy }
+    return sel.endpoint === 'a'
+      ? { x: isle.motion.ax, y: isle.motion.ay }
+      : { x: isle.motion.bx, y: isle.motion.by }
+  }
   const g = isle.grass[sel.grassIdx]!
   return { x: g[0], y: g[1] }
 }
@@ -423,15 +459,33 @@ const moveSelection = (sel: Selection, x: number, y: number) => {
   if (sel.type === 'island') {
     const dx = x - isle.cx
     const dy = y - isle.cy
-    // Move the island and bring its grass + obstacles along.
+    // Move the island and bring its grass + obstacles + motion path along.
     isle.cx = x
     isle.cy = y
     isle.grass = isle.grass.map(([gx, gy]) => [gx + dx, gy + dy])
     isle.obstacles = isle.obstacles.map(o => ({ ...o, x: o.x + dx, y: o.y + dy }))
+    if (isle.motion) {
+      isle.motion = {
+        ...isle.motion,
+        ax: isle.motion.ax + dx,
+        ay: isle.motion.ay + dy,
+        bx: isle.motion.bx + dx,
+        by: isle.motion.by + dy
+      }
+    }
     return
   }
   if (sel.type === 'obstacle') {
     isle.obstacles[sel.obstacleIdx] = { ...isle.obstacles[sel.obstacleIdx]!, x, y }
+    return
+  }
+  if (sel.type === 'motion') {
+    if (!isle.motion) return
+    if (sel.endpoint === 'a') {
+      isle.motion = { ...isle.motion, ax: x, ay: y }
+    } else {
+      isle.motion = { ...isle.motion, bx: x, by: y }
+    }
     return
   }
   isle.grass[sel.grassIdx] = [x, y]
@@ -441,6 +495,10 @@ const deleteSelection = (sel: Selection) => {
   if (!sel) return
   if (sel.type === 'exit') {
     status.value = 'Exit cannot be deleted, only moved.'
+    return
+  }
+  if (sel.type === 'motion') {
+    status.value = 'Use "Remove motion" in the properties panel.'
     return
   }
   const isleIdx = islands.value.findIndex(i => i.id === sel.islandId)
@@ -523,6 +581,50 @@ const setSelectedShape = (shape: 'round' | 'square') => {
   isle.shape = shape
 }
 
+// ─── Motion (moving islands) ──────────────────────────────────────────────
+/** Default motion path for a newly-marked moving island — horizontal
+ *  ping-pong centred on its current position, 120 wu wide and 3 s round
+ *  trip. The user can drag the A/B handles afterwards to retune. */
+const addMotionToSelectedIsland = () => {
+  const isle = selectedIsland.value
+  if (!isle || isle.motion) return
+  pushHistory()
+  isle.motion = {
+    ax: isle.cx - 60,
+    ay: isle.cy,
+    bx: isle.cx + 60,
+    by: isle.cy,
+    periodMs: 3000,
+    phase: 0
+  }
+}
+
+const removeMotionFromSelectedIsland = () => {
+  const isle = selectedIsland.value
+  if (!isle || !isle.motion) return
+  pushHistory()
+  isle.motion = undefined
+  // Drop any motion-handle selection that was bound to this island.
+  if (selection.value?.type === 'motion' && selection.value.islandId === isle.id) {
+    selection.value = { type: 'island', islandId: isle.id }
+  }
+}
+
+const setMotionPeriod = (ms: number) => {
+  const isle = selectedIsland.value
+  if (!isle || !isle.motion) return
+  // Coalesce slider drags into one undo step.
+  pushHistory(`motion-period:${isle.id}`)
+  isle.motion = { ...isle.motion, periodMs: Math.max(500, Math.min(20000, ms)) }
+}
+
+const setMotionPhase = (phase: number) => {
+  const isle = selectedIsland.value
+  if (!isle || !isle.motion) return
+  pushHistory(`motion-phase:${isle.id}`)
+  isle.motion = { ...isle.motion, phase: Math.max(0, Math.min(1, phase)) }
+}
+
 // ─── Save / Load / Test / Back ────────────────────────────────────────────
 const buildStage = (): MawStage => ({
   id: -1,
@@ -535,7 +637,8 @@ const buildStage = (): MawStage => ({
   islands: islands.value.map(i => ({
     cx: i.cx, cy: i.cy, radius: i.radius, shape: i.shape,
     grass: i.grass.map(g => [g[0], g[1]] as [number, number]),
-    obstacles: i.obstacles.map(o => ({ ...o }))
+    obstacles: i.obstacles.map(o => ({ ...o })),
+    ...(i.motion ? { motion: { ...i.motion } } : {})
   })),
   isBoss: false,
   exitX: exitX.value,
@@ -563,7 +666,8 @@ const loadStageIntoEditor = (s: MawStage, displayName: string) => {
     id: newId(),
     cx: i.cx, cy: i.cy, radius: i.radius, shape: i.shape,
     grass: i.grass.map(g => [g[0], g[1]] as [number, number]),
-    obstacles: i.obstacles.map(o => ({ ...o }))
+    obstacles: i.obstacles.map(o => ({ ...o })),
+    motion: i.motion ? { ...i.motion } : undefined
   }))
   exitX.value = s.exitX
   exitY.value = s.exitY
@@ -662,6 +766,41 @@ const paint = () => {
     }
   }
   drawExitPole(ctx, exitX.value, exitY.value, false, true)
+
+  // Motion path + endpoint handles for the island currently being edited.
+  // Drawn before the selection outline so the selection ring sits on top.
+  const motionIsle = motionEditingIsland.value
+  if (motionIsle?.motion) {
+    const m = motionIsle.motion
+    ctx.save()
+    ctx.strokeStyle = '#ff66cc'
+    ctx.lineWidth = 2 / zoom.value
+    ctx.setLineDash([10, 6])
+    ctx.beginPath()
+    ctx.moveTo(m.ax, m.ay)
+    ctx.lineTo(m.bx, m.by)
+    ctx.stroke()
+    ctx.setLineDash([])
+    // Handles
+    const handleR = 12
+    for (const ep of ['a', 'b'] as const) {
+      const hx = ep === 'a' ? m.ax : m.bx
+      const hy = ep === 'a' ? m.ay : m.by
+      ctx.beginPath()
+      ctx.arc(hx, hy, handleR, 0, Math.PI * 2)
+      ctx.fillStyle = '#ff66cc'
+      ctx.fill()
+      ctx.lineWidth = 2 / zoom.value
+      ctx.strokeStyle = '#1a0e22'
+      ctx.stroke()
+      ctx.fillStyle = '#fff'
+      ctx.font = `bold ${14}px sans-serif`
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.fillText(ep.toUpperCase(), hx, hy + 1)
+    }
+    ctx.restore()
+  }
 
   // Selection outline.
   const sel = selection.value
@@ -908,6 +1047,47 @@ const campaignSlotOptions = computed(() =>
                 :class="selectedIsland.shape === 'square' ? 'bg-emerald-600' : 'bg-black/40'"
                 @click="setSelectedShape('square')"
               ) Square
+
+            //- Motion (moving island) controls — drag the pink A/B
+            //- handles on the canvas to retune the path.
+            div.mt-2.flex.flex-col.gap-1.rounded.p-2(class="bg-pink-900/30 border border-pink-500/30")
+              div.text-xs.uppercase.opacity-70 Motion
+              template(v-if="!selectedIsland.motion")
+                button.w-full.px-2.py-1.rounded.text-xs(
+                  class="bg-pink-600 hover:bg-pink-500 active:scale-95"
+                  @click="addMotionToSelectedIsland"
+                ) + Make this island move
+              template(v-else)
+                label.text-xs.flex.items-center.gap-2
+                  span.opacity-70.w-14 Period
+                  input(
+                    type="range"
+                    :value="selectedIsland.motion.periodMs"
+                    min="800"
+                    max="8000"
+                    step="100"
+                    @input="(e: any) => setMotionPeriod(parseInt(e.target.value))"
+                    class="flex-1"
+                  )
+                  span.w-12.text-right {{ (selectedIsland.motion.periodMs / 1000).toFixed(1) }}s
+                label.text-xs.flex.items-center.gap-2
+                  span.opacity-70.w-14 Phase
+                  input(
+                    type="range"
+                    :value="(selectedIsland.motion.phase ?? 0) * 100"
+                    min="0"
+                    max="100"
+                    step="5"
+                    @input="(e: any) => setMotionPhase(parseInt(e.target.value) / 100)"
+                    class="flex-1"
+                  )
+                  span.w-10.text-right {{ Math.round((selectedIsland.motion.phase ?? 0) * 100) }}%
+                div.opacity-60(class="text-[10px]") Drag the pink A / B markers on the canvas to set endpoints.
+                button.w-full.px-2.py-1.rounded.text-xs(
+                  class="bg-slate-700 hover:bg-slate-600 active:scale-95"
+                  @click="removeMotionFromSelectedIsland"
+                ) − Remove motion
+
           button.px-2.py-1.rounded.text-sm(
             class="bg-red-700 hover:bg-red-600"
             @click="deleteSelection(selection)"

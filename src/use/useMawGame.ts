@@ -1,7 +1,14 @@
 import { ref, computed, watch, type Ref } from 'vue'
-import useMawCampaign, { type MawStage, type MawIsland, type Obstacle } from '@/use/useMawCampaign'
+import useMawCampaign, { type MawStage, type MawIsland, type Obstacle, motionPositionAt } from '@/use/useMawCampaign'
 import { pointInIsland } from '@/use/useIslandShapes'
-import useMawProgress, { upgradedValue, levelOf } from '@/use/useMawProgress'
+import useMawProgress, { upgradedValue, levelOf, markBrokenFromObstacle } from '@/use/useMawProgress'
+import {
+  ghostRunStartRecording,
+  ghostRunRecordSwap,
+  ghostRunCommitWin,
+  ghostRunReset,
+  liveRunStartMs
+} from '@/use/useMawGhost'
 import useMawConfig from '@/use/useMawConfig'
 import { useScreenshake } from '@/use/useScreenshake'
 import { spawnCoinExplosion } from '@/use/useCoinExplosion'
@@ -89,6 +96,13 @@ const useMawGame = () => {
   const coinMagnetMs = computed(() => Math.max(150, upgradedValue('coinMagnetMs')))
   const rotationSpeedMul = computed(() => upgradedValue('rotationSpeed'))
 
+  /** Hard pause for forced UI moments (e.g. the Sharper-Saw spotlight
+   *  modal). When true, the tick early-exits — chain stops spinning,
+   *  obstacles stay still, and the scene effectively freezes until the
+   *  caller flips it back. Different from `phase === 'idle'` because
+   *  this pause can resume mid-round with full state preserved. */
+  const isPaused: Ref<boolean> = ref(false)
+
   // Robot state — both gears live in world coordinates.
   const anchorPos = ref<Vec2>({ x: 0, y: 0 })
   const swingPos = ref<Vec2>({ x: chainLength.value, y: 0 })
@@ -115,11 +129,41 @@ const useMawGame = () => {
   const islands: Ref<RuntimeIsland[]> = ref([])
 
   const initIslands = () => {
-    islands.value = stage.value.islands.map(i => ({
-      ...i,
-      aliveGrass: new Set(i.grass.map((_, idx) => idx)),
-      obstacles: [...i.obstacles]
-    }))
+    const nowMs = performance.now()
+    islands.value = stage.value.islands.map(src => {
+      // Deep-clone grass and obstacles — moving islands mutate these
+      // each tick to follow the platform, so they must not share refs
+      // with the immutable stage data.
+      const isle: RuntimeIsland = {
+        ...src,
+        cx: src.cx,
+        cy: src.cy,
+        grass: src.grass.map(g => [g[0], g[1]] as [number, number]),
+        obstacles: src.obstacles.map(o => ({ ...o })),
+        aliveGrass: new Set(src.grass.map((_, idx) => idx))
+      }
+      // For moving islands, snap to the motion's position at boot (with
+      // phase) and translate grass + obstacles by the same offset so
+      // everything starts visually aligned with the platform.
+      if (src.motion) {
+        const p = motionPositionAt(src.motion, nowMs)
+        const dx = p.x - src.cx
+        const dy = p.y - src.cy
+        if (dx !== 0 || dy !== 0) {
+          isle.cx = p.x
+          isle.cy = p.y
+          for (const blade of isle.grass) {
+            blade[0] += dx
+            blade[1] += dy
+          }
+          for (const ob of isle.obstacles) {
+            ob.x += dx
+            ob.y += dy
+          }
+        }
+      }
+      return isle
+    })
   }
 
   // ─── Public lifecycle ────────────────────────────────────────────────────
@@ -132,7 +176,14 @@ const useMawGame = () => {
     poleCut.value = false
     life.value = maxLife.value
     phase.value = 'idle'
-    gameResult.value = ''
+    // NOTE: gameResult is intentionally NOT reset here. `onWin` calls
+    // `advanceStage()` → `stageReinitSignal++` → this `initGame()` runs
+    // in the SAME Vue flush as the `phase` watch in MawScene. If we
+    // reset `gameResult` here, the reward modal renders AFTER both
+    // watches and reads `gameResult === ''` instead of `'win'`, falling
+    // through to the loss text. The next `onWin` / `onLose` overwrites
+    // `gameResult` anyway, so leaving the stale value is safe — and the
+    // modal is closed during the in-between idle state.
 
     // Place robot at home-island center.
     anchorPos.value = { x: 0, y: 0 }
@@ -177,10 +228,88 @@ const useMawGame = () => {
     return Math.hypot(px - cx, py - cy)
   }
 
+  /** Gear visual radius (round body + teeth tips). Anything whose centre
+   *  touches a tooth is "visually on the gear" and should also count as
+   *  a hit on the chain. */
+  const GEAR_HIT_RADIUS = 32
+
+  /** Distance from (px, py) to the chain's *visual* hit shape. Same as
+   *  `distToSegment` along the body of the chain, but at each gear end
+   *  the gear's visible radius (teeth tips) is subtracted — so things
+   *  that visibly touch a gear are effectively touching the chain.
+   *  Caller still tests against the per-obstacle cut radius. */
+  const distToChain = (
+    px: number, py: number,
+    ax: number, ay: number,
+    bx: number, by: number
+  ): number => {
+    const dx = bx - ax
+    const dy = by - ay
+    const lenSq = dx * dx + dy * dy
+    if (lenSq === 0) {
+      return Math.max(0, Math.hypot(px - ax, py - ay) - GEAR_HIT_RADIUS)
+    }
+    const t = ((px - ax) * dx + (py - ay) * dy) / lenSq
+    if (t <= 0) {
+      // Behind the anchor gear — the gear body covers a halo of
+      // GEAR_HIT_RADIUS around the centre, so subtract it.
+      return Math.max(0, Math.hypot(px - ax, py - ay) - GEAR_HIT_RADIUS)
+    }
+    if (t >= 1) {
+      // Past the swing gear — same halo on the other end.
+      return Math.max(0, Math.hypot(px - bx, py - by) - GEAR_HIT_RADIUS)
+    }
+    // Alongside the chain body — perpendicular distance to the segment.
+    const cx = ax + t * dx
+    const cy = ay + t * dy
+    return Math.hypot(px - cx, py - cy)
+  }
+
   // ─── Tick ────────────────────────────────────────────────────────────────
 
   const tick = (dt: number) => {
     if (phase.value !== 'playing') return
+    if (isPaused.value) return
+
+    // Step any moving islands FIRST so the chain's grass/obstacle hits
+    // below test against their up-to-date position, and `isOverIsland`
+    // (called from `swapAnchor`) sees the live polygon. Translating the
+    // grass + obstacles by the same delta keeps the platform's decor
+    // glued to the moving island; if the player's anchor gear is
+    // currently planted on this island, it also rides along (otherwise
+    // they'd appear to float in mid-air as the platform slides out).
+    const nowMs = performance.now()
+    for (const isle of islands.value) {
+      const m = isle.motion
+      if (!m) continue
+      // Check anchor ownership BEFORE applying the delta so the test
+      // uses the island's pre-move polygon.
+      const anchorOnThis = pointInIsland(
+        isle.shape,
+        anchorPos.value.x, anchorPos.value.y,
+        isle.cx, isle.cy, isle.radius
+      )
+      const p = motionPositionAt(m, nowMs)
+      const dx = p.x - isle.cx
+      const dy = p.y - isle.cy
+      if (dx === 0 && dy === 0) continue
+      isle.cx = p.x
+      isle.cy = p.y
+      for (const blade of isle.grass) {
+        blade[0] += dx
+        blade[1] += dy
+      }
+      for (const ob of isle.obstacles) {
+        ob.x += dx
+        ob.y += dy
+      }
+      if (anchorOnThis) {
+        anchorPos.value = {
+          x: anchorPos.value.x + dx,
+          y: anchorPos.value.y + dy
+        }
+      }
+    }
 
     // Advance swing rotation
     const baseSpeed = 2.1 // rad/sec at upgrade level 0
@@ -201,7 +330,7 @@ const useMawGame = () => {
       // Grass cuts
       for (const idx of [...isle.aliveGrass]) {
         const [gx, gy] = isle.grass[idx]!
-        if (distToSegment(gx, gy, ax, ay, bx, by) < 14) {
+        if (distToChain(gx, gy, ax, ay, bx, by) < 14) {
           isle.aliveGrass.delete(idx)
           cleared.value += 1
           recordMetric('totalGrass', 1)
@@ -226,7 +355,7 @@ const useMawGame = () => {
           continue
         }
         const radius = ob.type === 'boulder' ? 26 : ob.type === 'crystal' ? 18 : 22
-        if (distToSegment(ob.x, ob.y, ax, ay, bx, by) < radius) {
+        if (distToChain(ob.x, ob.y, ax, ay, bx, by) < radius) {
           // Saw-tier gating mirrors the upgrade description:
           //   • trees    cuttable from saw Lv. 2
           //   • stones   cuttable from saw Lv. 4
@@ -263,7 +392,7 @@ const useMawGame = () => {
             applyDamage(1)
             triggerShake('small')
           } else if (ob.type === 'stump') {
-            if (sawTier.value >= 2) {
+            if (sawTier.value >= 1) {
               isle.obstacles.splice(i, 1)
               recordMetric('stumpsDestroyed', 1)
               triggerShake('small')
@@ -274,7 +403,7 @@ const useMawGame = () => {
             triggerShake('small')
           } else {
             // boulder
-            if (sawTier.value >= 4) {
+            if (sawTier.value >= 3) {
               isle.obstacles.splice(i, 1)
               triggerShake('small')
               spawnCoinBurst(ob.x, ob.y, 20)
@@ -314,7 +443,7 @@ const useMawGame = () => {
     // the stage. The pole keeps working as an exit even after being cut.
     const ex = stage.value.exitX
     const ey = stage.value.exitY
-    if (distToSegment(ex, ey, ax, ay, bx, by) < 18) {
+    if (distToChain(ex, ey, ax, ay, bx, by) < 18) {
       if (!poleCut.value) poleCut.value = true
       if (reqsMet.value && phase.value === 'playing') {
         onWin()
@@ -385,6 +514,10 @@ const useMawGame = () => {
     recordMetric('gamesPlayed', 1)
     addCoins(stage.value.rewardLose)
     recordMetric('totalCoins', stage.value.rewardLose)
+    // First time the player gets ground down by an obstacle, flip the
+    // persistent flag so MawScene can show the "buy Sharper Saw Lv 2"
+    // onboarding hint until they actually buy it.
+    if (reason === 'broke') markBrokenFromObstacle()
   }
 
   /**
@@ -448,6 +581,7 @@ const useMawGame = () => {
     chainLength,
     poleCut,
     reqsMet,
+    isPaused,
 
     // Robot
     anchorPos,

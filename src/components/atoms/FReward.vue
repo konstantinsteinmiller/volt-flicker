@@ -37,7 +37,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, useSlots } from 'vue'
+import { computed, useSlots, watch, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { isMobileLandscape, isMobilePortrait } from '@/use/useUser'
 
@@ -61,6 +61,33 @@ const isMobile = computed(() => {
 const handleOverlayClick = () => {
   if (props.showContinue) emit('continue')
 }
+
+// Desktop shortcut: Space / Enter triggers the same "continue" action
+// the overlay click does, but only while the reward is up AND in
+// continue-mode. Listener is attached only when the modal becomes
+// visible so background views aren't intercepting these keys.
+const onContinueKey = (e: KeyboardEvent) => {
+  if (!props.modelValue || !props.showContinue) return
+  if (e.code !== 'Space' && e.code !== 'Enter' && e.code !== 'NumpadEnter') return
+  // Skip when focus is on a typing target — players might be editing
+  // toolbar inputs in the background.
+  const t = e.target
+  if (t instanceof HTMLElement) {
+    if (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT') return
+    if (t.isContentEditable) return
+  }
+  e.preventDefault()
+  emit('continue')
+}
+
+watch(() => props.modelValue, (open) => {
+  if (open) window.addEventListener('keydown', onContinueKey)
+  else window.removeEventListener('keydown', onContinueKey)
+}, { immediate: true })
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', onContinueKey)
+})
 </script>
 
 <style scoped lang="sass">

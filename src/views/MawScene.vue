@@ -9,12 +9,23 @@ import { getState, setState } from '@/use/useMawState'
 import useMawGame from '@/use/useMawGame'
 import useMawConfig from '@/use/useMawConfig'
 import useMawCampaign from '@/use/useMawCampaign'
-import useMawProgress from '@/use/useMawProgress'
+import useMawProgress, {
+  levelOf,
+  activeChainLevel,
+  adjustActiveChainLevel,
+  hasBrokenFromObstacle,
+  chainUpgradeFirstGameCount,
+  chainScrollLessonLearnt,
+  chainScrollHintShownCount,
+  markChainScrollHintShown,
+  gamesPlayedTotal,
+  upgradeCost
+} from '@/use/useMawProgress'
 import useSounds, { useMusic } from '@/use/useSound'
 import { useScreenshake } from '@/use/useScreenshake'
 import useUser from '@/use/useUser'
 import useBottomSafe from '@/use/useBottomSafe'
-import { isMobilePortrait } from '@/use/useUser'
+import { isMobilePortrait, isMobileLandscape } from '@/use/useUser'
 import useCheats from '@/use/useCheats'
 import { spawnCoinExplosion } from '@/use/useCoinExplosion'
 import { stopGameplay, startGameplay, triggerHappytime } from '@/use/useCrazyGames'
@@ -52,6 +63,7 @@ import {
 import {
   drawIsland,
   drawIslandPlatformBounds,
+  drawRobotHitBoxes,
   drawRobot,
   drawCoin,
   drawObstacle,
@@ -105,13 +117,174 @@ const {
   continueAfterDeath,
   chainLength,
   isOverIsland,
+  isPaused,
   poleCut,
   reqsMet
 } = useMawGame()
 
 const { coins: coinTotal } = useMawConfig()
-const { currentStageId, currentStage, stageReinitSignal } = useMawCampaign()
+const { currentStageId, currentStage, stageReinitSignal, resetCampaign, isLastStage } = useMawCampaign()
 const { } = useMawProgress()
+
+// ─── MAW-A-HERO completion ──────────────────────────────────────────────
+// Fires when the player wins the very last stage of the 20-stage
+// campaign. Shows a separate fancy reward screen with a celebration
+// sound + CG SDK happytime (CG builds only — already gated by
+// triggerHappytime), and offers a "Play from Stage 1" button that
+// rewinds the campaign without touching upgrades / coins.
+const showHeroReward = ref(false)
+const onRestartCampaign = () => {
+  showHeroReward.value = false
+  resetCampaign()
+}
+
+// Chain-length quick-adjust HUD buttons — let the player dial the live
+// chain reach up/down without re-buying upgrades, so they can pick the
+// right swing radius for small islands vs wide gaps.
+const purchasedChainLevel = computed(() => levelOf('chainLength'))
+const liveChainLevel = computed(() => activeChainLevel.value ?? purchasedChainLevel.value)
+const canChainUp = computed(() => liveChainLevel.value < purchasedChainLevel.value)
+const canChainDown = computed(() => liveChainLevel.value > 0)
+const onChainPlus = () => adjustActiveChainLevel(1)
+const onChainMinus = () => adjustActiveChainLevel(-1)
+
+// ─── Onboarding hints ───────────────────────────────────────────────────
+// "Upgrade Sharper Saw to Lv 1" — fires after the player's first death to
+// an obstacle (stump / boulder) and stays visible until they actually buy
+// the upgrade. Shown both as a small tooltip during the battle phase and
+// inside the loss-reward modal.
+const showSharperSawHint = computed(() =>
+  hasBrokenFromObstacle.value && levelOf('sawDamage') < 1
+)
+
+// "Click/tap to move" — first-two-stages onboarding for the anchor-swap
+// mechanic. Pinned to the screen centre, ~15% up from the bottom edge —
+// camera-stable so the player's eye doesn't have to track the robot to
+// read it. Copy is platform-aware: mobile gets "Tap", desktop "Click".
+const showClickToMoveHint = computed(() =>
+  currentStageId.value <= 2 && phase.value === 'playing'
+)
+const isTouchDevice = computed(() => isMobilePortrait.value || isMobileLandscape.value)
+const clickToMoveLabel = computed(() =>
+  isTouchDevice.value ? 'Tap to move' : 'Click / Space to move'
+)
+
+// ─── Desktop scroll-hint ──────────────────────────────────────────────
+// Desktop detection — a fine pointer + hover capability rules out
+// touch-only devices. Set on mount because device characteristics don't
+// change during a session.
+const isDesktop: Ref<boolean> = ref(false)
+onMounted(() => {
+  isDesktop.value =
+    typeof window !== 'undefined'
+    && typeof window.matchMedia === 'function'
+    && window.matchMedia('(hover: hover) and (pointer: fine)').matches
+})
+
+/** Decided at game-start (via `evaluateChainScrollHint`) — whether THIS
+ *  attempt should display the chain-scroll onboarding hint. The hint
+ *  shows on every 2nd attempt after the chain upgrade unlocks, and is
+ *  only visible for the first `HINT_VISIBLE_MS` of gameplay each time
+ *  (after that it auto-hides so it doesn't crowd the screen for the
+ *  rest of the round). */
+const HINT_VISIBLE_MS = 3000
+const showChainScrollHintThisGame = ref(false)
+const chainScrollHintWithShine = ref(false)
+const chainScrollHintExpired = ref(false)
+let chainScrollHintTimer: ReturnType<typeof setTimeout> | null = null
+
+const evaluateChainScrollHint = () => {
+  if (chainScrollHintTimer != null) {
+    clearTimeout(chainScrollHintTimer)
+    chainScrollHintTimer = null
+  }
+  showChainScrollHintThisGame.value = false
+  chainScrollHintWithShine.value = false
+  chainScrollHintExpired.value = false
+  if (!isDesktop.value) return
+  const baseline = chainUpgradeFirstGameCount.value
+  if (baseline === null) return // upgrade hasn't been bought yet
+  const since = gamesPlayedTotal.value - baseline
+  if (since < 0) return
+  // Cadence: every 2nd attempt after the chain upgrade unlocks
+  // (including the very first). The hint then auto-hides after
+  // HINT_VISIBLE_MS so it stays out of the way for the rest of play.
+  if (since % 2 !== 0) return
+  showChainScrollHintThisGame.value = true
+  chainScrollHintWithShine.value = chainScrollHintShownCount.value === 0
+  markChainScrollHintShown()
+  chainScrollHintTimer = setTimeout(() => {
+    chainScrollHintExpired.value = true
+    chainScrollHintTimer = null
+  }, HINT_VISIBLE_MS)
+}
+
+// Keep the lesson-learnt counter alive on the imports (it might come
+// back to gate cadence in a future tuning pass), but the current cadence
+// is unconditional every-2nd.
+void chainScrollLessonLearnt
+
+const showChainScrollHint = computed(() =>
+  showChainScrollHintThisGame.value
+  && !chainScrollHintExpired.value
+  && phase.value === 'playing'
+)
+
+// ─── Sharper-Saw spotlight ────────────────────────────────────────────
+// Tutorial gate that fires the moment the player has enough coins to
+// afford Sharper Saws Lv 1 AND hasn't bought it yet. While active, the
+// whole scene freezes (paused tick, muted battle music) and only the
+// HUD's upgrade button is reachable — bouncing under a dim overlay so
+// the player can't miss it. Closing the modal without buying re-arms
+// the spotlight; buying clears the condition for good.
+const sawSpotlightArmed = computed(() =>
+  levelOf('sawDamage') === 0
+  && coinTotal.value >= upgradeCost('sawDamage')
+)
+/** Spotlight visual + button bounce. Hidden while the upgrades modal is
+ *  open (the modal itself takes over the foreground), but the underlying
+ *  `sawSpotlightArmed` state keeps gameplay paused. */
+const showSawSpotlight = computed(() =>
+  sawSpotlightArmed.value && !showUpgrades.value
+)
+/** True whenever the saw upgrade is being forced — restricts the
+ *  upgrades modal to only the Sharper-Saw row. */
+const forceSawUpgradeOnly = computed(() => sawSpotlightArmed.value)
+
+watch(sawSpotlightArmed, (armed) => {
+  if (armed) {
+    isPaused.value = true
+    stopBattleMusic()
+  } else {
+    isPaused.value = false
+    // Restart music only if we're back in a live match — otherwise the
+    // game-over / idle screen would start the loop unprompted.
+    if (phase.value === 'playing') startBattleMusic()
+  }
+})
+
+// ─── Mouse-wheel chain-length adjust ──────────────────────────────────
+// Accumulate wheel deltas so a single light scroll-flick doesn't blast
+// through every chain tier — the threshold gives the player one tier per
+// "notch" on a typical mouse wheel and one tier per ~10cm of trackpad
+// gesture. Direction: scroll UP (negative deltaY) = longer chain, DOWN
+// = shorter, matching the natural "more / less" association.
+let wheelAccumulator = 0
+const WHEEL_THRESHOLD = 80
+const onWheel = (e: WheelEvent) => {
+  // Only active during gameplay AND when the player has at least one
+  // chain upgrade to step between. The cadence-hint logic doesn't gate
+  // this, but it's pointless before any upgrade exists.
+  if (phase.value !== 'playing') return
+  if (purchasedChainLevel.value < 1) return
+  e.preventDefault()
+  wheelAccumulator += e.deltaY
+  while (Math.abs(wheelAccumulator) >= WHEEL_THRESHOLD) {
+    const dir: 1 | -1 = wheelAccumulator > 0 ? -1 : 1
+    adjustActiveChainLevel(dir, 'scroll')
+    wheelAccumulator -= dir > 0 ? -WHEEL_THRESHOLD : WHEEL_THRESHOLD
+  }
+}
 
 // ─── Modals & UI flags ───────────────────────────────────────────────────
 const showOptions: Ref<boolean> = ref(false)
@@ -207,10 +380,10 @@ const beginPlay = async () => {
   initGame()
 
   // Mid-attempt ad cadence: every 3rd attempt we run a midgame ad as its
-  // own phase BEFORE the meteor shower. The counter bumps on every
-  // beginPlay regardless of platform; the actual ad show is gated on
+  // own phase BEFORE gameplay. The counter bumps on every beginPlay
+  // regardless of platform; the actual ad show is gated on
   // `isInterstitialReady` so a Noop / blocked / no-fill state silently
-  // falls through to the countdown.
+  // falls through.
   bumpAdCounter()
   if (battlesSinceAd.value >= 3) {
     resetAdCounter()
@@ -221,24 +394,47 @@ const beginPlay = async () => {
       } catch { /* SDK error → fall through to gameplay */ }
       // If the player navigated away (route change / unmount), the phase
       // ref will have been reinitialised — bail rather than racing the
-      // next mount's intro sequence.
+      // next mount's start.
       if (phase.value !== 'ad_break') return
     }
   }
-  startMeteorIntro()
+  // Meteor shower + 3-2-1 countdown removed from the entry path — they
+  // were padding game-entry. `startMeteorIntro` / `runCountdown` are
+  // intentionally kept in the codebase in case they come back for a
+  // boss-stage flourish later. For now: snap straight into gameplay.
+  evaluateChainScrollHint()
+  startBattleMusic()
+  startMatch()
+  triggerHappytime()
 }
 
 watch(phase, (p) => {
   if (p === 'game_over') {
     stopBattleMusic()
     if (gameResult.value === 'win') {
+      // Campaign clear — final stage win triggers the MAW-A-HERO Hall of
+      // Fame reward instead of the standard per-stage reward modal.
+      // `advanceStage()` (in useMawGame.onWin) stops incrementing past
+      // STAGES.length, so currentStageId stays parked on the final stage
+      // and `isLastStage` is still true at this point.
+      if (isLastStage.value && !testStage.value) {
+        showHeroReward.value = true
+        // Celebration: a louder pop of the existing reward jingle plus
+        // CG SDK happytime (a no-op on non-CG builds).
+        playSound('reward-continue', 0.18)
+        triggerHappytime()
+        return
+      }
       showReward.value = true
       nextTick(() => fireCoinExplosion(rewardCoinRef.value))
       return
     }
-    // Loss path — only the "broke" death (life ran out from obstacle hits)
-    // is eligible for a watch-ad continue. Splash deaths drop the player
-    // over open water with nowhere to stand on resume.
+    // Loss path — play the per-reason death sound, then decide between
+    // the watch-ad continue offer (only for "broke" deaths and only
+    // while the rewarded provider is ready) or the standard loss-reward
+    // modal. Splash deaths drop the player over open water with nowhere
+    // to stand on resume, so they always go straight to the modal.
+    playSound(lossReason.value === 'splashed' ? 'splash-death' : 'break-down-death', 0.12)
     const eligible =
       lossReason.value === 'broke'
       && isRewardedReady.value
@@ -472,7 +668,12 @@ const paint = () => {
 
   // 4. Robot
   if (phase.value !== 'idle') {
-    drawRobot(ctx, anchorPos.value, swingPos.value, swingAngle.value, anchorIsLeft.value)
+    drawRobot(ctx, anchorPos.value, swingPos.value, swingAngle.value, anchorIsLeft.value, liveChainLevel.value)
+    // Debug overlay AFTER the gears so the hit-zone bands sit on top
+    // and the visual-vs-hit gap is obvious.
+    if (isDebug.value) {
+      drawRobotHitBoxes(ctx, anchorPos.value, swingPos.value)
+    }
   }
 
   ctx.restore()
@@ -535,9 +736,38 @@ const showStartHint = computed(() =>
       ref="canvasRef"
       @pointerdown="onPointerDown"
       @contextmenu="onContextMenu"
+      @wheel.prevent="onWheel"
       class="block touch-none"
       :style="shakeStyle"
     )
+
+    //- Click/tap to move — first-two-stages onboarding hint that tracks
+    //- the robot in screen space (position computed from the live anchor
+    //- + swing world coords). Outside the HUD wrapper so its `position:
+    //- absolute` plays well with the canvas.
+    //- Sharper-Saw spotlight overlay. Dims the whole scene; sits ABOVE
+    //- the HUD so nothing else is interactable, but BELOW the bottom-
+    //- right HUD column whose z-index gets bumped to `z-[120]` while
+    //- the spotlight is up so the upgrade button stays reachable.
+    Transition(name="fade")
+      div.saw-spotlight-overlay.pointer-events-auto.fixed.inset-0(
+        v-if="showSawSpotlight"
+      )
+        div.saw-spotlight-arrow Upgrade now! →
+
+    //- Centre-bottom stack for the onboarding pills: click-to-move and,
+    //- on desktop, the chain-scroll hint stacked under it. Pinned to the
+    //- screen so the player's eye doesn't track the robot to read them.
+    div.onboarding-hints.pointer-events-none.absolute(
+      v-if="showClickToMoveHint || showChainScrollHint"
+    )
+      Transition(name="fade")
+        div.click-to-move-hint(v-if="showClickToMoveHint") {{ clickToMoveLabel }}
+      Transition(name="fade")
+        div.chain-scroll-hint(
+          v-if="showChainScrollHint"
+          :class="{ shine: chainScrollHintWithShine }"
+        ) Scroll to increase / decrease chain length
 
     //- HUD
     div.absolute.inset-0.pointer-events-none
@@ -563,9 +793,45 @@ const showStartHint = computed(() =>
           //- Life pips, stacked under the stage badge.
           LifeBadge(:life="life" :max-life="maxLife")
 
+          //- Onboarding tip: shown once the player dies to a stump/boulder
+          //- until they buy Sharper Saw Lv 2. Quiet panel under the life
+          //- pips so it's visible during gameplay without crowding the
+          //- centre HUD.
+          Transition(name="fade")
+            div.saw-hint-banner.pointer-events-none(
+              v-if="showSharperSawHint && phase === 'playing'"
+            )
+              span.font-bold.uppercase.tracking-wider(class="text-[10px] text-yellow-300") Tip
+              span.game-text(class="text-xs sm:text-sm") Upgrade Sharper Saw to Lv 1 to cut tree stumps
+
         div.flex.flex-col.items-end.gap-2
           CoinBadge(ref="coinBadgeRef")
           TreasureChest(:target-el="coinBadgeEl")
+
+          //- Chain-length quick adjust: step the live chain reach
+          //- up/down through the player's purchased upgrade tiers.
+          //- Disabled if there's nothing to step into.
+          div.flex.items-center.gap-1.pointer-events-auto(v-if="purchasedChainLevel > 0")
+            button.chain-adjust-btn(
+              type="button"
+              :disabled="!canChainDown"
+              @click="onChainMinus"
+              :title="`Shorter chain (Lv. ${liveChainLevel} / ${purchasedChainLevel})`"
+            )
+              svg(viewBox="0 0 24 24" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round")
+                path(d="M9.5 6.5 L7 9 a3.5 3.5 0 0 0 5 5 l1-1")
+                path(d="M14.5 17.5 L17 15 a3.5 3.5 0 0 0 -5 -5 l-1 1")
+              span.text-xs.font-black.game-text -1
+            button.chain-adjust-btn(
+              type="button"
+              :disabled="!canChainUp"
+              @click="onChainPlus"
+              :title="`Longer chain (Lv. ${liveChainLevel} / ${purchasedChainLevel})`"
+            )
+              svg(viewBox="0 0 24 24" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round")
+                path(d="M9.5 6.5 L7 9 a3.5 3.5 0 0 0 5 5 l1-1")
+                path(d="M14.5 17.5 L17 15 a3.5 3.5 0 0 0 -5 -5 l-1 1")
+              span.text-xs.font-black.game-text +1
 
       //- Center: Tap-to-start / countdown / target counter
       div.absolute.flex.items-center.justify-center(class="inset-0 z-[10] pointer-events-none")
@@ -676,7 +942,8 @@ const showStartHint = computed(() =>
       //- Bottom-right buttons: Achievements + Upgrades
       div(
         v-if="phase !== 'meteor_intro'"
-        class="ui-stack-br fixed pointer-events-auto z-50 flex flex-col items-end gap-2"
+        class="ui-stack-br fixed pointer-events-auto flex flex-col items-end gap-2"
+        :class="showSawSpotlight ? 'z-[120]' : 'z-50'"
         :style="{\
           bottom: `calc(0.5rem + env(safe-area-inset-bottom, 0px) + ${bottomGapPx}px)`,\
           right: 'calc(0.5rem + env(safe-area-inset-right, 0px))',\
@@ -700,7 +967,11 @@ const showStartHint = computed(() =>
                   path(d="M9 13 H15 V18 H9 Z" fill="rgba(255,255,255,0.25)")
                   path(d="M7 18 H17 V20 H7 Z" fill="white")
           //- Upgrades
-          button.secondary-square-btn(@click="showUpgrades = true" class="cursor-pointer hover:scale-[103%] active:scale-90 transition-transform")
+          button.secondary-square-btn(
+            @click="showUpgrades = true"
+            class="cursor-pointer hover:scale-[103%] active:scale-90 transition-transform"
+            :class="{ 'saw-spotlight-bounce': showSawSpotlight }"
+          )
             div.relative
               div.absolute.inset-0.translate-y-1.rounded-lg(class="bg-[#102e7a]")
               div.relative.rounded-lg.border-2.flex.items-center.justify-center.p-2(
@@ -757,6 +1028,14 @@ const showStartHint = computed(() =>
           v-if="gameResult === 'lose'"
           class="text-sm sm:text-base opacity-80"
         ) {{ lossReason === 'splashed' ? t('maw.splashed') : t('maw.broke') }}
+        //- Sharper-saw onboarding hint — only on the lose screen, only
+        //- until the player has actually bought saw level 2.
+        div.saw-hint-banner.pointer-events-none(
+          v-if="gameResult === 'lose' && showSharperSawHint"
+          class="!max-w-xs"
+        )
+          span.font-bold.uppercase.tracking-wider(class="text-[10px] text-yellow-300") Tip
+          span.game-text(class="text-xs sm:text-sm") Upgrade Sharper Saw to Lv 1 to cut tree stumps
         div.flex.items-center.gap-3(ref="rewardCoinRef")
           IconCoin(class="w-8 h-8 text-yellow-300")
           span.text-yellow-400.font-black.game-text(class="text-2xl sm:text-4xl") +{{ gameResult === 'win' ? stage.rewardWin : stage.rewardLose }}
@@ -773,7 +1052,33 @@ const showStartHint = computed(() =>
 
     UpgradesModal(
       v-model="showUpgrades"
+      :restrict-to-id="forceSawUpgradeOnly ? 'sawDamage' : null"
     )
+
+    //- MAW-A-HERO end-of-campaign reward. Replaces the normal win-FReward
+    //- when the player finishes stage 20. Click / Space / Enter or the
+    //- explicit button start the campaign over from stage 1 (upgrades
+    //- and coins are untouched).
+    FReward(
+      v-model="showHeroReward"
+      :show-continue="true"
+      @continue="onRestartCampaign"
+    )
+      template(#ribbon)
+        span.text-white.font-black.uppercase.italic.game-text(class="sm:text-2xl") MAW-A-HERO
+      div.hero-reward.flex.flex-col.items-center.gap-4.text-center
+        div.font-black.uppercase.tracking-wider.game-text.text-yellow-300(class="text-3xl sm:text-5xl")
+          | Congratulations!
+        div.text-white.game-text(class="text-base sm:text-lg max-w-md leading-snug")
+          | You have completed every course and are a true
+          span.text-yellow-300.font-black  MAW-A-HERO
+          | .
+          br
+          | Your name will enter the Hall of Fame.
+        button.hero-reward-btn(
+          class="cursor-pointer active:scale-95 transition-transform"
+          @click="onRestartCampaign"
+        ) ▶ Play from Stage 1 again
 </template>
 
 <style scoped lang="sass">
@@ -783,6 +1088,181 @@ const showStartHint = computed(() =>
   background-image: url('/images/props/water_512x512.webp')
   background-repeat: repeat
   background-size: 512px 512px
+
+// Onboarding hint pill — "Upgrade Sharper Saw to Lv 1 to cut tree stumps".
+// Subtle enough to ignore mid-fight, legible enough to read at a glance.
+.saw-hint-banner
+  display: flex
+  align-items: center
+  gap: 0.4rem
+  padding: 0.3rem 0.55rem
+  border-radius: 0.5rem
+  border: 2px solid rgba(255, 220, 80, 0.45)
+  background: rgba(15, 26, 48, 0.78)
+  color: white
+  max-width: 16rem
+  line-height: 1.15
+  text-shadow: 1px 1px 0 #000
+
+// MAW-A-HERO end-of-campaign reward — fancier than the per-stage win
+// modal so the player feels the moment.
+.hero-reward
+  padding: 0 1rem
+
+.hero-reward-btn
+  margin-top: 0.5rem
+  padding: 0.6rem 1.4rem
+  border-radius: 999px
+  font-weight: 900
+  font-size: 1.05rem
+  text-transform: uppercase
+  letter-spacing: 0.04em
+  color: #1a0e22
+  background: linear-gradient(180deg, #ffe066, #f5b340)
+  border: 3px solid #1a0e22
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.4)
+  box-shadow: 0 0 24px rgba(255, 224, 102, 0.55), 0 4px 10px rgba(0, 0, 0, 0.4)
+  animation: hero-reward-pulse 1.6s ease-in-out infinite
+
+@keyframes hero-reward-pulse
+  0%, 100%
+    transform: scale(1)
+    box-shadow: 0 0 24px rgba(255, 224, 102, 0.55), 0 4px 10px rgba(0, 0, 0, 0.4)
+  50%
+    transform: scale(1.04)
+    box-shadow: 0 0 32px rgba(255, 224, 102, 0.85), 0 4px 14px rgba(0, 0, 0, 0.4)
+
+// Sharper-Saw spotlight: full-screen dimmer + bouncing call-out. The
+// HUD's bottom-right column gets a z-index bump in template-land while
+// the spotlight is on, so the upgrade button sits ABOVE this overlay
+// even though the overlay is positioned over the rest of the scene.
+.saw-spotlight-overlay
+  background: rgba(0, 0, 0, 0.62)
+  z-index: 110
+  display: flex
+  align-items: center
+  justify-content: center
+
+.saw-spotlight-arrow
+  position: absolute
+  right: 6rem
+  bottom: 5.5rem
+  padding: 0.45rem 0.9rem
+  border-radius: 999px
+  background: rgba(15, 26, 48, 0.95)
+  border: 2px solid #ffd84d
+  color: #ffd84d
+  font-weight: 900
+  font-size: 1rem
+  letter-spacing: 0.05em
+  text-shadow: 1px 1px 0 #000
+  white-space: nowrap
+  animation: saw-spotlight-arrow-bob 0.9s ease-in-out infinite
+
+// Bounce applied to the upgrade button itself while the spotlight is
+// up — same hint-bounce feel as other "tap me" cues in the HUD.
+.saw-spotlight-bounce
+  animation: saw-spotlight-bounce 0.85s ease-in-out infinite
+  filter: drop-shadow(0 0 12px rgba(255, 216, 77, 0.7))
+
+@keyframes saw-spotlight-bounce
+  0%, 100%
+    transform: translateY(0) scale(1)
+  50%
+    transform: translateY(-10px) scale(1.06)
+
+@keyframes saw-spotlight-arrow-bob
+  0%, 100%
+    transform: translateX(0)
+  50%
+    transform: translateX(8px)
+
+// Camera-stable onboarding pills container. Pinned to the screen centre
+// ~15 % up from the bottom edge so it never moves with the robot.
+.onboarding-hints
+  z-index: 30
+  left: 50%
+  bottom: 15%
+  transform: translateX(-50%)
+  display: flex
+  flex-direction: column
+  align-items: center
+  gap: 0.4rem
+
+// "Click / tap to move" pill.
+.click-to-move-hint
+  padding: 0.25rem 0.6rem
+  border-radius: 999px
+  background: rgba(0, 0, 0, 0.65)
+  border: 2px solid rgba(255, 255, 255, 0.35)
+  color: white
+  font-weight: 700
+  font-size: 0.85rem
+  text-shadow: 1px 1px 0 #000
+  letter-spacing: 0.02em
+  white-space: nowrap
+
+// "Scroll to increase / decrease chain length" desktop hint, stacked
+// directly under the click-to-move pill. The `.shine` modifier flips on
+// for the FIRST impression after the chain upgrade unlocks — a soft
+// highlight sweeps across so the new shortcut is unmissable.
+.chain-scroll-hint
+  padding: 0.25rem 0.6rem
+  border-radius: 999px
+  background: rgba(0, 0, 0, 0.7)
+  border: 2px solid rgba(120, 200, 255, 0.45)
+  color: white
+  font-weight: 700
+  font-size: 0.8rem
+  text-shadow: 1px 1px 0 #000
+  letter-spacing: 0.02em
+  white-space: nowrap
+  position: relative
+  overflow: hidden
+
+  &.shine::before
+    content: ''
+    position: absolute
+    inset: 0
+    background: linear-gradient(120deg, transparent 30%, rgba(255, 255, 255, 0.55) 50%, transparent 70%)
+    transform: translateX(-100%)
+    animation: chain-scroll-shine 2.2s ease-in-out infinite
+    pointer-events: none
+
+@keyframes chain-scroll-shine
+  0%
+    transform: translateX(-100%)
+  60%
+    transform: translateX(100%)
+  100%
+    transform: translateX(100%)
+
+// Chain-length quick adjust buttons — match the secondary-square-btn
+// palette but compact, since they live in the HUD's right column.
+.chain-adjust-btn
+  display: inline-flex
+  align-items: center
+  gap: 0.15rem
+  padding: 0.25rem 0.45rem
+  border-radius: 0.5rem
+  border: 2px solid #0f1a30
+  background: linear-gradient(180deg, #50aaff, #2266ff)
+  color: white
+  text-shadow: 1px 1px 0 #000
+  cursor: pointer
+  transition: transform 0.08s ease, filter 0.08s ease
+
+  &:hover:not(:disabled)
+    filter: brightness(1.08)
+    transform: scale(1.04)
+
+  &:active:not(:disabled)
+    transform: scale(0.94)
+
+  &:disabled
+    opacity: 0.45
+    cursor: not-allowed
+    filter: grayscale(0.4)
 
 .countdown-number
   display: inline-block

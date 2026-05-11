@@ -334,15 +334,17 @@ export const islandPolygonWorld = (
 }
 
 /** Rejection-sample one world-space point inside the polygon, with a
- *  small inset so blades don't poke over the scalloped edge. Returns
- *  null if no sample lands inside within `attempts` tries (shouldn't
- *  happen for a sane polygon). */
+ *  WORLD-aware inset so grass blades don't poke off the green island.
+ *  Blades render ~28 wu tall with anchor at 26/36 from the top of the
+ *  cell, so the visible body extends ~26 wu UP from the anchor and only
+ *  ~10 wu down — that asymmetry is mirrored in the top vs bottom inset.
+ *  Returns null on the rare miss; callers fall back to the island
+ *  centre. */
 export const sampleInsideIsland = (
   shape: IslandShape, cx: number, cy: number, radius: number,
   rng: () => number, attempts = 24
 ): [number, number] | null => {
   const d = shapeData[shape]
-  // Bounding box of the polygon in image-norm.
   let minN = 1, maxN = 0, minM = 1, maxM = 0
   for (const v of d.polygon) {
     if (v[0] < minN) minN = v[0]
@@ -350,13 +352,19 @@ export const sampleInsideIsland = (
     if (v[1] < minM) minM = v[1]
     if (v[1] > maxM) maxM = v[1]
   }
-  // Inset slightly inside the bbox to keep blades clear of the edge.
-  const insetN = (maxN - minN) * 0.04
-  const insetM = (maxM - minM) * 0.04
-  const nLo = minN + insetN, nHi = maxN - insetN
-  const mLo = minM + insetM, mHi = maxM - insetM
-  const imgW = radius * d.wPerRadius
-  const imgH = radius * d.hPerRadius
+  // Polygon coords are in normalised image-space; the inset has to be
+  // expressed in those same units to be meaningful, so we convert
+  // world-space margins through the per-island image footprint.
+  const imgWWorld = radius * d.wPerRadius
+  const imgHWorld = radius * d.hPerRadius
+  const insetXNorm = 10 / imgWWorld   // ~7-px-wide grass tuft + buffer
+  const insetTopNorm = 28 / imgHWorld // blade extends ~26 wu above anchor
+  const insetBotNorm = 8 / imgHWorld  // small drop below anchor
+  const nLo = minN + insetXNorm
+  const nHi = maxN - insetXNorm
+  const mLo = minM + insetTopNorm
+  const mHi = maxM - insetBotNorm
+  if (nHi <= nLo || mHi <= mLo) return null
   for (let k = 0; k < attempts; k++) {
     const nx = nLo + rng() * (nHi - nLo)
     const ny = mLo + rng() * (mHi - mLo)
@@ -371,8 +379,8 @@ export const sampleInsideIsland = (
     }
     if (inside) {
       return [
-        cx + (nx - d.cxNorm) * imgW,
-        cy + (ny - d.cyNorm) * imgH
+        cx + (nx - d.cxNorm) * imgWWorld,
+        cy + (ny - d.cyNorm) * imgHWorld
       ]
     }
   }

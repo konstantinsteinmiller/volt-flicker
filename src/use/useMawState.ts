@@ -70,6 +70,47 @@ const persistRaw = (blob: Record<string, unknown>): void => {
   try { localStorage.setItem(STATE_KEY, JSON.stringify(blob)) } catch { /* quota / private mode */ }
 }
 
+// ─── Debounced write batching ─────────────────────────────────────────
+// `setState` used to JSON.stringify the entire mawState blob and call
+// `localStorage.setItem` on every individual write. Hot-loops in
+// gameplay (every grass cut → recordMetric + addCoins + recordMetric =
+// 3 writes; bursts hit 40+ writes/second) were burning 5-15 ms per
+// write on the main thread, which is the "FPS drops to 30 for 2-3 s
+// after a big mow" the player feels. We keep the in-memory ref update
+// synchronous (consumers expect the new value to be readable
+// immediately) but coalesce the actual persist into a single trailing-
+// edge write after PERSIST_DEBOUNCE_MS of quiet, and we hard-flush on
+// `pagehide` so a tab close mid-burst doesn't drop data.
+const PERSIST_DEBOUNCE_MS = 200
+let persistTimer: ReturnType<typeof setTimeout> | null = null
+
+const flushPersist = () => {
+  if (persistTimer != null) {
+    clearTimeout(persistTimer)
+    persistTimer = null
+  }
+  persistRaw(mawState.value)
+}
+
+const schedulePersist = () => {
+  if (persistTimer != null) clearTimeout(persistTimer)
+  persistTimer = setTimeout(() => {
+    persistTimer = null
+    persistRaw(mawState.value)
+  }, PERSIST_DEBOUNCE_MS)
+}
+
+if (typeof window !== 'undefined') {
+  // Browsers fire `pagehide` on tab close / navigation / mobile
+  // background. `visibilitychange` → hidden catches background-tab cases
+  // some browsers omit pagehide for. Both are safe to flush from.
+  const onHide = () => flushPersist()
+  window.addEventListener('pagehide', onHide)
+  window.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') flushPersist()
+  })
+}
+
 const buildInitial = (): Record<string, unknown> => {
   let blob: Record<string, unknown> = {}
 
@@ -122,7 +163,7 @@ export const hasState = (key: string): boolean => mawState.value[key] !== undefi
 
 export const setState = (key: string, value: unknown): void => {
   mawState.value = { ...mawState.value, [key]: value }
-  persistRaw(mawState.value)
+  schedulePersist()
 }
 
 export const removeState = (key: string): void => {
@@ -130,7 +171,7 @@ export const removeState = (key: string): void => {
   const next = { ...mawState.value }
   delete next[key]
   mawState.value = next
-  persistRaw(mawState.value)
+  schedulePersist()
 }
 
 /** Re-read from localStorage. Used by the SaveManager hydrate watcher
