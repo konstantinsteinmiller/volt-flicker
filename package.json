@@ -1,6 +1,6 @@
 {
-  "name": "spin&maw",
-  "version": "0.3.0",
+  "name": "spin&mow",
+  "version": "0.4.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -12,6 +12,7 @@
     "build:itch": "vite build --mode itch --base=./",
     "build:glitch": "vite build --mode glitch --base=./",
     "build:game-distribution": "vite build --mode game-distribution --base=./",
+    "deploy": "vite build && surge dist/ --domain spin-and-mow.surge.sh",
     "validated-build": "vue-tsc -b && vite build",
     "type-check": "vue-tsc --build",
     "test": "vitest run",

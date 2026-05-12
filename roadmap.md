@@ -1,4 +1,4 @@
-# Maw-It-Down — Retention & Conversion Roadmap
+# Spin&Mow — Retention & Conversion Roadmap
 
 Ordered by expected lift on the four core metrics: Day-1 retention,
 average playtime, easy-to-pickup-hard-to-put-down feel, and conversion.

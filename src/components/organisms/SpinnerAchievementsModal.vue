@@ -28,7 +28,7 @@ watch(() => props.modelValue, (open) => { if (open) stopGameplay() })
 
 // ─── Crest theming ─────────────────────────────────────────────────────────
 //
-// The maw-it-down achievement list defines `id, name, description, reward,
+// The spin-and-mow achievement list defines `id, name, description, reward,
 // goal, metric` — there's no glyph or palette for the crest. We map each id
 // to a 1-3 char glyph and a 3-stop color palette here so the visual catalog
 // stays inside the view layer (where the crest lives).
@@ -96,7 +96,7 @@ const onClaim = (id: string, sourceEl: EventTarget | null) => {
           :class="{ 'is-unlocked': card.unlocked, 'is-claimed': card.claimed }"
         )
           //- Crest badge — full SVG copied from the spinner modal, with the
-          //- locked / unlocked state driven by the maw-it-down claim system.
+          //- locked / unlocked state driven by the spin-and-mow claim system.
           div.ach-crest.shrink-0
             svg.ach-crest__svg(viewBox="-60 -60 120 120" xmlns="http://www.w3.org/2000/svg")
               defs

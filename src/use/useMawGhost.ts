@@ -18,7 +18,7 @@ import { saveDataVersion } from '@/use/useSaveStatus'
  *
  * Why this shape?
  *
- *   The anchor in MAW-IT-DOWN is a step function — it teleports on every
+ *   The anchor in Spin&Mow is a step function — it teleports on every
  *   swap and is otherwise static. Sampling per frame would record the
  *   same position 60 times a second; sampling on swap events alone
  *   captures the entire anchor trajectory with zero loss.

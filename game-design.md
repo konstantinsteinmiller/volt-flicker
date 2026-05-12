@@ -1,4 +1,4 @@
-# MAW-IT-DOWN — Game Design
+# Spin&Mow — Game Design
 
 ## Short description (147 chars)
 

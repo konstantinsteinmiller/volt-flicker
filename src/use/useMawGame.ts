@@ -17,7 +17,7 @@ import { testStage } from '@/use/useCustomStages'
 import useBattlePass from '@/use/useBattlePass'
 
 /**
- * Core game-loop composable for Maw-It-Down.
+ * Core game-loop composable for Spin&Mow.
  *
  * The robot is two gears connected by a chain. One gear is the **anchor**
  * (rooted to the ground, axis of rotation) and the other is the **swing**

@@ -4,7 +4,7 @@ import { saveDataVersion } from '@/use/useSaveStatus'
 import { getState, setState } from '@/use/useMawState'
 
 /**
- * Lightweight battle pass for Maw-It-Down. 30 stages, 100 xp per stage.
+ * Lightweight battle pass for Spin&Mow. 30 stages, 100 xp per stage.
  *   - start an attempt → +12 xp (participation)
  *   - finish a stage   → +50 xp (additional, on win)
  * Each level grants a coin payout on a linear ramp 30 → 600 across the

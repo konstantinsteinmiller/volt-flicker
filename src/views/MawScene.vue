@@ -49,7 +49,7 @@ import BattlePass from '@/components/organisms/BattlePass.vue'
 import AdRewardButton from '@/components/organisms/AdRewardButton.vue'
 import OptionsModal from '@/components/organisms/OptionsModal.vue'
 //- The crest-styled SpinnerAchievementsModal supersedes the original
-//- AchievementsModal — it shows the same data through the maw-it-down
+//- AchievementsModal — it shows the same data through the spin-and-mow
 //- claim system, just wrapped in nicer artwork.
 import AchievementsModal from '@/components/organisms/SpinnerAchievementsModal.vue'
 import UpgradesModal from '@/components/organisms/UpgradesModal.vue'
