@@ -6,6 +6,9 @@
  */
 
 import { prependBaseUrl } from '@/utils/function'
+import useSounds from '@/use/useSound'
+
+const { playSound } = useSounds()
 
 // Bitmap coin sprite — same 20×20 footprint as the previous SVG so the
 // burst geometry and badge fly-in math don't change. `prependBaseUrl`
@@ -28,6 +31,8 @@ export interface CoinExplosionOptions {
 
 export function spawnCoinExplosion(opts: CoinExplosionOptions) {
   const { sourceEl, targetEl, count = 20, burstRadius = 120 } = opts
+
+  playSound('happy', 0.08)
 
   const sourceRect = sourceEl.getBoundingClientRect()
   const cx = sourceRect.left + sourceRect.width / 2

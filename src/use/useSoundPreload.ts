@@ -39,7 +39,8 @@ const GAMEPLAY_SFX: ReadonlyArray<string> = [
   'win',
   'modal-open',
   'level-up',
-  'reward-continue'
+  'reward-continue',
+  'happy'
 ]
 
 let preloadStarted = false

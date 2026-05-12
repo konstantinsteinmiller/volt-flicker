@@ -63,8 +63,7 @@ export const useMusic = () => {
     // mid-fight on extra calls.
     if (shouldPlay.value && isPlaying.value) return
     shouldPlay.value = true
-    const idx = Math.floor(Math.random() * 3) + 1
-    const filename = `battle-${idx}.ogg`
+    const filename = `bg-cozy.ogg`
     const src = prependBaseUrl('audio/music/' + filename)
     const cached = resourceCache.audio.get(src)
 
@@ -113,7 +112,7 @@ export const useMusic = () => {
   const fadeIn = () => {
     if (!bgMusic.value) return
     let vol = 0
-    const target = Math.max(0, Math.min(1, (userMusicVolume.value ?? 0.6) * 0.025))
+    const target = Math.max(0, Math.min(1, (userMusicVolume.value ?? 0.6) * 0.125))
     const interval = setInterval(() => {
       if (!bgMusic.value || !shouldPlay.value) {
         clearInterval(interval)

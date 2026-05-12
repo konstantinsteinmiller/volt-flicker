@@ -29,7 +29,7 @@ export const UPGRADES: UpgradeDef[] = [
   // the player toward.
   { id: 'sawDamage',     name: 'Sharper Saws',      description: 'Cut trees from Lv. 1, stones from Lv. 3, crystals from Lv. 6, Liberty statues from Lv. 8.', base: 0, costBase: 200, perLevel: 1, unit: 'lvl', maxLevel: 8 },
   { id: 'maxLife',       name: 'Reinforced Frame',  description: 'Survive more bumps before breaking down.',  base: 2,    costBase: 60,  perLevel: 1,    unit: 'life',     maxLevel: 8 },
-  { id: 'chainLength',   name: 'Longer Chain',      description: 'Increase reach so harder islands are within leap distance.', base: 96,   costBase: 80,  perLevel: 8,    unit: 'px',       maxLevel: 8 },
+  { id: 'chainLength',   name: 'Longer Chain',      description: 'Increase reach so harder islands are within leap distance. Levels 9 and 10 are end-game goals.', base: 96,   costBase: 80,  perLevel: 8,    unit: 'px',       maxLevel: 10 },
   { id: 'coinMagnetMs',  name: 'Coin Magnet',       description: 'Coins auto-collect faster after they drop.', base: 500,  costBase: 50,  perLevel: -50,  unit: 'ms',       maxLevel: 6 },
   // Tuned Gearbox has no real ceiling — once past level 6 it stops
   // affecting gameplay balance and only matters for speedrun bragging
@@ -113,6 +113,15 @@ export const upgradeCost = (id: UpgradeId): number => {
   // it expensive doesn't hurt anyone except whales who want it.
   if (id === 'rotationSpeed' && lvl >= 5) {
     const ramp = Math.pow(2.5, lvl - 5)
+    return Math.round(linear * ramp)
+  }
+  // Longer Chain levels 9 and 10 are intentional long-term goals: the
+  // first 8 tiers stay on the linear curve (so the gameplay-critical
+  // reach gains stay affordable), then the cost ramps hard so the last
+  // two levels become a coin-hoarding aspiration rather than a routine
+  // purchase.
+  if (id === 'chainLength' && lvl >= 8) {
+    const ramp = Math.pow(5, lvl - 7)
     return Math.round(linear * ramp)
   }
   return Math.round(linear)
