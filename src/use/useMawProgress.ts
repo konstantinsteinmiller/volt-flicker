@@ -21,6 +21,11 @@ export interface UpgradeDef {
   perLevel: number
   unit: string
   maxLevel: number
+  /** Stage gate: hide / disable the upgrade until the player has REACHED
+   *  this stage at least once (tracked via the `maxStage` achievement
+   *  metric, which is set to `currentStageId + 1` on each win). Used to
+   *  keep mid-game power-curve upgrades off the early-game menu. */
+  minStage?: number
 }
 
 export const UPGRADES: UpgradeDef[] = [
@@ -30,14 +35,16 @@ export const UPGRADES: UpgradeDef[] = [
   { id: 'sawDamage',     name: 'Sharper Saws',      description: 'Cut trees from Lv. 1, stones from Lv. 3, crystals from Lv. 6, Liberty statues from Lv. 8.', base: 0, costBase: 200, perLevel: 1, unit: 'lvl', maxLevel: 8 },
   { id: 'maxLife',       name: 'Reinforced Frame',  description: 'Survive more bumps before breaking down.',  base: 2,    costBase: 60,  perLevel: 1,    unit: 'life',     maxLevel: 8 },
   { id: 'chainLength',   name: 'Longer Chain',      description: 'Increase reach so harder islands are within leap distance. Levels 9 and 10 are end-game goals.', base: 96,   costBase: 80,  perLevel: 8,    unit: 'px',       maxLevel: 10 },
-  { id: 'coinMagnetMs',  name: 'Coin Magnet',       description: 'Coins auto-collect faster after they drop.', base: 500,  costBase: 50,  perLevel: -50,  unit: 'ms',       maxLevel: 6 },
+  { id: 'coinMagnetMs',  name: 'Coin Magnet',       description: 'Coins auto-collect faster after they drop. Unlocks at Stage 7.', base: 500,  costBase: 50,  perLevel: -50,  unit: 'ms',       maxLevel: 6, minStage: 7 },
   // Tuned Gearbox has no real ceiling — once past level 6 it stops
   // affecting gameplay balance and only matters for speedrun bragging
   // rights. The cost curve goes exponential past level 5 (see
   // `upgradeCost` below) so any further upgrades effectively require
   // a watch-ad sequence. Hard cap at 99 just to keep the integer math
-  // from blowing up over a long-lived save.
-  { id: 'rotationSpeed', name: 'Tuned Gearbox',     description: 'Spin faster — cover ground sooner. Levels past 6 are speedrun-only.', base: 1.0,  costBase: 70,  perLevel: 0.1,  unit: '×',        maxLevel: 99 }
+  // from blowing up over a long-lived save. Gated behind Stage 7 — the
+  // power curve only makes sense once the player is past the intro
+  // forest and into the wheat band.
+  { id: 'rotationSpeed', name: 'Tuned Gearbox',     description: 'Spin faster — cover ground sooner. Levels past 6 are speedrun-only. Unlocks at Stage 7.', base: 1.0,  costBase: 70,  perLevel: 0.1,  unit: '×',        maxLevel: 99, minStage: 7 }
 ]
 
 interface UpgradeState {
@@ -155,6 +162,75 @@ export const markBrokenFromObstacle = () => {
   setState(BROKEN_FROM_OBSTACLE_KEY, true)
 }
 
+// ─── Per-obstacle death trackers ──────────────────────────────────────────
+// Drive the escalating Sharper-Saws hint chain:
+//   Lv 1 (stumps)   → triggered by the first obstacle death
+//   Lv 3 (stones)   → triggered by the FIRST boulder/stone death
+//   Lv 6 (crystals) → triggered after TWO crystal deaths
+// Counts are persisted so the prompts survive reloads and only stop
+// once the player has actually reached the matching saw tier.
+const DIED_TO_STONE_KEY = 'spinner_died_to_stone'
+const DIED_TO_CRYSTAL_COUNT_KEY = 'spinner_died_to_crystal_count'
+
+const readBool = (k: string): boolean => Boolean(getState<boolean>(k, false))
+const readCount = (k: string): number => {
+  const v = getState<unknown>(k, 0)
+  return typeof v === 'number' && Number.isFinite(v) ? Math.max(0, Math.floor(v)) : 0
+}
+
+export const hasDiedToStone: Ref<boolean> = ref(readBool(DIED_TO_STONE_KEY))
+export const diedToCrystalCount: Ref<number> = ref(readCount(DIED_TO_CRYSTAL_COUNT_KEY))
+
+watch(saveDataVersion, () => {
+  hasDiedToStone.value = readBool(DIED_TO_STONE_KEY)
+  diedToCrystalCount.value = readCount(DIED_TO_CRYSTAL_COUNT_KEY)
+})
+
+export const markDiedToStone = () => {
+  if (hasDiedToStone.value) return
+  hasDiedToStone.value = true
+  setState(DIED_TO_STONE_KEY, true)
+}
+
+export const markDiedToCrystal = () => {
+  diedToCrystalCount.value += 1
+  setState(DIED_TO_CRYSTAL_COUNT_KEY, diedToCrystalCount.value)
+}
+
+// ─── Rapid-death "free Reinforced Frame upgrade" one-time offer ──────────
+// Persisted flag so the watch-ad → +1 Reinforced Frame reward can only be
+// redeemed once across the player's lifetime. Eligibility (3 deaths in
+// 10 s) is tracked transiently in useMawGame; this flag just records
+// whether the player has already cashed in.
+const RAPID_DEATH_LIFE_OFFER_KEY = 'spinner_rapid_death_life_offer_redeemed'
+export const rapidDeathLifeOfferRedeemed: Ref<boolean> = ref(
+  Boolean(getState<boolean>(RAPID_DEATH_LIFE_OFFER_KEY, false))
+)
+watch(saveDataVersion, () => {
+  rapidDeathLifeOfferRedeemed.value = Boolean(getState<boolean>(RAPID_DEATH_LIFE_OFFER_KEY, false))
+})
+export const markRapidDeathLifeOfferRedeemed = () => {
+  if (rapidDeathLifeOfferRedeemed.value) return
+  rapidDeathLifeOfferRedeemed.value = true
+  setState(RAPID_DEATH_LIFE_OFFER_KEY, true)
+}
+
+// ─── Splash-death (water) counter ─────────────────────────────────────────
+// Drives the "Longer Chain" onboarding chain: at 10 splash deaths the
+// player sees a hint pill, at 20 splash deaths the upgrades modal pops
+// open with a spotlight on the chain row (see MawScene). Persisted so
+// the cadence survives reloads. Stops mattering — and the hint /
+// spotlight stop showing — once chainLength reaches Lv 2.
+const SPLASH_DEATH_COUNT_KEY = 'spinner_splash_death_count'
+export const splashDeathCount: Ref<number> = ref(readCount(SPLASH_DEATH_COUNT_KEY))
+watch(saveDataVersion, () => {
+  splashDeathCount.value = readCount(SPLASH_DEATH_COUNT_KEY)
+})
+export const markSplashedDeath = () => {
+  splashDeathCount.value += 1
+  setState(SPLASH_DEATH_COUNT_KEY, splashDeathCount.value)
+}
+
 /** Step the active chain-length level up/down by 1, clamped to
  *  [0, purchased]. `source` is recorded so we can tell scroll-driven
  *  adjustments apart from the HUD-button taps — the lesson-learnt logic
@@ -220,6 +296,24 @@ function recordChainScrollUse() {
 export const markChainScrollHintShown = () => {
   chainScrollHintShownCount.value += 1
   setState(CHAIN_SCROLL_HINT_SHOWN_KEY, chainScrollHintShownCount.value)
+}
+
+// ─── Chain "live adjust" spotlight ────────────────────────────────────────
+// One-time tutorial flag that fires after the player has bought Longer
+// Chain to Lv 2 — at that point the +1 / -1 in-HUD buttons start to
+// matter for tackling tight vs wide stages. Pauses the game with a
+// spotlight on the buttons until the player taps either of them.
+const CHAIN_LIVE_HINT_SEEN_KEY = 'spinner_chain_live_hint_seen'
+export const chainLiveHintSeen: Ref<boolean> = ref(
+  Boolean(getState<boolean>(CHAIN_LIVE_HINT_SEEN_KEY, false))
+)
+watch(saveDataVersion, () => {
+  chainLiveHintSeen.value = Boolean(getState<boolean>(CHAIN_LIVE_HINT_SEEN_KEY, false))
+})
+export const markChainLiveHintSeen = () => {
+  if (chainLiveHintSeen.value) return
+  chainLiveHintSeen.value = true
+  setState(CHAIN_LIVE_HINT_SEEN_KEY, true)
 }
 
 /** Called by `buyUpgrade` when chainLength first reaches level 1, so the
@@ -375,6 +469,12 @@ const pendingAchClaims = computed(() =>
  *  hint logic) can subscribe without instantiating the factory. */
 export const gamesPlayedTotal = computed(() => ach.value.totals.gamesPlayed)
 
+/** Highest stage the player has ever reached. Used by the UpgradesModal
+ *  to gate `minStage`-restricted upgrades (Coin Magnet / Tuned Gearbox).
+ *  Set to `currentStageId + 1` on every win, so the value tracks the
+ *  next stage the player rolls into. */
+export const maxStageReached = computed(() => ach.value.totals.maxStage)
+
 const useMawProgress = () => {
   return {
     // Upgrades
@@ -385,6 +485,9 @@ const useMawProgress = () => {
     buyUpgrade: (id: UpgradeId): boolean => {
       const def = UPGRADES.find(u => u.id === id)
       if (!def) return false
+      // Stage gate — backstop for the UI's stage lock so neither the
+      // coin-buy nor the watch-ad path can sneak past it.
+      if (def.minStage && ach.value.totals.maxStage < def.minStage) return false
       const lvl = levelOf(id)
       // Stamp the games-played counter the very first time the player
       // buys the chain-length upgrade — that's the cadence baseline for

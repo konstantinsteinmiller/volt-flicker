@@ -1,7 +1,15 @@
 import { ref, computed, watch, type Ref } from 'vue'
 import useMawCampaign, { type MawStage, type MawIsland, type Obstacle, motionPositionAt } from '@/use/useMawCampaign'
 import { pointInIsland } from '@/use/useIslandShapes'
-import useMawProgress, { upgradedValue, levelOf, effectiveLevelOf, markBrokenFromObstacle } from '@/use/useMawProgress'
+import useMawProgress, {
+  upgradedValue,
+  levelOf,
+  effectiveLevelOf,
+  markBrokenFromObstacle,
+  markDiedToStone,
+  markDiedToCrystal,
+  markSplashedDeath
+} from '@/use/useMawProgress'
 import {
   ghostRunStartRecording,
   ghostRunRecordSwap,
@@ -144,6 +152,21 @@ const useMawGame = () => {
   /** Visual-only: flips true the first time the chain touches the exit pole.
    *  The pole still works as an exit either way. */
   const poleCut: Ref<boolean> = ref(false)
+
+  // ─── Rapid-death streak tracker ────────────────────────────────────────
+  // Buffers death timestamps so MawScene can offer a one-time "watch an
+  // ad → +1 Reinforced Frame" reward when the player flames out three
+  // times within a 10-second window (typically: bumped into an early
+  // stump / cat statue, restarted, repeated). Lifetime of the buffer is
+  // a single session — refreshing the page wipes it, which is fine since
+  // the redemption flag itself is persisted.
+  const RAPID_DEATH_WINDOW_MS = 10_000
+  const RAPID_DEATH_THRESHOLD = 3
+  const recentDeathTimes: number[] = []
+  /** True when the most recent death was the Nth (N ≥ 3) inside the
+   *  rolling 10 s window. Re-evaluated on every `onLose` call so the
+   *  flag self-clears once the player slows down. */
+  const isRapidDeath: Ref<boolean> = ref(false)
   const reqsMet = computed(() => cleared.value >= stage.value.targetClears)
 
   const stage: Ref<MawStage> = ref(currentStage.value)
@@ -447,7 +470,7 @@ const useMawGame = () => {
             // The cat is heavy — un-cut contact ticks 2 damage like a
             // boulder, but with a bigger shake so the player reads it
             // as the heaviest obstacle in the game.
-            applyDamage(2)
+            applyDamage(2, 'liberty')
             triggerShake('strong')
           } else if (ob.type === 'crystal') {
             if (sawTier.value >= 6) {
@@ -459,7 +482,7 @@ const useMawGame = () => {
               spawnCoinBurst(ob.x, ob.y, 30)
               continue
             }
-            applyDamage(1)
+            applyDamage(1, 'crystal')
             triggerShake('small')
           } else if (ob.type === 'stump') {
             if (sawTier.value >= 1) {
@@ -470,7 +493,7 @@ const useMawGame = () => {
               spawnCoinBurst(ob.x, ob.y, 10)
               continue
             }
-            applyDamage(1)
+            applyDamage(1, 'stump')
             triggerShake('small')
           } else {
             // boulder
@@ -482,7 +505,7 @@ const useMawGame = () => {
               spawnCoinBurst(ob.x, ob.y, 20)
               continue
             }
-            applyDamage(2)
+            applyDamage(2, 'boulder')
             triggerShake('strong')
           }
           obAny._cooldown = 0.7
@@ -534,7 +557,7 @@ const useMawGame = () => {
 
   const easeIn = (t: number): number => t * t
 
-  const applyDamage = (n: number) => {
+  const applyDamage = (n: number, source: Obstacle['type']) => {
     life.value = Math.max(0, life.value - n)
     // Metallic clank whenever the chain takes damage without cutting
     // (stumps below saw Lv 1, boulders below Lv 3, crystals below Lv 6,
@@ -544,7 +567,7 @@ const useMawGame = () => {
     // beat to read as "you died" rather than "another bonk".
     if (life.value > 0) playSound('obstacle-hit', 0.07)
     if (life.value === 0) {
-      onLose('broke')
+      onLose('broke', source)
     }
   }
 
@@ -666,7 +689,7 @@ const useMawGame = () => {
 
   const lossReason: Ref<'splashed' | 'broke' | ''> = ref('')
 
-  const onLose = (reason: 'splashed' | 'broke') => {
+  const onLose = (reason: 'splashed' | 'broke', source?: Obstacle['type']) => {
     if (phase.value === 'game_over') return
     phase.value = 'game_over'
     gameResult.value = 'lose'
@@ -678,9 +701,32 @@ const useMawGame = () => {
     addCoins(stage.value.rewardLose)
     recordMetric('totalCoins', stage.value.rewardLose)
     // First time the player gets ground down by an obstacle, flip the
-    // persistent flag so MawScene can show the "buy Sharper Saw Lv 2"
-    // onboarding hint until they actually buy it.
-    if (reason === 'broke') markBrokenFromObstacle()
+    // persistent flag so MawScene can show the "buy Sharper Saw Lv 1"
+    // onboarding hint until they actually buy it. Per-obstacle trackers
+    // drive the next tiers in the hint chain — first stone death and
+    // crystal-death counter both surface in MawScene as escalating
+    // "upgrade to Lv 3 / Lv 6" nudges.
+    if (reason === 'broke') {
+      markBrokenFromObstacle()
+      if (source === 'boulder') markDiedToStone()
+      else if (source === 'crystal') markDiedToCrystal()
+    } else if (reason === 'splashed') {
+      // Feeds the "buy Longer Chain" onboarding cadence — 10 splash
+      // deaths → hint, 20 → forced Upgrades modal with a chain
+      // spotlight. See MawScene's chain-splash spotlight handlers.
+      markSplashedDeath()
+    }
+
+    // Rapid-death pattern check — every death (any cause) feeds the
+    // rolling timestamp buffer. The window is per-death, not per-frame,
+    // so the buffer can never grow large in practice.
+    const now = performance.now()
+    const cutoff = now - RAPID_DEATH_WINDOW_MS
+    while (recentDeathTimes.length > 0 && recentDeathTimes[0]! < cutoff) {
+      recentDeathTimes.shift()
+    }
+    recentDeathTimes.push(now)
+    isRapidDeath.value = recentDeathTimes.length >= RAPID_DEATH_THRESHOLD
   }
 
   /**
@@ -764,6 +810,7 @@ const useMawGame = () => {
     poleCut,
     reqsMet,
     isPaused,
+    isRapidDeath,
     lastClearedTimeMs,
     lastClearedWasBest,
     lastClearedPrevBestMs,

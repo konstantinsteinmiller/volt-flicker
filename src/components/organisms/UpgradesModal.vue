@@ -3,7 +3,7 @@ import { computed, ref, watch, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import FModal from '@/components/molecules/FModal.vue'
 import IconCoin from '@/components/icons/IconCoin.vue'
-import useMawProgress, { UPGRADES } from '@/use/useMawProgress'
+import useMawProgress, { UPGRADES, maxStageReached } from '@/use/useMawProgress'
 import useMawConfig from '@/use/useMawConfig'
 import { stopGameplay } from '@/use/useCrazyGames'
 import useSounds from '@/use/useSound.ts'
@@ -51,7 +51,11 @@ const cards = computed(() => UPGRADES.map(u => {
   const lvl = levelOf(u.id)
   const cost = upgradeCost(u.id)
   const value = upgradedValue(u.id)
-  const locked = props.restrictToId != null && props.restrictToId !== u.id
+  const spotlightLock = props.restrictToId != null && props.restrictToId !== u.id
+  // Stage gate — Coin Magnet / Tuned Gearbox stay locked until the
+  // player has reached Stage 7. Reported via the saved `maxStage`
+  // metric so a Mow-a-Hero campaign restart doesn't re-lock them.
+  const stageLocked = u.minStage != null && maxStageReached.value < u.minStage
   return {
     ...u,
     level: lvl,
@@ -60,9 +64,13 @@ const cards = computed(() => UPGRADES.map(u => {
     formatted: formatValue(u.id, u.base, value, u.unit),
     maxed: lvl >= u.maxLevel,
     affordable: coins.value >= cost,
-    /** Soft-locked by the tutorial spotlight — the upgrade can be
-     *  bought normally once the restriction lifts. */
-    locked
+    /** Either the tutorial spotlight restriction OR the per-upgrade
+     *  stage gate. Both keep the row un-buyable; the template
+     *  distinguishes them so the stage gate can show "Unlocks at
+     *  Stage N" instead of the spotlight's grey-out. */
+    locked: spotlightLock || stageLocked,
+    stageLocked,
+    minStage: u.minStage
   }
 }))
 
@@ -143,12 +151,17 @@ const onWatchAdForUpgrade = async (id: string) => {
         div.upgrade-card(
           v-for="card in cards"
           :key="card.id"
-          :class="{ 'upgrade-card-locked': card.locked, 'upgrade-card-spotlight': card.locked === false && restrictToId === card.id }"
+          :class="{ 'upgrade-card-locked': card.locked, 'upgrade-card-stage-locked': card.stageLocked, 'upgrade-card-spotlight': card.locked === false && restrictToId === card.id }"
         )
           div.flex.flex-col.gap-1.flex-1
-            div.flex.items-center.gap-2
+            div.flex.items-center.gap-2.flex-wrap
               span.font-black.game-text.text-white(class="text-sm sm:text-base") {{ card.name }}
               span.font-bold.text-yellow-200.game-text(class="text-[10px]") {{ t('upgrades.level', { n: card.level }) }}
+              //- Stage-lock chip. Renders ONLY while the upgrade is
+              //- gated — once unlocked we drop the badge entirely so
+              //- the row reads the same as any other.
+              span.stage-lock-chip(v-if="card.stageLocked")
+                | 🔒 Stage {{ card.minStage }}
             span.text-white.game-text(class="text-[10px] sm:text-xs opacity-70") {{ card.description }}
             span.text-cyan-200.game-text(
               v-if="!card.formatted.suppress"
@@ -195,10 +208,32 @@ const onWatchAdForUpgrade = async (id: string) => {
     filter: grayscale(0.5)
     pointer-events: none
 
+  // Slightly less aggressive grey-out for stage-locked rows — the
+  // upgrade is meaningfully visible so the player can preview what's
+  // coming, but the buttons stay disabled.
+  &.upgrade-card-stage-locked
+    opacity: 0.55
+    filter: grayscale(0.3)
+
   // Highlight ring on the unrestricted row to draw the eye.
   &.upgrade-card-spotlight
     border-color: #ffd84d
     box-shadow: 0 0 14px rgba(255, 216, 77, 0.55)
+
+// Small chip badge next to the upgrade name when it's gated by stage
+// progression. Cyan tint mirrors the existing "live value" line color
+// so the locked tier still feels informational rather than alarming.
+.stage-lock-chip
+  padding: 0.05rem 0.4rem
+  border-radius: 999px
+  background: rgba(20, 60, 100, 0.7)
+  border: 1px solid rgba(140, 220, 255, 0.55)
+  color: #aee5ff
+  font-size: 0.6rem
+  font-weight: 800
+  letter-spacing: 0.04em
+  text-transform: uppercase
+  white-space: nowrap
 
 .upgrade-btn
   padding: 0.25rem 0.6rem

@@ -21,7 +21,15 @@ import useMawProgress, {
   ensureChainScrollBaseline,
   gamesPlayedTotal,
   upgradeCost,
-  chainLengthForLevel
+  chainLengthForLevel,
+  chainLiveHintSeen,
+  markChainLiveHintSeen,
+  hasDiedToStone,
+  diedToCrystalCount,
+  rapidDeathLifeOfferRedeemed,
+  markRapidDeathLifeOfferRedeemed,
+  splashDeathCount,
+  UPGRADES
 } from '@/use/useMawProgress'
 import useSounds, { useMusic, type LoopHandle } from '@/use/useSound'
 import { schedulePreloadOnIdle } from '@/use/useSoundPreload'
@@ -147,6 +155,7 @@ const {
   chainLength,
   isOverIsland,
   isPaused,
+  isRapidDeath,
   lastClearedTimeMs,
   lastClearedWasBest,
   lastClearedPrevBestMs,
@@ -156,7 +165,7 @@ const {
 
 const { coins: coinTotal, spendCoins, addCoins } = useMawConfig()
 const { currentStageId, currentStage, stageReinitSignal, resetCampaign, isLastStage } = useMawCampaign()
-const { } = useMawProgress()
+const { buyUpgrade, pendingAchClaims } = useMawProgress()
 
 // ─── Speedrun timer + ghost replay ──────────────────────────────────────
 // `liveElapsedMs` is the wall-clock time since the current attempt's
@@ -192,8 +201,14 @@ const purchasedChainLevel = computed(() => levelOf('chainLength'))
 const liveChainLevel = computed(() => activeChainLevel.value ?? purchasedChainLevel.value)
 const canChainUp = computed(() => liveChainLevel.value < purchasedChainLevel.value)
 const canChainDown = computed(() => liveChainLevel.value > 0)
-const onChainPlus = () => adjustActiveChainLevel(1)
-const onChainMinus = () => adjustActiveChainLevel(-1)
+const onChainPlus = () => {
+  if (!chainLiveHintSeen.value) markChainLiveHintSeen()
+  adjustActiveChainLevel(1)
+}
+const onChainMinus = () => {
+  if (!chainLiveHintSeen.value) markChainLiveHintSeen()
+  adjustActiveChainLevel(-1)
+}
 
 // ─── Onboarding hints ───────────────────────────────────────────────────
 // "Upgrade Sharper Saw to Lv 1" — fires after the player's first death to
@@ -202,6 +217,53 @@ const onChainMinus = () => adjustActiveChainLevel(-1)
 // inside the loss-reward modal.
 const showSharperSawHint = computed(() =>
   hasBrokenFromObstacle.value && levelOf('sawDamage') < 1
+)
+
+// "Upgrade Sharper Saws to Lv 3" — fires from either of two triggers:
+//   1. The player has actually died to a stone/boulder obstacle (the
+//      most direct "you need this" signal). Stays on until they hit
+//      Lv 3, the tier that breaks stones.
+//   2. Or — even without a stone death — they're already at Lv 1+ and
+//      sitting on enough coins for the Lv 2→3 upgrade (threshold 600
+//      matches `costBase(200) × (2+1)`), so the hint also nudges
+//      pre-emptive savers.
+// Shown during gameplay (below the chain-scroll hint) and on the loss
+// screen.
+const SAW_LV3_HINT_COIN_THRESHOLD = 600
+const showSharperSawLv3Hint = computed(() => {
+  const tier = levelOf('sawDamage')
+  if (tier >= 3) return false
+  if (hasDiedToStone.value) return true
+  return tier >= 1 && coinTotal.value >= SAW_LV3_HINT_COIN_THRESHOLD
+})
+
+// "Upgrade Sharper Saws to Lv 6 (crystals)" — fires after the player
+// has died to a crystal obstacle TWICE. The first crystal death is
+// usually a "what was that?" surprise; by the second, they need the
+// nudge. Stays on until they actually hit Lv 6 (the tier that
+// pulverises crystals). Shown in the same slots as the Lv 3 hint.
+const SAW_LV6_DEATH_THRESHOLD = 2
+const showSharperSawLv6Hint = computed(() =>
+  diedToCrystalCount.value >= SAW_LV6_DEATH_THRESHOLD
+  && levelOf('sawDamage') < 6
+)
+
+// "Longer Chain" onboarding cadence — splash deaths only.
+//   • 10 splashes  → quiet HUD/lose-screen hint suggesting the upgrade.
+//   • 20 splashes  → escalate: force-open the Upgrades modal with the
+//     chain row spotlighted, top up with 200 coins if needed.
+// Both halves clear once chainLength reaches Lv 2 (the user's defined
+// success state).
+const LONGER_CHAIN_HINT_SPLASHES = 10
+const LONGER_CHAIN_SPOTLIGHT_SPLASHES = 20
+const LONGER_CHAIN_COIN_GRANT = 200
+const showLongerChainHint = computed(() =>
+  splashDeathCount.value >= LONGER_CHAIN_HINT_SPLASHES
+  && levelOf('chainLength') < 2
+)
+const chainSplashSpotlightArmed = computed(() =>
+  splashDeathCount.value >= LONGER_CHAIN_SPOTLIGHT_SPLASHES
+  && levelOf('chainLength') < 2
 )
 
 // "Click/tap to move" — first-two-stages onboarding for the anchor-swap
@@ -309,21 +371,38 @@ const showSawSpotlight = computed(() =>
  *  upgrades modal to only the Sharper-Saw row. */
 const forceSawUpgradeOnly = computed(() => sawSpotlightArmed.value)
 
-watch(sawSpotlightArmed, (armed) => {
-  if (armed) {
-    isPaused.value = true
-    stopBattleMusic()
-    // Drama stinger the moment the spotlight conditions arm — clear
-    // audible cue that the player has earned a "you must upgrade
-    // before you continue" beat.
-    playSound('reward-continue', 0.12)
-  } else {
-    isPaused.value = false
-    // Restart music only if we're back in a live match — otherwise the
-    // game-over / idle screen would start the loop unprompted.
-    if (phase.value === 'playing') startBattleMusic()
-  }
-})
+// Single resolver for the UpgradesModal's `restrict-to-id` prop. The saw
+// spotlight takes priority over the chain-splash spotlight if both arm
+// at once — saw blocks more obvious gameplay progression (the player
+// can't cut anything), so it deserves the first slot.
+const restrictedUpgradeId = computed<string | null>(() =>
+  sawSpotlightArmed.value ? 'sawDamage'
+  : chainSplashSpotlightArmed.value ? 'chainLength'
+  : null
+)
+
+// ─── Chain-adjust ("live chain") spotlight ────────────────────────────
+// Fires once the player has bought Longer Chain Lv 2 — that's the point
+// where the +1 / -1 in-HUD buttons start mattering for tackling tight
+// vs wide stages. Pauses the game with a focused overlay on the buttons
+// until the player taps either one, after which the hint is dismissed
+// for good (`chainLiveHintSeen` is persisted). The saw spotlight has
+// priority — if both would arm at the same time, we hold the chain
+// hint until the saw one is cleared.
+const chainLiveSpotlightArmed = computed(() =>
+  !chainLiveHintSeen.value
+  && purchasedChainLevel.value >= 2
+  && phase.value === 'playing'
+  && !sawSpotlightArmed.value
+)
+const showChainLiveSpotlight = computed(() =>
+  chainLiveSpotlightArmed.value && !showUpgrades.value
+)
+
+// NOTE: the combined pause/music watcher lives further down — after the
+// modal refs (showOptions / showAch / showUpgrades / showReward / etc.)
+// so it can include them in `anyPauseSignal`. Defining it here would
+// hit the modal refs in the TDZ at watch-registration time.
 
 // ─── Mouse-wheel chain-length adjust ──────────────────────────────────
 // Accumulate wheel deltas so a single light scroll-flick doesn't blast
@@ -360,6 +439,64 @@ const showContinueOffer: Ref<boolean> = ref(false)
 const isAdInFlight: Ref<boolean> = ref(false)
 const CONTINUE_AD_COOLDOWN_MS = 15_000
 let lastContinueOfferAt = 0
+
+// ─── Combined pause / music gate ─────────────────────────────────────────
+// Any spotlight OR any modal (Upgrades / Achievements / Options / Reward
+// / HeroReward / Continue-offer) pauses the game and stops the battle
+// music. Closing them all resumes both — but only if we're still on the
+// live `playing` phase, so the game-over screens don't restart music as
+// the player closes a stacked modal. Single watcher = no risk of two
+// watchers fighting over `isPaused` / music state.
+const anyModalOpen = computed(() =>
+  showOptions.value
+  || showAch.value
+  || showUpgrades.value
+  || showReward.value
+  || showHeroReward.value
+  || showContinueOffer.value
+)
+const anyPauseSignal = computed(() =>
+  sawSpotlightArmed.value
+  || chainLiveSpotlightArmed.value
+  || chainSplashSpotlightArmed.value
+  || anyModalOpen.value
+)
+watch(anyPauseSignal, (paused, prev) => {
+  if (paused && !prev) {
+    isPaused.value = true
+    stopBattleMusic()
+    // Drama stinger ONLY when a spotlight arms — opening a normal HUD
+    // modal (Upgrades / Achievements / Options) pauses silently so the
+    // UX feels responsive rather than dramatic.
+    if (sawSpotlightArmed.value || chainLiveSpotlightArmed.value) {
+      playSound('reward-continue', 0.12)
+    }
+  } else if (!paused && prev) {
+    isPaused.value = false
+    // Restart music only if we're back in a live match — otherwise the
+    // game-over / idle screen would start the loop unprompted.
+    if (phase.value === 'playing') startBattleMusic()
+  }
+})
+
+// Auto-open the Upgrades modal the moment the chain-splash spotlight
+// arms (player has splashed ≥ 20 times and chainLength is still < Lv 2).
+// A coin top-up is granted upfront if they can't afford even Lv 0 → 1,
+// so the modal is never a tease — the player can always click Buy.
+// `restrictedUpgradeId` already routes the modal to the chain row, and
+// the pause watcher above handles isPaused + music.
+watch(chainSplashSpotlightArmed, (armed) => {
+  if (!armed) return
+  const cost = upgradeCost('chainLength')
+  if (coinTotal.value < cost) {
+    // Grant 200 (the user-defined floor) OR enough to make the next
+    // tier purchasable — whichever is larger. Avoids the edge case
+    // where the next-tier cost has already drifted past 200.
+    const needed = cost - coinTotal.value
+    addCoins(Math.max(LONGER_CHAIN_COIN_GRANT, needed))
+  }
+  showUpgrades.value = true
+})
 
 // ─── Coin badge target ───────────────────────────────────────────────────
 const coinBadgeRef = ref<{ rootEl: HTMLElement | null } | null>(null)
@@ -406,9 +543,19 @@ const updateCanvasSize = () => {
   const vv = window.visualViewport
   canvasWidth.value = vv?.width ?? window.innerWidth
   canvasHeight.value = vv?.height ?? window.innerHeight
-  c.width = canvasWidth.value
-  c.height = canvasHeight.value
+  // Backing store is sized in DEVICE pixels (CSS × DPR), CSS size stays
+  // in layout pixels so the canvas still fills the viewport. Without
+  // this, the browser bilinearly upscales every frame at display time
+  // and the grass tufts / chain edges look pixelated on retina screens
+  // (DPR 2–3 is typical on phones). Capped at 3 so we don't burn
+  // memory on >3x devices — diminishing returns past that.
+  const dpr = Math.min(3, Math.max(1, window.devicePixelRatio || 1))
+  c.width = Math.round(canvasWidth.value * dpr)
+  c.height = Math.round(canvasHeight.value * dpr)
+  c.style.width = canvasWidth.value + 'px'
+  c.style.height = canvasHeight.value + 'px'
   // Keep the meteor-shower trail buffer in step with the live canvas.
+  // (CSS pixels — it draws into the same scaled ctx in `paint()`.)
   precomputeMeteorShower(canvasWidth.value, canvasHeight.value)
 }
 
@@ -513,9 +660,12 @@ watch(phase, (p) => {
     //     have something to spend their stockpile on. Coin cooldown is
     //     implicit (the cost is a natural throttle).
     playSound(lossReason.value === 'splashed' ? 'water-splash' : 'chainsaw-break', 0.12)
+    // Both revive paths (watch-ad + coin spend) are now offered for
+    // BOTH death types. `continueAfterDeath` handles each correctly —
+    // a 'broke' death tops up life + cools-down obstacles, a 'splashed'
+    // death teleports the anchor back to the last safe island.
     const adEligible =
-      lossReason.value === 'broke'
-      && isRewardedReady.value
+      isRewardedReady.value
       && (Date.now() - lastContinueOfferAt) >= CONTINUE_AD_COOLDOWN_MS
     const coinEligible = coinTotal.value >= REVIVE_COIN_COST
     if (adEligible || coinEligible) {
@@ -588,10 +738,12 @@ const onSkipContinueAd = () => {
 const REVIVE_COIN_COST = 1000
 
 /** Per-death eligibility flags surfaced to the template so each button
- *  can render its own visible/disabled state. */
+ *  can render its own visible/disabled state. The watch-ad path used to
+ *  be gated to 'broke' deaths only — it now mirrors the coin path and is
+ *  offered for splashed deaths too, since `continueAfterDeath` puts the
+ *  anchor back on the last safe island in that case. */
 const continueAdAvailable = computed(() =>
-  lossReason.value === 'broke'
-  && isRewardedReady.value
+  isRewardedReady.value
   && (Date.now() - lastContinueOfferAt) >= CONTINUE_AD_COOLDOWN_MS
 )
 const continueCoinAvailable = computed(() => coinTotal.value >= REVIVE_COIN_COST)
@@ -611,6 +763,39 @@ const onAcceptContinueCoins = () => {
   addCoins(REVIVE_COIN_COST)
   showContinueOffer.value = false
   showReward.value = true
+}
+
+// ─── Rapid-death "+1 Reinforced Frame" one-time bonus offer ───────────
+// Surfaces an extra button on the FReward lose screen when the engine
+// flags `isRapidDeath` (3 deaths in 10 s) AND the player hasn't already
+// cashed in the bonus AND Reinforced Frame still has a tier to climb.
+// Clicking → rewarded ad → if granted, free `buyUpgrade('maxLife')`
+// and the persistent flag flips so the offer never returns.
+const maxLifeDef = UPGRADES.find(u => u.id === 'maxLife')
+const showRapidDeathLifeOffer = computed(() =>
+  gameResult.value === 'lose'
+  && isRapidDeath.value
+  && !rapidDeathLifeOfferRedeemed.value
+  && isRewardedReady.value
+  && (maxLifeDef ? levelOf('maxLife') < maxLifeDef.maxLevel : false)
+)
+const isRapidDeathOfferInFlight: Ref<boolean> = ref(false)
+const onAcceptRapidDeathLifeOffer = async () => {
+  if (isRapidDeathOfferInFlight.value) return
+  if (!showRapidDeathLifeOffer.value) return
+  isRapidDeathOfferInFlight.value = true
+  try {
+    const granted = await showRewardedAd()
+    if (!granted) return
+    // Free upgrade — same code path as the in-menu watch-ad upgrade, but
+    // without the 30 s shared cooldown (this is a one-shot bonus, not a
+    // repeatable upgrade button).
+    buyUpgrade('maxLife')
+    playSound('level-up', 0.08)
+    markRapidDeathLifeOfferRedeemed()
+  } finally {
+    isRapidDeathOfferInFlight.value = false
+  }
 }
 
 // ─── Ad cadence ──────────────────────────────────────────────────────────
@@ -704,6 +889,15 @@ const paint = () => {
   if (!ctx) return
   const w = canvasWidth.value
   const h = canvasHeight.value
+  // Baseline transform: device-pixel canvas, CSS-pixel coordinates.
+  // `setTransform` wipes any leftover state from the previous frame
+  // (cheaper than save/restore at the top level) and pre-multiplies by
+  // DPR so every subsequent ctx.translate / ctx.scale lands in the
+  // device-pixel grid. Without this, drawing at 1× world scale on a
+  // 3× DPR phone leaves the browser to upscale at display time, which
+  // is what made the grass + chain look pixelated.
+  const dpr = Math.min(3, Math.max(1, window.devicePixelRatio || 1))
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
   ctx.clearRect(0, 0, w, h)
 
   // World transform: center on cameraPos. `cameraZoom` is computed from
@@ -926,11 +1120,23 @@ const showStartHint = computed(() =>
       )
         div.saw-spotlight-arrow Upgrade now! →
 
+    //- Chain-adjust ("live chain") spotlight — fires after the player
+    //- reaches Longer Chain Lv 2. Dims the scene and points the player
+    //- at the +1 / -1 buttons in the top-right HUD column. The chain-
+    //- adjust-wrap below gets a z-index bump so it sits above this
+    //- overlay; tapping either button clears the hint for good.
+    Transition(name="fade")
+      div.chain-live-spotlight-overlay.pointer-events-auto.fixed.inset-0(
+        v-if="showChainLiveSpotlight"
+      )
+        div.chain-live-spotlight-arrow
+          | Increase or decrease your chain length during the game to tackle the challenges before you. →
+          span(v-if="!isMobilePortrait && !isMobileLandscape") Shortcut: Scroll
     //- Centre-bottom stack for the onboarding pills: click-to-move and,
     //- on desktop, the chain-scroll hint stacked under it. Pinned to the
     //- screen so the player's eye doesn't track the robot to read them.
     div.onboarding-hints.pointer-events-none.absolute(
-      v-if="showClickToMoveHint || showChainScrollHint"
+      v-if="showClickToMoveHint || showChainScrollHint || (showSharperSawLv3Hint && phase === 'playing') || (showSharperSawLv6Hint && phase === 'playing') || (showLongerChainHint && phase === 'playing')"
     )
       Transition(name="fade")
         div.click-to-move-hint(v-if="showClickToMoveHint") {{ clickToMoveLabel }}
@@ -939,6 +1145,26 @@ const showStartHint = computed(() =>
           v-if="showChainScrollHint"
           :class="{ shine: chainScrollHintWithShine }"
         ) Scroll to increase / decrease chain length
+      //- Sharper-Saws Lv 3 nudge — sits BELOW the scroll-hint so the
+      //- chain tip stays the most-prominent hint, and only renders mid-
+      //- battle (`phase === 'playing'`) so it doesn't ghost over the
+      //- start / countdown overlays.
+      Transition(name="fade")
+        div.saw-lv3-hint(v-if="showSharperSawLv3Hint && phase === 'playing'")
+          | Upgrade Sharper Saws to Lv 3 to break through stones
+      //- Sharper-Saws Lv 6 nudge — only after the player has crashed
+      //- into crystals twice. Below the Lv 3 hint so the chain reads
+      //- as a difficulty ladder.
+      Transition(name="fade")
+        div.saw-lv6-hint(v-if="showSharperSawLv6Hint && phase === 'playing'")
+          | Tired of crashing into crystals? Upgrade your saw to Lv 6 and pulverize them
+      //- Longer-Chain nudge: kicks in after 10 splash deaths, clears
+      //- once chainLength reaches Lv 2. The companion spotlight (20
+      //- splashes) auto-opens the upgrades modal, so this hint exists
+      //- mostly to telegraph what's coming before the modal pops.
+      Transition(name="fade")
+        div.long-chain-hint(v-if="showLongerChainHint && phase === 'playing'")
+          | You can make your chains larger by upgrading Longer Chains
 
     //- HUD
     div.absolute.inset-0.pointer-events-none
@@ -999,17 +1225,20 @@ const showStartHint = computed(() =>
             //- margin so the visual position stays close to the chest.
             div.chain-adjust-wrap.pointer-events-auto(
               v-if="purchasedChainLevel > 0"
+              :class="{ 'chain-live-spotlight-lift': showChainLiveSpotlight }"
               @pointerdown.stop
             )
               button.chain-adjust-btn.mt-4(
                 type="button"
                 :disabled="!canChainUp"
+                :class="{ 'chain-live-spotlight-bounce': showChainLiveSpotlight }"
                 @click="onChainPlus"
                 :title="`Longer chain (Lv. ${liveChainLevel} / ${purchasedChainLevel})`"
               ) +1
               button.chain-adjust-btn(
                 type="button"
                 :disabled="!canChainDown"
+                :class="{ 'chain-live-spotlight-bounce': showChainLiveSpotlight }"
                 @click="onChainMinus"
                 :title="`Shorter chain (Lv. ${liveChainLevel} / ${purchasedChainLevel})`"
               ) -1
@@ -1147,6 +1376,14 @@ const showStartHint = computed(() =>
                   path(d="M17 6 H20 a2 2 0 0 1 0 4 H17")
                   path(d="M9 13 H15 V18 H9 Z" fill="rgba(255,255,255,0.25)")
                   path(d="M7 18 H17 V20 H7 Z" fill="white")
+              //- Unclaimed-achievements badge — same pattern as the
+              //- BattlePass crest (`top/right` with a small translate so
+              //- it overhangs the button border). Hidden when there's
+              //- nothing to claim.
+              div.absolute.top-0.right-0.rounded-full.border-2.bg-red-500.border-white.text-white.font-black.game-text.flex.items-center.justify-center(
+                v-if="pendingAchClaims > 0"
+                class="-translate-y-1 translate-x-1 min-w-4 h-4 px-1 text-[10px] animate-pulse"
+              ) {{ pendingAchClaims }}
           //- Upgrades
           button.secondary-square-btn(
             @click="showUpgrades = true"
@@ -1254,6 +1491,48 @@ const showStartHint = computed(() =>
         )
           span.font-bold.uppercase.tracking-wider(class="text-[10px] text-yellow-300") Tip
           span.game-text(class="text-xs sm:text-sm") Upgrade Sharper Saw to Lv 1 to cut tree stumps
+        //- Follow-up nudge: once they're at Lv 1 or 2 and have enough
+        //- coins (or have died to a stone), point them at Lv 3 (the
+        //- tier that breaks through stones). Same lose-screen slot as
+        //- the Lv-1 hint above so the progression chain stays visible
+        //- end-to-end.
+        div.saw-hint-banner.pointer-events-none(
+          v-if="gameResult === 'lose' && showSharperSawLv3Hint"
+          class="!max-w-xs"
+        )
+          span.font-bold.uppercase.tracking-wider(class="text-[10px] text-yellow-300") Tip
+          span.game-text(class="text-xs sm:text-sm") Upgrade Sharper Saws to Lv 3 to break through stones
+        //- Crystal nudge: after the player has crashed into crystals
+        //- twice, escalate to "buy Lv 6 to pulverise them". Stays on the
+        //- lose screen until they actually hit Lv 6.
+        div.saw-hint-banner.pointer-events-none(
+          v-if="gameResult === 'lose' && showSharperSawLv6Hint"
+          class="!max-w-xs"
+        )
+          span.font-bold.uppercase.tracking-wider(class="text-[10px] text-yellow-300") Tip
+          span.game-text(class="text-xs sm:text-sm") Tired of crashing into crystals? Upgrade your saw to Lv 6 and pulverize them
+        //- Longer-Chain nudge on the lose screen — mirrors the gameplay
+        //- hint so a player who drowns repeatedly sees the prompt in
+        //- both contexts. The companion spotlight auto-opens the modal
+        //- separately at 20 splashes.
+        div.saw-hint-banner.pointer-events-none(
+          v-if="gameResult === 'lose' && showLongerChainHint"
+          class="!max-w-xs"
+        )
+          span.font-bold.uppercase.tracking-wider(class="text-[10px] text-cyan-200") Tip
+          span.game-text(class="text-xs sm:text-sm") You can make your chains larger by upgrading Longer Chains
+        //- Rapid-death rescue: when the engine has just flagged 3 deaths
+        //- in 10 s and the one-time bonus hasn't been claimed, surface a
+        //- watch-ad button that buys a free Reinforced Frame level. Hides
+        //- itself once claimed (persistent flag) or once the upgrade is
+        //- maxed.
+        button.rapid-death-life-offer.cursor-pointer.transition-transform.flex.items-center.justify-center.gap-2(
+          v-if="showRapidDeathLifeOffer"
+          :disabled="isRapidDeathOfferInFlight"
+          @click="onAcceptRapidDeathLifeOffer"
+        )
+          span.text-xl ❤️
+          span.game-text.font-black.uppercase ▶ Watch ad · +1 Reinforced Frame
         div.flex.items-center.gap-3(ref="rewardCoinRef")
           IconCoin(class="w-8 h-8 text-yellow-300")
           span.text-yellow-400.font-black.game-text(class="text-2xl sm:text-4xl") +{{ gameResult === 'win' ? stage.rewardWin : stage.rewardLose }}
@@ -1270,7 +1549,7 @@ const showStartHint = computed(() =>
 
     UpgradesModal(
       v-model="showUpgrades"
-      :restrict-to-id="forceSawUpgradeOnly ? 'sawDamage' : null"
+      :restrict-to-id="restrictedUpgradeId"
     )
 
     //- MOW-A-HERO end-of-campaign reward. Replaces the normal win-FReward
@@ -1321,6 +1600,32 @@ const showStartHint = computed(() =>
   max-width: 16rem
   line-height: 1.15
   text-shadow: 1px 1px 0 #000
+
+// Rapid-death rescue button — emerald like the rest of the watch-ad
+// CTAs (continue-after-death modal, in-menu upgrade ads) so the player
+// reads it as the same "free with an ad" interaction pattern. Heart
+// emoji telegraphs the reward without needing a second line of copy.
+.rapid-death-life-offer
+  margin-top: 0.25rem
+  padding: 0.55rem 0.9rem
+  border-radius: 0.6rem
+  background: linear-gradient(180deg, #4ade80, #15803d)
+  border: 2px solid #0c2616
+  color: white
+  font-weight: 900
+  font-size: 0.78rem
+  letter-spacing: 0.02em
+  text-shadow: 1px 1px 0 #000
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35)
+
+  &:hover:not(:disabled)
+    transform: scale(1.03)
+    filter: brightness(1.07)
+  &:active:not(:disabled)
+    transform: scale(0.97)
+  &:disabled
+    opacity: 0.55
+    cursor: wait
 
 // MOW-A-HERO end-of-campaign reward — fancier than the per-stage win
 // modal so the player feels the moment.
@@ -1395,6 +1700,56 @@ const showStartHint = computed(() =>
   50%
     transform: translateX(8px)
 
+// Chain-adjust spotlight: same full-screen dimmer + bounce pattern as
+// the Sharper-Saw one, but anchored at the top-right HUD (where the
+// +1 / -1 buttons live). `lift` is applied to the wrap itself so the
+// stacked buttons rise above the overlay together.
+.chain-live-spotlight-overlay
+  background: rgba(0, 0, 0, 0.62)
+  z-index: 110
+  display: flex
+  align-items: center
+  justify-content: center
+
+// Positioned to the LEFT of the +1 / -1 buttons in the top-right HUD
+// column. `right` clears the buttons (chain-adjust-wrap sits at
+// right ≈ 0.5rem with two ~2.75rem buttons + 1.5rem padding); `top`
+// aligns roughly with the button stack below the CoinBadge and
+// TreasureChest. The arrow tip on the message points → straight at
+// the buttons.
+.chain-live-spotlight-arrow
+  position: absolute
+  top: 11rem
+  right: 5.25rem
+  padding: 0.7rem 1rem
+  border-radius: 16px
+  background: rgba(15, 26, 48, 0.96)
+  border: 2px solid #ffd84d
+  color: #ffd84d
+  font-weight: 800
+  font-size: 0.95rem
+  line-height: 1.35
+  letter-spacing: 0.02em
+  text-shadow: 1px 1px 0 #000
+  text-align: right
+  max-width: min(22rem, 60vw)
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45)
+  animation: chain-live-arrow-pulse 1.3s ease-in-out infinite
+
+.chain-live-spotlight-lift
+  position: relative
+  z-index: 130
+  filter: drop-shadow(0 0 14px rgba(255, 216, 77, 0.75))
+
+.chain-live-spotlight-bounce
+  animation: saw-spotlight-bounce 0.85s ease-in-out infinite
+
+@keyframes chain-live-arrow-pulse
+  0%, 100%
+    transform: scale(1)
+  50%
+    transform: scale(1.04)
+
 // Camera-stable onboarding pills container. Pinned to the screen centre
 // ~15 % up from the bottom edge so it never moves with the robot.
 .onboarding-hints
@@ -1454,6 +1809,57 @@ const showStartHint = computed(() =>
     transform: translateX(100%)
   100%
     transform: translateX(100%)
+
+// "Upgrade Sharper Saws to Lv 3" pill — same family as the chain-scroll
+// hint but tinted yellow so the two stack without looking identical.
+// Sits at the bottom of the onboarding-hints column on the gameplay
+// HUD; the lose-screen copy reuses the .saw-hint-banner style for the
+// modal context.
+.saw-lv3-hint
+  padding: 0.25rem 0.7rem
+  border-radius: 999px
+  background: rgba(0, 0, 0, 0.7)
+  border: 2px solid rgba(255, 216, 77, 0.55)
+  color: #ffd84d
+  font-weight: 800
+  font-size: 0.8rem
+  text-shadow: 1px 1px 0 #000
+  letter-spacing: 0.02em
+  white-space: nowrap
+
+// Cyan-tinted to read as "next tier up" relative to the yellow Lv 3
+// hint above it. The text is a full sentence so we allow wrapping
+// rather than forcing a single line that runs off-screen on phones.
+.saw-lv6-hint
+  padding: 0.3rem 0.75rem
+  border-radius: 14px
+  background: rgba(0, 0, 0, 0.72)
+  border: 2px solid rgba(140, 220, 255, 0.6)
+  color: #aee5ff
+  font-weight: 800
+  font-size: 0.78rem
+  line-height: 1.3
+  text-shadow: 1px 1px 0 #000
+  letter-spacing: 0.02em
+  text-align: center
+  max-width: min(22rem, 86vw)
+
+// "Upgrade Longer Chains" splash-death nudge. Sits at the bottom of the
+// gameplay hint stack. Shares the cyan family with the chain-scroll
+// hint above it so the player reads them as a related concept group.
+.long-chain-hint
+  padding: 0.3rem 0.75rem
+  border-radius: 14px
+  background: rgba(0, 0, 0, 0.72)
+  border: 2px solid rgba(120, 200, 255, 0.55)
+  color: #b8e6ff
+  font-weight: 800
+  font-size: 0.78rem
+  line-height: 1.3
+  text-shadow: 1px 1px 0 #000
+  letter-spacing: 0.02em
+  text-align: center
+  max-width: min(22rem, 86vw)
 
 // Chain-length quick adjust — a vertical +1 / -1 stack that sits in
 // the right HUD column below the TreasureChest. The wrap carries a

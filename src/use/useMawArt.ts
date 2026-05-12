@@ -160,10 +160,16 @@ const GRASS_CELL_H = 36
 /** Position of the blade root inside its (logical-space) cell. */
 const GRASS_ANCHOR_X = 11
 const GRASS_ANCHOR_Y = 26
-/** Bake the atlas at 2× device pixels so the bitmap stays crisp when the
- *  world transform zooms in/out. The cell footprint is unchanged — only
- *  the number of pixels in the atlas doubles. */
-const GRASS_DPR = 2
+/** Bake the atlas at 3× device pixels so the bitmap stays crisp at any
+ *  combination of camera zoom (0.7×–1.3×) and screen DPR (1×–3×). The
+ *  cell footprint is unchanged — only the number of pixels in the atlas
+ *  scales. Memory cost: ~900 KB per biome × 5 biomes ≈ 4.5 MB GPU.
+ *  We were previously at 2×, which over-supplied DPR=1 desktops but
+ *  under-supplied retina (DPR=2) and mobile (DPR=3) — leading to a
+ *  bilinear UPsample inside drawImage that softened blade edges. 3×
+ *  over-supplies every realistic device so every blade is a downsample
+ *  (uniformly soft, never blurry/jaggy from upscale aliasing). */
+const GRASS_DPR = 3
 /** Frame duration in ms. 16 frames × 90 ms ≈ 1.44 s full sway cycle —
  *  visibly fluid; the previous 270 ms-per-frame stepping read as slow-mo
  *  because each pose held for a third of a second. */
@@ -296,7 +302,9 @@ export const drawGrassBlade = (
 // drawImage. The offscreen is 2× DPR so it stays crisp under the world
 // transform's zoom range.
 
-const SPRITE_DPR = 2
+// Bumped from 2 → 3 alongside GRASS_DPR for the same reason — keeps
+// crystals/stumps/boulders crisp on retina + mobile DPR=3 screens.
+const SPRITE_DPR = 3
 const COIN_IMG_SRC = '/images/props/coin_128x128.webp'
 const COIN_W = 24
 const COIN_H = 24
