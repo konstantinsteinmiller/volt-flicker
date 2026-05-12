@@ -15,8 +15,8 @@
       div(class="relative flex flex-col items-center")
         div(:style="sizeStyle")
           img(
-            src="/images/logo/logo_256x256.webp"
-            alt="Maw It Down"
+            :src="logoSrc"
+            alt="spin & mow"
             class="w-full h-full object-contain"
             draggable="false"
           )
@@ -33,7 +33,10 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import useAssets from '@/use/useAssets'
+import { prependBaseUrl } from '@/utils/function'
 import { stopLoading } from '@/use/useCrazyGames'
+
+const logoSrc = prependBaseUrl('images/logo/logo_256x256.webp')
 
 const { loadingProgress, preloadAssets } = useAssets()
 const progress = computed(() => loadingProgress.value)

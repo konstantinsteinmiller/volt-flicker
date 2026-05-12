@@ -180,11 +180,11 @@ const grassAtlases = new Map<StageBiome, HTMLCanvasElement>()
  *  near (image_w / 2, image_h * 0.86) in all three sources, so the sway
  *  atlas can use one shared anchor offset. */
 const GRASS_BITMAP_SRCS: Record<StageBiome, string> = {
-  forest: '/images/props/blades-of-grass_128x128.webp',
-  rocky: '/images/props/blades-of-grass_128x128.webp',
-  boss: '/images/props/blades-of-grass_128x128.webp',
-  wheat: '/images/props/wheat_128x128.webp',
-  flower: '/images/props/reed_128x128.webp'
+  forest: '/images/props/blades-of-grass_256x256.webp',
+  rocky: '/images/props/blades-of-grass_256x256.webp',
+  boss: '/images/props/blades-of-grass_256x256.webp',
+  wheat: '/images/props/wheat_256x256.webp',
+  flower: '/images/props/reed_256x256.webp'
 }
 const grassBitmaps = new Map<StageBiome, HTMLImageElement>()
 const getGrassBitmap = (biome: StageBiome): HTMLImageElement => {

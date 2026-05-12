@@ -4,12 +4,16 @@
  * for indices `i <= life`. Encapsulated out of MawScene so the HUD can
  * compose it independently (e.g. stack it under the StageBadge).
  */
+import { prependBaseUrl } from '@/utils/function'
+
 interface Props {
   life: number
   maxLife: number
 }
 
 defineProps<Props>()
+
+const wrenchSrc = prependBaseUrl('images/props/wrench_128x128.webp')
 </script>
 
 <template lang="pug">
@@ -19,7 +23,7 @@ defineProps<Props>()
     img.wrench-pip(
       v-for="i in maxLife"
       :key="i"
-      src="/images/props/wrench_128x128.webp"
+      :src="wrenchSrc"
       alt=""
       draggable="false"
       class="w-5 h-5 sm:w-6 sm:h-6"

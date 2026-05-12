@@ -1,4 +1,5 @@
 import { ref } from 'vue'
+import { prependBaseUrl } from '@/utils/function'
 
 // Maw-It-Down draws all gameplay art programmatically (via Canvas 2D)
 // and uses inline SVG for HUD icons, so the asset preloader is intentionally
@@ -116,11 +117,20 @@ const armVisibilitySuspend = (): void => {
 }
 
 export const getCachedImage = (src: string): HTMLImageElement => {
-  const existing = resourceCache.images.get(src)
+  // Route every bitmap src through `prependBaseUrl` so the URL matches
+  // the build's base. Critical for wavedash (and any other build that
+  // ships with `--base=./`) where the CDN serves the bundle under a
+  // hashed path prefix — bare `/images/foo.webp` 404s against the CDN
+  // root, but `<base>/images/foo.webp` hits the build folder. Cache
+  // keys off the prefixed URL so multiple callers (one passing the
+  // leading slash, another not) still hit the same entry after the
+  // helper's normalisation.
+  const prefixed = prependBaseUrl(src)
+  const existing = resourceCache.images.get(prefixed)
   if (existing) return existing
   const img = new Image()
-  img.src = src
-  resourceCache.images.set(src, img)
+  img.src = prefixed
+  resourceCache.images.set(prefixed, img)
   return img
 }
 

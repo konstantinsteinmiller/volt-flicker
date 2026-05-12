@@ -5,10 +5,14 @@
  * element (typically the CoinBadge in the HUD).
  */
 
+import { prependBaseUrl } from '@/utils/function'
+
 // Bitmap coin sprite — same 20×20 footprint as the previous SVG so the
-// burst geometry and badge fly-in math don't change.
+// burst geometry and badge fly-in math don't change. `prependBaseUrl`
+// keeps the src valid on builds shipped under a non-root base path
+// (wavedash CDN, itch-zip, …).
 const COIN_HTML =
-  '<img src="/images/props/coin_128x128.webp" alt="" draggable="false" ' +
+  `<img src="${prependBaseUrl('images/props/coin_128x128.webp')}" alt="" draggable="false" ` +
   'style="width:20px;height:20px;display:block;user-select:none;" />'
 
 export interface CoinExplosionOptions {

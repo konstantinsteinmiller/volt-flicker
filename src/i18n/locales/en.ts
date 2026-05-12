@@ -1,5 +1,5 @@
 export default {
-  'gameName': 'Maw It Down',
+  'gameName': 'spin & mow',
   'cancel': 'Cancel',
   'close': 'Close',
   'understood': 'Understood',

@@ -96,8 +96,26 @@ export const STAGE_COUNT = STAGE_NAMES.length
 export const isBossStage = (id: number): boolean =>
   id === 10 || id === 15 || id === 20
 
-export const stageBiomeFor = (id: number): StageBiome =>
-  id <= 5 ? 'forest' : id <= 12 ? 'wheat' : 'flower'
+/** Per-stage biome → drives the grass-blade art and the StageBadge tint.
+ *
+ *  Grass-art map (see `useMawArt.ts` GRASS_BITMAP_BY_BIOME):
+ *    forest → blades-of-grass
+ *    wheat  → wheat
+ *    flower → reed
+ *
+ *  Hand-tuned ramp so the visual theme telegraphs the difficulty cluster
+ *  instead of running a smooth biome gradient:
+ *    1-5     forest    (intro green blades)
+ *    6-7     wheat     (carry-over from forest into the wheat band)
+ *    8-9     flower    (reed surprise before the first boss)
+ *    10-12   wheat     (the wheat boss + its trailing pair)
+ *    13-14   flower    (reed reprise heading into the mid-boss)
+ *    15+     wheat     (final stretch + last two bosses all on wheat) */
+export const stageBiomeFor = (id: number): StageBiome => {
+  if (id <= 5) return 'forest'
+  if (id === 8 || id === 9 || id === 13 || id === 14) return 'flower'
+  return 'wheat'
+}
 
 /** Returns the live position of an island at time `nowMs` (perf clock) given
  *  its motion spec. Ping-pongs A↔B with the spec's period + phase. Tiny so

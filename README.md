@@ -1,4 +1,4 @@
-# Maw It Down
+# spin & mow
 
 A 2D top-down platformer where the player drives a two-gear robot connected
 by a spike chain. Anchor one gear, swing the other, and time taps to leap

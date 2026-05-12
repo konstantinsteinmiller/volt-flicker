@@ -977,28 +977,29 @@ const showStartHint = computed(() =>
 
             //- Chain-length quick adjust: step the live chain reach
             //- up/down through the player's purchased upgrade tiers.
-            //- Disabled if there's nothing to step into.
-            div.mt-4.flex.items-center.gap-1.pointer-events-auto(v-if="purchasedChainLevel > 0")
+            //- +1 sits below the TreasureChest; -1 sits below +1 with a
+            //- 0.75rem gap. The wrapper carries 1.5rem of padding as a
+            //- safe-tap shield so a near-miss tap (or a disabled-button
+            //- press at min/max chain) can't fall through to the canvas
+            //- and accidentally swap-anchor the robot into the water.
+            //- The wrap also pulls the layout back with a negative
+            //- margin so the visual position stays close to the chest.
+            div.chain-adjust-wrap.pointer-events-auto(
+              v-if="purchasedChainLevel > 0"
+              @pointerdown.stop
+            )
+              button.chain-adjust-btn.mt-4(
+                type="button"
+                :disabled="!canChainUp"
+                @click="onChainPlus"
+                :title="`Longer chain (Lv. ${liveChainLevel} / ${purchasedChainLevel})`"
+              ) +1
               button.chain-adjust-btn(
                 type="button"
                 :disabled="!canChainDown"
                 @click="onChainMinus"
                 :title="`Shorter chain (Lv. ${liveChainLevel} / ${purchasedChainLevel})`"
-              )
-                svg(viewBox="0 0 24 24" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round")
-                  path(d="M9.5 6.5 L7 9 a3.5 3.5 0 0 0 5 5 l1-1")
-                  path(d="M14.5 17.5 L17 15 a3.5 3.5 0 0 0 -5 -5 l-1 1")
-                span.text-xs.font-black.game-text -1
-              button.chain-adjust-btn(
-                type="button"
-                :disabled="!canChainUp"
-                @click="onChainPlus"
-                :title="`Longer chain (Lv. ${liveChainLevel} / ${purchasedChainLevel})`"
-              )
-                svg(viewBox="0 0 24 24" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round")
-                  path(d="M9.5 6.5 L7 9 a3.5 3.5 0 0 0 5 5 l1-1")
-                  path(d="M14.5 17.5 L17 15 a3.5 3.5 0 0 0 -5 -5 l-1 1")
-                span.text-xs.font-black.game-text +1
+              ) -1
 
       //- Center: Tap-to-start / countdown / target counter
       div.absolute.flex.items-center.justify-center(class="inset-0 z-[10] pointer-events-none")
@@ -1441,20 +1442,65 @@ const showStartHint = computed(() =>
   100%
     transform: translateX(100%)
 
-// Chain-length quick adjust buttons — match the secondary-square-btn
-// palette but compact, since they live in the HUD's right column.
+// Chain-length quick adjust — a vertical +1 / -1 stack that sits in
+// the right HUD column below the TreasureChest. The wrap carries a
+// 1.5rem padding "tap shield": pointer events anywhere inside that
+// box stick to the wrap instead of falling through to the canvas
+// behind, so a fat-finger tap (or a press on a disabled button at
+// min/max chain) can never swap-anchor the robot into the water.
+// Negative margin cancels the padding for layout purposes so the
+// stack still hugs the right edge of the column.
+.chain-adjust-wrap
+  display: flex
+  flex-direction: column
+  align-items: flex-end
+  gap: 0.75rem
+  padding: 1.5rem
+  margin: -1.5rem
+  // Touch-action `none` so the OS doesn't intercept the tap with a
+  // scroll/zoom gesture before our click handler runs.
+  touch-action: none
+
 .chain-adjust-btn
-  display: inline-flex
+  display: flex
   align-items: center
-  gap: 0.15rem
-  padding: 0.25rem 0.45rem
-  border-radius: 0.5rem
-  border: 2px solid #0f1a30
-  background: linear-gradient(180deg, #50aaff, #2266ff)
+  justify-content: center
+  // Quadratic buttons, sized for confident thumb taps. Desktop gets
+  // 2.75rem (44px); mobile gets 3.5rem (56px) — the latter is what
+  // Apple/Google both recommend as the floor for touch targets.
+  width: 2.75rem
+  height: 2.75rem
+  //border-radius: 0.6rem
+  //border: 2px solid #0f1a30
+  // Bitmap "increase" art layered under a translucent blue tint so the
+  // image carries the visual flavour while the +1 / -1 label stays
+  // legible on top. The gradient fallback keeps a readable button if
+  // the asset 404s on a slow / blocked network.
+  //background-color: #2266ff
+  background-image: url('/images/props/increase_256x256.webp')
+  background-size: cover, contain
+  background-repeat: no-repeat, no-repeat
+  background-position: center, center
+  background-clip: padding-box
   color: white
-  text-shadow: 1px 1px 0 #000
+  font-size: 1.05rem
+  font-weight: 900
+  letter-spacing: 0.02em
+  // Heavier shadow so the digit reads against the busy bitmap behind.
+  text-shadow: 1px 1px 0 #000, 0 0 4px #000
   cursor: pointer
   transition: transform 0.08s ease, filter 0.08s ease
+  // Re-assert pointer-events on disabled state. Browsers default
+  // `<button disabled>` to `pointer-events: none`, which lets the tap
+  // pass through to the canvas (= swap-anchor into water). Keeping
+  // events on means the disabled button absorbs the press silently.
+  user-select: none
+
+  @media (max-width: 640px)
+    width: 3.5rem
+    height: 3.5rem
+    font-size: 1.3rem
+    border-radius: 0.75rem
 
   &:hover:not(:disabled)
     filter: brightness(1.08)
@@ -1467,6 +1513,7 @@ const showStartHint = computed(() =>
     opacity: 0.45
     cursor: not-allowed
     filter: grayscale(0.4)
+    pointer-events: auto
 
 .countdown-number
   display: inline-block

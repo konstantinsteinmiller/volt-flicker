@@ -3,7 +3,16 @@ export const isWeb = import.meta.env.VITE_PLATTFORM === 'web'
 let baseURL = import.meta.env.BASE_URL
 baseURL = baseURL.slice(0, baseURL.length - 1)
 // console.log('baseURL: ', baseURL, isProduction)
-export const prependBaseUrl = (url: string): string => (isProduction ? `${baseURL}/${url}` : url)
+// Normalises the input so both `'foo.png'` and `'/foo.png'` produce the
+// same prefixed result. Without the strip, a leading-slash caller would
+// double-up the separator (`<base>//foo.png`) and on wavedash's CDN
+// hashed build path, that resolves to the CDN root (404) instead of
+// the build folder.
+export const prependBaseUrl = (url: string): string => {
+  if (!isProduction) return url
+  const clean = url.startsWith('/') ? url.slice(1) : url
+  return `${baseURL}/${clean}`
+}
 export const repeat = (n: number, callback: (_: any, i: number) => string): string[] => [...new Array(n)].map(callback)
 
 export const mergeObjectsRecursive = (obj1: any, obj2: any) => {
