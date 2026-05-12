@@ -101,6 +101,16 @@ export const upgradedValue = (id: UpgradeId): number => {
   return def.base + def.perLevel * effectiveLevelOf(id)
 }
 
+/** Compute chain reach (px) for a given chain level without consulting
+ *  live upgrade state. Used by the ghost replay so its silhouette swings
+ *  at the chain length the player had when each anchor was stamped,
+ *  independent of any upgrades bought since. */
+export const chainLengthForLevel = (level: number): number => {
+  const def = UPGRADES.find(u => u.id === 'chainLength')
+  if (!def) return 0
+  return def.base + def.perLevel * Math.max(0, level)
+}
+
 export const upgradeCost = (id: UpgradeId): number => {
   const def = UPGRADES.find(u => u.id === id)
   if (!def) return Number.POSITIVE_INFINITY

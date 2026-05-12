@@ -135,9 +135,21 @@ const STAGE_STUB: MawStage = {
 
 const currentStage = computed<MawStage>(() => {
   if (testStage.value) return testStage.value
-  const override = campaignOverrides.value[currentStageId.value]
-  if (override) return override
-  return stageCache.get(currentStageId.value) ?? STAGE_STUB
+  const id = currentStageId.value
+  const override = campaignOverrides.value[id]
+  if (override) {
+    // The LevelEditor hardcodes `biome: 'forest'` on every saved stage
+    // (it has no biome picker) and the campaign-import flow stamps a
+    // `copy-of-…` prefix onto the name — both clobber the campaign's
+    // authored values. Re-stamp the slot's mandated biome and the
+    // canonical stage name so badges + grass art match the campaign
+    // design without requiring a data migration of the override JSON.
+    const correctBiome = stageBiomeFor(id)
+    const correctName = STAGE_NAMES[id - 1] ?? override.name
+    if (override.biome === correctBiome && override.name === correctName) return override
+    return { ...override, biome: correctBiome, name: correctName }
+  }
+  return stageCache.get(id) ?? STAGE_STUB
 })
 const isLastStage = computed(() => currentStageId.value >= STAGE_COUNT)
 

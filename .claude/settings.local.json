@@ -38,7 +38,13 @@
       "PowerShell(npx vue-tsc --noEmit 2>&1 | Select-Object -First 20)",
       "PowerShell(npx vite build --mode wavedash --base=./ --outDir=wavedash-dist 2>&1 | Select-Object -Last 25)",
       "PowerShell(npx vite build 2>&1 | Select-Object -Last 3)",
-      "PowerShell(npx vue-tsc --noEmit 2>&1 | Select-Object -First 10)"
+      "PowerShell(npx vue-tsc --noEmit 2>&1 | Select-Object -First 10)",
+      "Bash(awk '/\"decor\":/{has_decor=1; line=NR} /\"motion\":/{has_motion=1} /\"id\":/{ if\\(has_decor && has_motion\\){ print \"stage near line \" line } has_decor=0; has_motion=0 }' data/campaign-overrides.json)",
+      "Bash(awk 'NR==1{stage_start=NR} /^      \\\\{$/{island_start=NR; has_motion=0; has_decor=0} /\"motion\":/{has_motion=1} /\"decor\":/{has_decor=1; decor_line=NR} /^      \\\\}$/{ if\\(has_motion && has_decor\\){ print \"Island at line \" island_start \" has both motion \\(decor at \" decor_line \"\\)\" } }' data/campaign-overrides.json)",
+      "Bash(awk NR>=325 && NR<=360 *)",
+      "Bash(awk 'NR>=695 && NR<=900' src/views/MawScene.vue)",
+      "Bash(awk '/^  \"[0-9]+\":/{stage=$1} /\"motion\":/{m=NR} /\"libertyTrash\"/{if\\(m && NR-m<200\\) print stage \" has motion+decor \\(motion at \"m\", decor at \"NR\"\\)\"; m=0}' data/campaign-overrides.json)",
+      "Bash(python3 -c ' *)"
     ]
   }
 }

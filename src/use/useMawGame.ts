@@ -1,7 +1,7 @@
 import { ref, computed, watch, type Ref } from 'vue'
 import useMawCampaign, { type MawStage, type MawIsland, type Obstacle, motionPositionAt } from '@/use/useMawCampaign'
 import { pointInIsland } from '@/use/useIslandShapes'
-import useMawProgress, { upgradedValue, levelOf, markBrokenFromObstacle } from '@/use/useMawProgress'
+import useMawProgress, { upgradedValue, levelOf, effectiveLevelOf, markBrokenFromObstacle } from '@/use/useMawProgress'
 import {
   ghostRunStartRecording,
   ghostRunRecordSwap,
@@ -157,21 +157,24 @@ const useMawGame = () => {
   const initIslands = () => {
     const nowMs = performance.now()
     islands.value = stage.value.islands.map(src => {
-      // Deep-clone grass and obstacles — moving islands mutate these
-      // each tick to follow the platform, so they must not share refs
-      // with the immutable stage data.
+      // Decor switches from world coords (in the source data) to
+      // island-relative offsets at runtime. The renderer adds isle.cx/cy
+      // at draw time, so decor automatically tracks the platform — no
+      // per-tick mutation needed and no chance of drift from a missed
+      // translation step.
       const isle: RuntimeIsland = {
         ...src,
         cx: src.cx,
         cy: src.cy,
         grass: src.grass.map(g => [g[0], g[1]] as [number, number]),
         obstacles: src.obstacles.map(o => ({ ...o })),
-        decor: src.decor ? src.decor.map(d => ({ ...d })) : undefined,
+        decor: src.decor ? src.decor.map(d => ({ type: d.type, x: d.x - src.cx, y: d.y - src.cy })) : undefined,
         aliveGrass: new Set(src.grass.map((_, idx) => idx))
       }
       // For moving islands, snap to the motion's position at boot (with
-      // phase) and translate grass + obstacles + decor by the same
-      // offset so everything starts visually aligned with the platform.
+      // phase) and translate grass + obstacles by the same offset so
+      // everything starts visually aligned with the platform. Decor is
+      // already stored relative to isle.cx/cy and follows for free.
       if (src.motion) {
         const p = motionPositionAt(src.motion, nowMs)
         const dx = p.x - src.cx
@@ -186,12 +189,6 @@ const useMawGame = () => {
           for (const ob of isle.obstacles) {
             ob.x += dx
             ob.y += dy
-          }
-          if (isle.decor) {
-            for (const d of isle.decor) {
-              d.x += dx
-              d.y += dy
-            }
           }
         }
       }
@@ -239,7 +236,11 @@ const useMawGame = () => {
     // runs are excluded because they aren't part of the campaign and
     // would otherwise overwrite a real stage's recording.
     if (!testStage.value) {
-      ghostRunStartRecording(currentStageId.value, anchorPos.value.x, anchorPos.value.y)
+      ghostRunStartRecording(
+        currentStageId.value,
+        anchorPos.value.x, anchorPos.value.y,
+        effectiveLevelOf('chainLength')
+      )
     } else {
       ghostRunReset()
     }
@@ -345,12 +346,7 @@ const useMawGame = () => {
         ob.x += dx
         ob.y += dy
       }
-      if (isle.decor) {
-        for (const d of isle.decor) {
-          d.x += dx
-          d.y += dy
-        }
-      }
+      // Decor is stored island-relative — no translation needed.
       if (anchorOnThis) {
         anchorPos.value = {
           x: anchorPos.value.x + dx,
@@ -601,7 +597,7 @@ const useMawGame = () => {
     // Ghost-trail: stamp the swap so the next attempt can replay the
     // path. Done only for real campaign runs (test stages bypass the
     // recording entirely; see startMatch).
-    if (!testStage.value) ghostRunRecordSwap(newAnchor.x, newAnchor.y)
+    if (!testStage.value) ghostRunRecordSwap(newAnchor.x, newAnchor.y, effectiveLevelOf('chainLength'))
     // The previous anchor becomes the new swing gear; its current
     // angle relative to the new anchor is the starting `swingAngle`.
     const dx = prevAnchor.x - newAnchor.x

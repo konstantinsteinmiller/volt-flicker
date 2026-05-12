@@ -1,5 +1,6 @@
 import { ref, type Ref } from 'vue'
 import type { MawStage } from '@/use/useMawCampaign'
+import { stageBiomeFor, STAGE_NAMES } from '@/use/useStageMeta'
 import { getState, setState } from '@/use/useMawState'
 import overridesFromDisk from 'virtual:campaign-overrides'
 
@@ -110,8 +111,16 @@ export const setTestStage = (stage: MawStage | null) => {
 
 export const saveCampaignOverride = (id: number, stage: MawStage) => {
   // Stamp the stage id so the override matches its slot even if the editor
-  // saved it with id = -1.
-  const stamped = { ...stage, id }
+  // saved it with id = -1. Also stamp the slot's mandated biome and the
+  // canonical stage name — the editor adds a `copy-of-…` prefix and
+  // hardcodes `biome: 'forest'`, neither of which should ever surface
+  // in-game.
+  const stamped = {
+    ...stage,
+    id,
+    biome: stageBiomeFor(id),
+    name: STAGE_NAMES[id - 1] ?? stage.name
+  }
   const next = { ...campaignOverrides.value, [id]: stamped }
   campaignOverrides.value = next
   persistOverrides(next)

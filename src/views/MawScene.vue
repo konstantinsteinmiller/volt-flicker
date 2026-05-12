@@ -20,7 +20,8 @@ import useMawProgress, {
   markChainScrollHintShown,
   ensureChainScrollBaseline,
   gamesPlayedTotal,
-  upgradeCost
+  upgradeCost,
+  chainLengthForLevel
 } from '@/use/useMawProgress'
 import useSounds, { useMusic, type LoopHandle } from '@/use/useSound'
 import { schedulePreloadOnIdle } from '@/use/useSoundPreload'
@@ -34,7 +35,7 @@ import { stopGameplay, startGameplay, triggerHappytime } from '@/use/useCrazyGam
 import { isInterstitialReady, showMidgameAd, isRewardedReady, showRewardedAd } from '@/use/useAds'
 import SpeedrunButton from '@/components/organisms/SpeedrunButton.vue'
 import {
-  ghostAnchorAt,
+  ghostStateAt,
   hasGhostForStage,
   ghostBestTime,
   liveRunStartMs
@@ -764,10 +765,15 @@ const paint = () => {
     }
     // Cosmetic decor (e.g. liberty-trash) — drawn AFTER grass + obstacles
     // so it sits on top of the blades without being affected by cuts.
+    // `d.x`/`d.y` are island-relative offsets (see `initIslands` in
+    // useMawGame.ts) — adding isle.cx/cy on the fly means moving islands
+    // carry their decor without per-tick translation.
     if (isle.decor) {
       for (const d of isle.decor) {
-        if (d.x < viewMinX || d.x > viewMaxX || d.y < viewMinY || d.y > viewMaxY) continue
-        drawDecor(ctx, d.type, d.x, d.y)
+        const wx = isle.cx + d.x
+        const wy = isle.cy + d.y
+        if (wx < viewMinX || wx > viewMaxX || wy < viewMinY || wy > viewMaxY) continue
+        drawDecor(ctx, d.type, wx, wy)
       }
     }
     for (const idx of isle.aliveGrass) {
@@ -807,19 +813,26 @@ const paint = () => {
     && hasGhostForStage(currentStageId.value)
     && liveElapsedMs.value > 0
   ) {
-    const ghostA = ghostAnchorAt(currentStageId.value, liveElapsedMs.value)
-    if (ghostA) {
-      // Ghost swing — anchor + base chain reach + slowly rotating angle
-      // so the chain doesn't sit perfectly still on a stationary anchor.
+    const ghostState = ghostStateAt(currentStageId.value, liveElapsedMs.value)
+    if (ghostState) {
+      // Ghost chain reach is frozen to what the player had stamped at
+      // each anchor swap — never the live upgrade value — so the ghost
+      // doesn't mimic upgrades bought after the recording. Legacy
+      // triple-format recordings (chainLevel === null) fall back to the
+      // live values until the player re-clears the stage.
+      const ghostLevel = ghostState.chainLevel ?? liveChainLevel.value
+      const ghostReach = ghostState.chainLevel !== null
+        ? chainLengthForLevel(ghostState.chainLevel)
+        : chainLength.value
       const tSec = liveElapsedMs.value / 1000
       const ghostAngle = tSec * 2.1
       const ghostSwing = {
-        x: ghostA.x + Math.cos(ghostAngle) * chainLength.value,
-        y: ghostA.y + Math.sin(ghostAngle) * chainLength.value
+        x: ghostState.x + Math.cos(ghostAngle) * ghostReach,
+        y: ghostState.y + Math.sin(ghostAngle) * ghostReach
       }
       ctx.save()
       ctx.globalAlpha = 0.32
-      drawRobot(ctx, ghostA, ghostSwing, ghostAngle, true, liveChainLevel.value)
+      drawRobot(ctx, { x: ghostState.x, y: ghostState.y }, ghostSwing, ghostAngle, true, ghostLevel)
       ctx.restore()
     }
   }
