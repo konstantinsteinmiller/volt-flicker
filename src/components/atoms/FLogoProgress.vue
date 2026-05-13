@@ -35,6 +35,7 @@ import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import useAssets from '@/use/useAssets'
 import { prependBaseUrl } from '@/utils/function'
 import { stopLoading } from '@/use/useCrazyGames'
+import { isPlaygama } from '@/use/useUser'
 
 const logoSrc = prependBaseUrl('images/logo/logo_256x256.webp')
 
@@ -104,11 +105,25 @@ const signalGameReadyToCG = () => {
   try { stopLoading() } catch (e) { console.warn('[FLogoProgress] CG ready-to-play failed', e) }
 }
 
+// Playgama's `game_ready` is certification-mandatory — fire it on the same
+// splash-resolved edge as CG's loadingStop. The plugin guards the message
+// internally so it fires once even if the watcher re-triggers.
+let playgamaLoadSignaled = false
+const signalGameReadyToPlaygama = () => {
+  if (playgamaLoadSignaled || !isPlaygama) return
+  playgamaLoadSignaled = true
+  void import('@/utils/playgamaPlugin').then(({ playgamaGameLoadingStop }) => {
+    try { playgamaGameLoadingStop() }
+    catch (e) { console.warn('[FLogoProgress] Playgama game_ready failed', e) }
+  })
+}
+
 watch(done, (isDone) => {
   if (isDone) {
     setTimeout(() => {
       backdropHidden.value = true
       signalGameReadyToCG()
+      signalGameReadyToPlaygama()
     }, 150)
   }
 })

@@ -12,6 +12,7 @@
     "build:itch": "vite build --mode itch --base=./ && cd dist && tar -a -cf ../spin-and-mow-itch.zip * && cd .. && move spin-and-mow-itch.zip dist\\",
     "build:glitch": "vite build --mode glitch --base=./ && cd dist && tar -a -cf ../spin-and-mow-glitch.zip * && cd .. && move spin-and-mow-glitch.zip dist\\",
     "build:game-distribution": "vite build --mode game-distribution --base=./",
+    "build:playgama": "vite build --mode playgama --base=./ && cd dist && tar -a -cf ../spin-and-mow-playgama.zip * && cd .. && move spin-and-mow-playgama.zip dist\\",
     "deploy": "vite build && surge dist/ --domain spin-and-mow.surge.sh",
     "validated-build": "vue-tsc -b && vite build",
     "type-check": "vue-tsc --build",

@@ -11,7 +11,7 @@ import {
 } from '@/i18n'
 import { LANGUAGES } from '@/utils/enums'
 import { initAds } from '@/use/useAds'
-import useUser, { isCrazyWeb, isWaveDash, isItch, isGlitch, isGameDistribution } from '@/use/useUser'
+import useUser, { isCrazyWeb, isWaveDash, isItch, isGlitch, isGameDistribution, isPlaygama } from '@/use/useUser'
 import { isDebug } from '@/use/useMatch.ts'
 import { hasState, reloadMawState } from '@/use/useMawState'
 import { SaveManager } from '@/utils/save/SaveManager'
@@ -129,7 +129,7 @@ const bootstrap = async () => {
   // unit-testable in isolation. Adding a platform = add an arm there,
   // not edit this file.
   const strategy = await resolveSaveStrategy({
-    isCrazyWeb, isWaveDash, isItch, isGlitch, isGameDistribution
+    isCrazyWeb, isWaveDash, isItch, isGlitch, isGameDistribution, isPlaygama
   })
 
   // CrazyGames cloud-only mode: gameplay state and our save bookkeeping
@@ -237,6 +237,17 @@ const bootstrap = async () => {
   if (import.meta.env.VITE_APP_GAME_DISTRIBUTION === 'true') {
     void import('@/utils/gameDistributionPlugin').then(({ gameDistributionPlugin }) => {
       gameDistributionPlugin()
+    })
+  }
+
+  // Playgama: same parallel-init pattern as GD. The plugin internally
+  // caches its init promise, so the AdProvider + SaveStrategy both join
+  // this same `bridge.initialize()` call instead of issuing duplicates.
+  // Loading messages are sent immediately after init resolves; the
+  // `game_ready` edge is fired later from App.vue's asset-loaded watcher.
+  if (import.meta.env.VITE_APP_PLAYGAMA === 'true') {
+    void import('@/utils/playgamaPlugin').then(({ playgamaPlugin, playgamaLoadingStart }) => {
+      void playgamaPlugin().then(() => playgamaLoadingStart())
     })
   }
 

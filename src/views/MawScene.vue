@@ -594,9 +594,17 @@ const beginPlay = async () => {
   // regardless of platform; the actual ad show is gated on
   // `isInterstitialReady` so a Noop / blocked / no-fill state silently
   // falls through.
+  // Additionally, every 5th 'broke' loss fires the ad — see the
+  // breakdown counter wired in the loss watcher. Whichever counter
+  // tripped is reset; the other keeps counting so the two cadences stay
+  // independent (the user gets ads on the union of triggers, not just
+  // one).
   bumpAdCounter()
-  if (battlesSinceAd.value >= 3) {
-    resetAdCounter()
+  const triggerByAttempts = battlesSinceAd.value >= 3
+  const triggerByBreakdowns = breakdownsSinceAd.value >= BREAKDOWN_AD_THRESHOLD
+  if (triggerByAttempts || triggerByBreakdowns) {
+    if (triggerByAttempts) resetAdCounter()
+    if (triggerByBreakdowns) resetBreakdownAdCounter()
     if (isInterstitialReady.value) {
       phase.value = 'ad_break'
       try {
@@ -661,6 +669,9 @@ watch(phase, (p) => {
     //     have something to spend their stockpile on. Coin cooldown is
     //     implicit (the cost is a natural throttle).
     playSound(lossReason.value === 'splashed' ? 'water-splash' : 'chainsaw-break', 0.12)
+    // Breakdown ad cadence — bumps only on 'broke' deaths. Drives the
+    // second-channel interstitial trigger evaluated in `beginPlay`.
+    if (lossReason.value === 'broke') bumpBreakdownAdCounter()
     // Both revive paths (watch-ad + coin spend) are now offered for
     // BOTH death types. `continueAfterDeath` handles each correctly —
     // a 'broke' death tops up life + cools-down obstacles, a 'splashed'
@@ -800,14 +811,28 @@ const onAcceptRapidDeathLifeOffer = async () => {
 }
 
 // ─── Ad cadence ──────────────────────────────────────────────────────────
+//
+// Two independent counters drive the `ad_break` phase. Either one tripping
+// fires the next interstitial; whichever fired resets to 0 (the other keeps
+// counting so the cadences don't drift into lockstep). Both persist
+// across sessions so a refresh between breakdowns doesn't reset the gate.
+//
+//   • `battlesSinceAd` — every attempt (win, lose, abort) bumps it.
+//                        Fires at >= 3. The "regular" cadence.
+//   • `breakdownsSince` — only 'broke' losses bump it (splash deaths and
+//                        wins don't count). Fires at >= 5. Catches the
+//                        player who keeps dying without finishing stages.
 const AD_KEY = 'ca_battles_since_ad'
-const readBattlesSinceAd = (): number => {
-  const v = getState<unknown>(AD_KEY)
+const BREAKDOWN_AD_KEY = 'ca_breakdowns_since_ad'
+const BREAKDOWN_AD_THRESHOLD = 5
+const readNumberKey = (key: string): number => {
+  const v = getState<unknown>(key)
   if (typeof v === 'number' && Number.isFinite(v)) return v
   const n = parseInt(String(v ?? ''), 10)
   return Number.isFinite(n) ? n : 0
 }
-const battlesSinceAd: Ref<number> = ref(readBattlesSinceAd())
+const battlesSinceAd: Ref<number> = ref(readNumberKey(AD_KEY))
+const breakdownsSinceAd: Ref<number> = ref(readNumberKey(BREAKDOWN_AD_KEY))
 const bumpAdCounter = () => {
   battlesSinceAd.value += 1
   setState(AD_KEY, battlesSinceAd.value)
@@ -815,6 +840,14 @@ const bumpAdCounter = () => {
 const resetAdCounter = () => {
   battlesSinceAd.value = 0
   setState(AD_KEY, 0)
+}
+const bumpBreakdownAdCounter = () => {
+  breakdownsSinceAd.value += 1
+  setState(BREAKDOWN_AD_KEY, breakdownsSinceAd.value)
+}
+const resetBreakdownAdCounter = () => {
+  breakdownsSinceAd.value = 0
+  setState(BREAKDOWN_AD_KEY, 0)
 }
 
 // ─── Input ───────────────────────────────────────────────────────────────

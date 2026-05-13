@@ -45,7 +45,9 @@
       "Bash(awk 'NR>=695 && NR<=900' src/views/MawScene.vue)",
       "Bash(awk '/^  \"[0-9]+\":/{stage=$1} /\"motion\":/{m=NR} /\"libertyTrash\"/{if\\(m && NR-m<200\\) print stage \" has motion+decor \\(motion at \"m\", decor at \"NR\"\\)\"; m=0}' data/campaign-overrides.json)",
       "Bash(python3 -c ' *)",
-      "Bash(echo \"exitcode=$?\")"
+      "Bash(echo \"exitcode=$?\")",
+      "Bash(pnpm build:playgama)",
+      "Bash(pnpm build:crazy-web)"
     ]
   }
 }

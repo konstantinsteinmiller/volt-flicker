@@ -177,6 +177,16 @@ export default defineConfig(({ mode, command }) => {
           // import so non-GD builds don't ship the GD SDK code.
           // Same obfuscator-vs-dynamic-import constraint as above.
           /use[\\/]ads[\\/]GameDistributionProvider\.ts$/,
+          // PlaygamaProvider lazy-loads `@/utils/playgamaPlugin` for the
+          // same reason — keeps the ~280 LOC bridge module off non-Playgama
+          // builds. The obfuscator would mangle the dynamic-import literal.
+          /use[\\/]ads[\\/]PlaygamaProvider\.ts$/,
+          // FLogoProgress dynamic-imports `@/utils/playgamaPlugin` to fire
+          // the certification-mandatory `game_ready` edge on Playgama
+          // builds. Without this exclude, the obfuscator mangles the
+          // literal and the QA tool surfaces
+          // `Failed to resolve module specifier '@/utils/playgamaPlugin'`.
+          /components[\\/]atoms[\\/]FLogoProgress\.vue$/,
           // useMawCampaign lazy-loads the heavy `useStageBuilder`
           // chunk via `await import('@/use/useStageBuilder')` so all
           // 20 stage builds stay off the boot critical path. The
@@ -262,6 +272,46 @@ export default defineConfig(({ mode, command }) => {
           /<!-- Load the SDK before your game code -->\s*<script[^>]*sdk\.crazygames\.com[^>]*><\/script>\s*/,
           ''
         )
+      }
+    })
+  }
+
+  // Strip the Playgama bridge <script> tag from non-Playgama builds. The
+  // build-time tag is mostly a perf shave — the plugin re-injects it at
+  // runtime if missing (some QA wrappers serve their own index.html) —
+  // but on other portals we don't want an extra DNS lookup to playgama.com.
+  const isPlaygama = env.VITE_APP_PLAYGAMA === 'true'
+  if (!isPlaygama) {
+    plugins.push({
+      name: 'strip-playgama-sdk',
+      transformIndexHtml(html: string) {
+        return html.replace(
+          /<!-- Load the SDK before your game code -->\s*<script[^>]*bridge\.playgama\.com[^>]*><\/script>\s*/,
+          ''
+        )
+      }
+    })
+  }
+
+  // Emit `playgama-bridge-config.json` ONLY for the Playgama build. NOT
+  // served from `public/` because Vite would expose it in dev and in every
+  // other platform's `dist/` — which historically baked
+  // `forciblySetPlatformId: 'playgama'` and made the bridge hang in
+  // localhost / QA-tool contexts (which speak different protocols than
+  // the production portal). The config here intentionally OMITS
+  // `forciblySetPlatformId` so the bridge auto-detects the right protocol.
+  if (isPlaygama) {
+    plugins.push({
+      name: 'emit-playgama-bridge-config',
+      apply: 'build' as const,
+      generateBundle() {
+        (this as any).emitFile({
+          type: 'asset',
+          fileName: 'playgama-bridge-config.json',
+          source: JSON.stringify({
+            advertisement: { minimumDelayBetweenInterstitial: 120 }
+          }, null, 2)
+        })
       }
     })
   }

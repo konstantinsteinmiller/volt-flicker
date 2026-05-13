@@ -28,6 +28,9 @@ const BASE_HOSTS: ReadonlyArray<string> = [
   'https://*.glitch.fun',
   'https://gamedistribution.com',
   'https://*.gamedistribution.com',
+  'https://playgama.com',
+  'https://*.playgama.com',
+  'https://bridge.playgama.com',
   'https://www.clarity.ms',
   'https://api.jsonbin.io'
 ]
@@ -129,6 +132,11 @@ export const buildCsp = (env: Record<string, string>): string => {
   const isGameDistribution = env.VITE_APP_GAME_DISTRIBUTION === 'true'
   const isGlitch = env.VITE_APP_GLITCH === 'true'
   const isCrazyWeb = env.VITE_APP_CRAZY_WEB === 'true'
+  const isPlaygama = env.VITE_APP_PLAYGAMA === 'true'
+
+  // Playgama runs an ad-waterfall like GD / GamePix / Y8 — open the same
+  // directives so partner creatives / bidders aren't refused.
+  const adWaterfallBuild = isGameDistribution || isPlaygama
 
   const hosts: string[] = [
     ...BASE_HOSTS,
@@ -139,30 +147,31 @@ export const buildCsp = (env: Record<string, string>): string => {
   // Per-directive extras — mode-driven openings beyond `'self'` + hosts.
   const scriptSrcExtra: string[] = []
   if (isGlitch) scriptSrcExtra.push('\'unsafe-inline\'')
-  if (isGameDistribution) scriptSrcExtra.push('https:', '\'unsafe-inline\'', '\'unsafe-eval\'')
+  if (adWaterfallBuild) scriptSrcExtra.push('https:', '\'unsafe-inline\'', '\'unsafe-eval\'')
 
   const extras: Record<string, string[]> = {
     'script-src': scriptSrcExtra,
     // GD's IAB TCF v2 consent wall pulls Google Fonts CSS at runtime —
-    // open style-src to https: for GD only.
-    'style-src': isGameDistribution ? ['https:', '\'unsafe-inline\''] : ['\'unsafe-inline\''],
+    // open style-src to https: for GD only. Playgama's bridge mediates
+    // creatives the same way.
+    'style-src': adWaterfallBuild ? ['https:', '\'unsafe-inline\''] : ['\'unsafe-inline\''],
     // GD ad creatives come from arbitrary CDNs — open img-src to https:
     // for that build type only. CG ad pixels arrive from the partner host
     // list above plus `data:` for inline beacons.
-    'img-src': isGameDistribution ? ['data:', 'https:', 'blob:'] : ['data:'],
+    'img-src': adWaterfallBuild ? ['data:', 'https:', 'blob:'] : ['data:'],
     'connect-src': [
       ...CONNECT_BASE_EXTRA,
-      // GD partner analytics / ad telemetry beacons.
-      ...(isGameDistribution ? ['https:', 'wss:'] : [])
+      // GD / Playgama partner analytics / ad telemetry beacons.
+      ...(adWaterfallBuild ? ['https:', 'wss:'] : [])
     ],
-    // GD ads + CG rich-media creatives render in nested iframes from
-    // partner domains; CG specifically pulls TheTradeDesk/2mdn creatives
-    // into nested frames.
-    'frame-src': isGameDistribution || isCrazyWeb ? ['https:'] : [],
-    // CG video ads (IMA / partner stitchers) render via blob URLs.
-    'media-src': isGameDistribution || isCrazyWeb ? ['https:', 'blob:'] : [],
+    // GD / Playgama ads + CG rich-media creatives render in nested iframes
+    // from partner domains; CG specifically pulls TheTradeDesk/2mdn
+    // creatives into nested frames.
+    'frame-src': adWaterfallBuild || isCrazyWeb ? ['https:'] : [],
+    // CG / Playgama video ads (IMA / partner stitchers) render via blob URLs.
+    'media-src': adWaterfallBuild || isCrazyWeb ? ['https:', 'blob:'] : [],
     // The consent wall + many partner CDNs serve webfonts.
-    'font-src': isGameDistribution ? ['https:', 'data:'] : ['data:']
+    'font-src': adWaterfallBuild ? ['https:', 'data:'] : ['data:']
   }
 
   return CSP_DIRECTIVES.map(dir => {

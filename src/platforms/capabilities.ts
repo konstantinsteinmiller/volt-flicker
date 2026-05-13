@@ -17,6 +17,7 @@ export interface PlatformFlags {
   isItch: boolean
   isGlitch: boolean
   isGameDistribution: boolean
+  isPlaygama: boolean
 }
 
 export type GlitchLicenseStatus = 'pending' | 'ok' | 'denied'
@@ -46,6 +47,10 @@ export interface ResolvedCapabilities {
   allowedToShowOnItch: boolean
   allowedToShowOnGlitch: boolean
   allowedToShowOnGameDistribution: boolean
+  /** Playgama's Technical Requirements forbid runtime URL gating — so the
+   *  arm is flag-only (always render when the build flag is set, no
+   *  hostname check). */
+  allowedToShowOnPlaygama: boolean
   /** True when Glitch was selected but their license API rejected the player. */
   isGlitchDenied: boolean
   /** True when the build targets a platform AND the license check has settled.
@@ -87,7 +92,7 @@ export const resolveCapabilities = (input: CapabilitiesInput): ResolvedCapabilit
   const parentOrigin = input.parentOrigin ?? ''
 
   const isNotPlatformBuild =
-    !flags.isCrazyWeb && !flags.isWaveDash && !flags.isItch && !flags.isGlitch && !flags.isGameDistribution
+    !flags.isCrazyWeb && !flags.isWaveDash && !flags.isItch && !flags.isGlitch && !flags.isGameDistribution && !flags.isPlaygama
 
   const allowedToShowOnCrazyGames =
     (flags.isCrazyWeb && isCrazyGamesUrl(hostname)) || isNotPlatformBuild
@@ -106,8 +111,11 @@ export const resolveCapabilities = (input: CapabilitiesInput): ResolvedCapabilit
   const allowedToShowOnGameDistribution =
     (flags.isGameDistribution && isGameDistUrl(hostname)) || isNotPlatformBuild
 
+  // Playgama's Technical Requirements forbid runtime URL gating — flag-only.
+  const allowedToShowOnPlaygama = flags.isPlaygama || isNotPlatformBuild
+
   const anyPlatform =
-    flags.isCrazyWeb || flags.isWaveDash || flags.isItch || flags.isGlitch || flags.isGameDistribution
+    flags.isCrazyWeb || flags.isWaveDash || flags.isItch || flags.isGlitch || flags.isGameDistribution || flags.isPlaygama
   const showOnlyAvailableText = anyPlatform && glitchLicenseStatus !== 'pending'
 
   const plattformText = flags.isWaveDash
@@ -120,7 +128,9 @@ export const resolveCapabilities = (input: CapabilitiesInput): ResolvedCapabilit
           ? 'glitch.fun'
           : flags.isGameDistribution
             ? 'gamedistribution.com'
-            : ''
+            : flags.isPlaygama
+              ? 'playgama.com'
+              : ''
 
   return {
     isNotPlatformBuild,
@@ -129,6 +139,7 @@ export const resolveCapabilities = (input: CapabilitiesInput): ResolvedCapabilit
     allowedToShowOnItch,
     allowedToShowOnGlitch,
     allowedToShowOnGameDistribution,
+    allowedToShowOnPlaygama,
     isGlitchDenied,
     showOnlyAvailableText,
     plattformText

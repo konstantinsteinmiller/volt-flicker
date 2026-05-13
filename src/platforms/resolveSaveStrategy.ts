@@ -51,6 +51,10 @@ export const resolveSaveStrategy = async (_flags: PlatformFlags): Promise<SaveSt
     const { LocalStorageStrategy } = await import('@/utils/save/LocalStorageStrategy')
     return createGameDistributionSaveStrategy() ?? new LocalStorageStrategy()
   }
+  if (import.meta.env.VITE_APP_PLAYGAMA === 'true') {
+    const { createPlaygamaSaveStrategy } = await import('@/utils/playgamaPlugin')
+    return await createPlaygamaSaveStrategy()
+  }
   const { LocalStorageStrategy } = await import('@/utils/save/LocalStorageStrategy')
   return new LocalStorageStrategy()
 }
