@@ -8,10 +8,20 @@ export const DIFFICULTY = {
 
 export type Difficulties = (typeof DIFFICULTY)[keyof typeof DIFFICULTY]
 
-// Spin&Mow ships only the English locale for now (other UIs fall back to it
-// via vue-i18n's `fallbackLocale: 'en'`). Adding a new translation = drop a
-// `src/i18n/locales/<code>.ts` file and add the code here; the Vite glob in
-// `i18n/index.ts` picks it up automatically.
+// Languages enabled in the OptionsModal picker. Each entry MUST have a
+// matching `src/i18n/locales/<code>.ts` file — the Vite glob in
+// `i18n/index.ts` registers each one as its own dynamic-import chunk so
+// they only ship when the player actually switches to that language.
+// English is statically bundled (fallback locale); every other code is
+// fetched on demand. To add a 9th language: drop a new file under
+// `locales/`, append the code here.
 export const LANGUAGES: Array<string> = [
-  'en'
+  'en',
+  'de',
+  'fr',
+  'es',
+  'jp',
+  'kr',
+  'zh',
+  'ru'
 ]

@@ -73,6 +73,11 @@ const useCheats = () => {
     'ctrl+shift+7': () => setStage(7),
     'ctrl+shift+8': () => setStage(8),
     'ctrl+shift+9': () => setStage(9),
+    'ctrl+shift+alt+0': () => setStage(10),
+    'ctrl+shift+alt+1': () => setStage(11),
+    'ctrl+shift+alt+2': () => setStage(12),
+    'ctrl+shift+alt+3': () => setStage(13),
+    'ctrl+shift+alt+4': () => setStage(14),
     'ctrl+shift+alt+k': () => addCoins(3000),
     'ctrl+shift+alt+t': () => {
       setState('spinner_chest_last_collected_at', 0)

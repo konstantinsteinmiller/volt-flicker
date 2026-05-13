@@ -65,8 +65,8 @@ const onClaim = (id: string, sourceEl: EventTarget | null) => {
           :class="{ 'is-unlocked': card.unlocked, 'is-claimed': card.claimed }"
         )
           div.flex.flex-col.gap-1.flex-1
-            span.font-black.game-text.text-white(class="text-sm sm:text-base") {{ card.name }}
-            span.text-white.game-text(class="text-[10px] sm:text-xs opacity-70") {{ card.description }}
+            span.font-black.game-text.text-white(class="text-sm sm:text-base") {{ t(card.nameKey) }}
+            span.text-white.game-text(class="text-[10px] sm:text-xs opacity-70") {{ t(card.descKey, { n: card.goal }) }}
             div.relative.h-2.rounded-full.overflow-hidden.border(class="bg-black/40 border-white/20")
               div.h-full.bg-gradient-to-r.from-yellow-300.to-yellow-500(:style="{ width: card.pct * 100 + '%' }")
             span.text-white.game-text(class="text-[9px] opacity-70") {{ t('achievements.progress', { current: card.progress, goal: card.goal }) }}

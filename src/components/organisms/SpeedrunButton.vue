@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { speedrunMode, toggleSpeedrunMode, ghostBestTime } from '@/use/useMawGhost'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   /** Live elapsed time in ms for the current attempt — 0 when no run
@@ -59,7 +62,7 @@ const liveColor = computed(() => {
         span.opacity-70 ⏱
         span.font-mono.font-black {{ liveLabel }}
       div.timer-row(class="text-[10px] opacity-70")
-        span Best
+        span {{ t('speedrun.best') }}
         span.font-mono {{ bestLabel }}
 </template>
 

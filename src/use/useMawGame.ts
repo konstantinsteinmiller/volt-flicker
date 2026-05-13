@@ -153,6 +153,20 @@ const useMawGame = () => {
    *  The pole still works as an exit either way. */
   const poleCut: Ref<boolean> = ref(false)
 
+  // ─── Spawn-invincibility window ────────────────────────────────────────
+  // Granted at startMatch so the chain can't grind the player against an
+  // obstacle that happens to sit inside the spawn-anchor's chain radius.
+  // Up to 3 s; ends the moment the player swaps onto a different island.
+  // Drives a blink overlay in MawScene.
+  const SPAWN_INVINCIBILITY_MS = 3000
+  const invincibleUntilMs: Ref<number> = ref(0)
+  let spawnIsland: RuntimeIsland | null = null
+  // Driven by `invincibleUntilMs > 0`; expiry is enforced in `tick` so the
+  // ref clears on a real frame boundary. A computed against `performance.now()`
+  // would never re-evaluate because the wall clock isn't reactive — the
+  // first read would cache `true` and stick.
+  const isInvincible = computed(() => invincibleUntilMs.value > 0)
+
   // ─── Rapid-death streak tracker ────────────────────────────────────────
   // Buffers death timestamps so MawScene can offer a one-time "watch an
   // ad → +1 Reinforced Frame" reward when the player flames out three
@@ -250,6 +264,17 @@ const useMawGame = () => {
 
   const startMatch = () => {
     phase.value = 'playing'
+    // Grant a brief spawn-shield: the chain's first rotation can sweep
+    // straight into an obstacle that sits inside the spawn-anchor's
+    // radius, and on dense stages that turns into a chain-stun the
+    // player can't escape. The shield ends when they leave the spawn
+    // island (see swapAnchor) or after SPAWN_INVINCIBILITY_MS.
+    invincibleUntilMs.value = performance.now() + SPAWN_INVINCIBILITY_MS
+    spawnIsland = islands.value.find(isle => pointInIsland(
+      isle.shape,
+      anchorPos.value.x, anchorPos.value.y,
+      isle.cx, isle.cy, isle.radius
+    )) ?? islands.value[0] ?? null
     // Battle-pass: every play attempt grants a flat XP tick the moment the
     // chain actually starts spinning. Editor test stages are excluded
     // because they aren't part of the season's progression.
@@ -336,6 +361,13 @@ const useMawGame = () => {
   const tick = (dt: number) => {
     if (phase.value !== 'playing') return
     if (isPaused.value) return
+
+    // Spawn-shield timer. `isInvincible` reads off the ref, so clearing
+    // it here is what actually ends the blink — Vue can't tick a computed
+    // off the wall clock on its own.
+    if (invincibleUntilMs.value > 0 && performance.now() >= invincibleUntilMs.value) {
+      invincibleUntilMs.value = 0
+    }
 
     // Step any moving islands FIRST so the chain's grass/obstacle hits
     // below test against their up-to-date position, and `isOverIsland`
@@ -558,6 +590,7 @@ const useMawGame = () => {
   const easeIn = (t: number): number => t * t
 
   const applyDamage = (n: number, source: Obstacle['type']) => {
+    if (isInvincible.value) return
     life.value = Math.max(0, life.value - n)
     // Metallic clank whenever the chain takes damage without cutting
     // (stumps below saw Lv 1, boulders below Lv 3, crystals below Lv 6,
@@ -610,6 +643,17 @@ const useMawGame = () => {
     }
 
     anchorPos.value = newAnchor
+    // Spawn-shield is a get-off-the-launchpad helper, not free travel:
+    // the moment the player lands the anchor on any island other than
+    // the one they started on, the shield drops.
+    if (invincibleUntilMs.value > 0 && spawnIsland) {
+      const stillOnSpawn = pointInIsland(
+        spawnIsland.shape,
+        newAnchor.x, newAnchor.y,
+        spawnIsland.cx, spawnIsland.cy, spawnIsland.radius
+      )
+      if (!stillOnSpawn) invincibleUntilMs.value = 0
+    }
     // Mechanical kachunk on every successful swap, throttled so a
     // rage-clicking player can't trigger a cascade.
     const now = performance.now()
@@ -810,6 +854,7 @@ const useMawGame = () => {
     poleCut,
     reqsMet,
     isPaused,
+    isInvincible,
     isRapidDeath,
     lastClearedTimeMs,
     lastClearedWasBest,

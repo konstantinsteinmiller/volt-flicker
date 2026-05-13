@@ -13,8 +13,10 @@ export type UpgradeId = 'maxLife' | 'chainLength' | 'sawDamage' | 'coinMagnetMs'
 
 export interface UpgradeDef {
   id: UpgradeId
-  name: string
-  description: string
+  /** i18n key under `upgrades.names.*`. */
+  nameKey: string
+  /** i18n key under `upgrades.descriptions.*`. */
+  descKey: string
   base: number
   /** Linear cost: base * (currentLevel + 1). */
   costBase: number
@@ -32,10 +34,10 @@ export const UPGRADES: UpgradeDef[] = [
   // Sharper Saws leads the list — it's the gate that unlocks the whole
   // obstacle-cutting fantasy and the first upgrade the tutorial drives
   // the player toward.
-  { id: 'sawDamage',     name: 'Sharper Saws',      description: 'Cut trees from Lv. 1, stones from Lv. 3, crystals from Lv. 6, Liberty statues from Lv. 8.', base: 0, costBase: 200, perLevel: 1, unit: 'lvl', maxLevel: 8 },
-  { id: 'maxLife',       name: 'Reinforced Frame',  description: 'Survive more bumps before breaking down.',  base: 2,    costBase: 60,  perLevel: 1,    unit: 'life',     maxLevel: 8 },
-  { id: 'chainLength',   name: 'Longer Chain',      description: 'Increase reach so harder islands are within leap distance. Levels 9 and 10 are end-game goals.', base: 96,   costBase: 80,  perLevel: 8,    unit: 'px',       maxLevel: 10 },
-  { id: 'coinMagnetMs',  name: 'Coin Magnet',       description: 'Coins auto-collect faster after they drop. Unlocks at Stage 7.', base: 500,  costBase: 50,  perLevel: -50,  unit: 'ms',       maxLevel: 6, minStage: 7 },
+  { id: 'sawDamage',     nameKey: 'upgrades.names.sawDamage',     descKey: 'upgrades.descriptions.sawDamage',     base: 0,    costBase: 200, perLevel: 1,    unit: 'lvl',  maxLevel: 8 },
+  { id: 'maxLife',       nameKey: 'upgrades.names.maxLife',       descKey: 'upgrades.descriptions.maxLife',       base: 2,    costBase: 60,  perLevel: 1,    unit: 'life', maxLevel: 8 },
+  { id: 'chainLength',   nameKey: 'upgrades.names.chainLength',   descKey: 'upgrades.descriptions.chainLength',   base: 96,   costBase: 80,  perLevel: 8,    unit: 'px',   maxLevel: 10 },
+  { id: 'coinMagnetMs',  nameKey: 'upgrades.names.coinMagnetMs',  descKey: 'upgrades.descriptions.coinMagnetMs',  base: 500,  costBase: 50,  perLevel: -50,  unit: 'ms',   maxLevel: 6, minStage: 7 },
   // Tuned Gearbox has no real ceiling — once past level 6 it stops
   // affecting gameplay balance and only matters for speedrun bragging
   // rights. The cost curve goes exponential past level 5 (see
@@ -44,7 +46,7 @@ export const UPGRADES: UpgradeDef[] = [
   // from blowing up over a long-lived save. Gated behind Stage 7 — the
   // power curve only makes sense once the player is past the intro
   // forest and into the wheat band.
-  { id: 'rotationSpeed', name: 'Tuned Gearbox',     description: 'Spin faster — cover ground sooner. Levels past 6 are speedrun-only. Unlocks at Stage 7.', base: 1.0,  costBase: 70,  perLevel: 0.1,  unit: '×',        maxLevel: 99, minStage: 7 }
+  { id: 'rotationSpeed', nameKey: 'upgrades.names.rotationSpeed', descKey: 'upgrades.descriptions.rotationSpeed', base: 1.0,  costBase: 70,  perLevel: 0.1,  unit: '×',    maxLevel: 99, minStage: 7 }
 ]
 
 interface UpgradeState {
@@ -338,8 +340,12 @@ const ACH_KEY = 'spinner_achievements'
 
 export interface AchievementDef {
   id: string
-  name: string
-  description: string
+  /** i18n key under `achievements.names.*`. */
+  nameKey: string
+  /** i18n key under `achievements.descriptions.*`. Descriptions that
+   *  embed the goal count use a `{n}`-style i18n placeholder so locales
+   *  can pluralise / reorder freely. */
+  descKey: string
   /** Coins awarded when this achievement is first claimed. */
   reward: number
   /** Predicate over the live progress map below. */
@@ -369,25 +375,25 @@ export type AchievementMetric =
 
 export const ACHIEVEMENTS: AchievementDef[] = [
   // Cutting / lifetime totals
-  { id: 'first-cut',        name: 'First Cut',         description: 'Maw your first 10 grass blades.',  reward: 25,  goal: 10,    metric: 'totalGrass' },
-  { id: 'green-thumb',      name: 'Green Thumb',       description: 'Maw 250 grass blades total.',     reward: 100, goal: 250,   metric: 'totalGrass' },
-  { id: 'lawn-tycoon',      name: 'Lawn Tycoon',       description: 'Maw 2,500 grass blades total.',   reward: 500, goal: 2500,  metric: 'totalGrass' },
-  { id: 'lumberjack',       name: 'Lumberjack',        description: 'Cut 5 tree stumps.',              reward: 150, goal: 5,     metric: 'stumpsDestroyed' },
-  { id: 'stone-crusher',    name: 'Stone Crusher',     description: 'Crush 50 stones.',                reward: 400, goal: 50,    metric: 'bouldersDestroyed' },
-  { id: 'crystal-pulverizer', name: 'Crystal Pulverizer', description: 'Pulverize 100 crystals.',      reward: 800, goal: 100,   metric: 'crystalsDestroyed' },
-  { id: 'pawberty-wrecker', name: '20 Paw-berty statues destroyed', description: 'Topple 20 Liberty-cat statues.', reward: 1500, goal: 20, metric: 'libertiesDestroyed' },
+  { id: 'first-cut',          nameKey: 'achievements.names.firstCut',          descKey: 'achievements.descriptions.firstCut',          reward: 25,   goal: 10,    metric: 'totalGrass' },
+  { id: 'green-thumb',        nameKey: 'achievements.names.greenThumb',        descKey: 'achievements.descriptions.greenThumb',        reward: 100,  goal: 250,   metric: 'totalGrass' },
+  { id: 'lawn-tycoon',        nameKey: 'achievements.names.lawnTycoon',        descKey: 'achievements.descriptions.lawnTycoon',        reward: 500,  goal: 2500,  metric: 'totalGrass' },
+  { id: 'lumberjack',         nameKey: 'achievements.names.lumberjack',        descKey: 'achievements.descriptions.lumberjack',        reward: 150,  goal: 5,     metric: 'stumpsDestroyed' },
+  { id: 'stone-crusher',      nameKey: 'achievements.names.stoneCrusher',      descKey: 'achievements.descriptions.stoneCrusher',      reward: 400,  goal: 50,    metric: 'bouldersDestroyed' },
+  { id: 'crystal-pulverizer', nameKey: 'achievements.names.crystalPulverizer', descKey: 'achievements.descriptions.crystalPulverizer', reward: 800,  goal: 100,   metric: 'crystalsDestroyed' },
+  { id: 'pawberty-wrecker',   nameKey: 'achievements.names.pawbertyWrecker',   descKey: 'achievements.descriptions.pawbertyWrecker',   reward: 1500, goal: 20,    metric: 'libertiesDestroyed' },
   // Economy / progression
-  { id: 'coin-hoarder',     name: 'Coin Hoarder',      description: 'Earn 1,000 coins lifetime.',      reward: 100, goal: 1000,  metric: 'totalCoins' },
-  { id: 'tycoon',           name: 'Tycoon',            description: 'Earn 10,000 coins lifetime.',     reward: 1000,goal: 10000, metric: 'totalCoins' },
-  { id: 'survivor',         name: 'Survivor',          description: 'Reach stage 5.',                  reward: 75,  goal: 5,     metric: 'maxStage' },
-  { id: 'territorial',      name: 'Territorial',       description: 'Reach stage 10.',                 reward: 200, goal: 10,    metric: 'maxStage' },
-  { id: 'persistent',       name: 'Persistent',        description: 'Play 25 games.',                  reward: 100, goal: 25,    metric: 'gamesPlayed' },
-  { id: 'champion',         name: 'Champion',          description: 'Win 10 stages.',                  reward: 250, goal: 10,    metric: 'gamesWon' },
+  { id: 'coin-hoarder',       nameKey: 'achievements.names.coinHoarder',       descKey: 'achievements.descriptions.coinHoarder',       reward: 100,  goal: 1000,  metric: 'totalCoins' },
+  { id: 'tycoon',             nameKey: 'achievements.names.tycoon',            descKey: 'achievements.descriptions.tycoon',            reward: 1000, goal: 10000, metric: 'totalCoins' },
+  { id: 'survivor',           nameKey: 'achievements.names.survivor',          descKey: 'achievements.descriptions.survivor',          reward: 75,   goal: 5,     metric: 'maxStage' },
+  { id: 'territorial',        nameKey: 'achievements.names.territorial',       descKey: 'achievements.descriptions.territorial',       reward: 200,  goal: 10,    metric: 'maxStage' },
+  { id: 'persistent',         nameKey: 'achievements.names.persistent',        descKey: 'achievements.descriptions.persistent',        reward: 100,  goal: 25,    metric: 'gamesPlayed' },
+  { id: 'champion',           nameKey: 'achievements.names.champion',          descKey: 'achievements.descriptions.champion',          reward: 250,  goal: 10,    metric: 'gamesWon' },
   // Speedrun
-  { id: 'speed-demon',      name: 'Speed Demon',       description: 'Set a new best time on 5 stages.', reward: 300, goal: 5,    metric: 'newRecordsSet' },
-  { id: 'time-trial-pro',   name: 'Time Trial Pro',    description: 'Set 15 new best times across your runs.', reward: 750, goal: 15, metric: 'newRecordsSet' },
-  { id: 'sub-ten-hero',     name: 'Sub-Ten Hero',      description: 'Clear any stage in under 10 seconds.', reward: 500, goal: 1,  metric: 'subTenSecondWins' },
-  { id: 'lightning-mawer',  name: 'Lightning Mawer',   description: 'Clear a stage in under 6 seconds (60 - sec ≥ 54).', reward: 1000, goal: 54, metric: 'bestSecondsFloor' }
+  { id: 'speed-demon',        nameKey: 'achievements.names.speedDemon',        descKey: 'achievements.descriptions.speedDemon',        reward: 300,  goal: 5,     metric: 'newRecordsSet' },
+  { id: 'time-trial-pro',     nameKey: 'achievements.names.timeTrialPro',      descKey: 'achievements.descriptions.timeTrialPro',      reward: 750,  goal: 15,    metric: 'newRecordsSet' },
+  { id: 'sub-ten-hero',       nameKey: 'achievements.names.subTenHero',        descKey: 'achievements.descriptions.subTenHero',        reward: 500,  goal: 1,     metric: 'subTenSecondWins' },
+  { id: 'lightning-mawer',    nameKey: 'achievements.names.lightningMawer',    descKey: 'achievements.descriptions.lightningMawer',    reward: 1000, goal: 54,    metric: 'bestSecondsFloor' }
 ]
 
 interface AchState {

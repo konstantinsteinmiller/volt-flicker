@@ -155,14 +155,14 @@ const onWatchAdForUpgrade = async (id: string) => {
         )
           div.flex.flex-col.gap-1.flex-1
             div.flex.items-center.gap-2.flex-wrap
-              span.font-black.game-text.text-white(class="text-sm sm:text-base") {{ card.name }}
+              span.font-black.game-text.text-white(class="text-sm sm:text-base") {{ t(card.nameKey) }}
               span.font-bold.text-yellow-200.game-text(class="text-[10px]") {{ t('upgrades.level', { n: card.level }) }}
               //- Stage-lock chip. Renders ONLY while the upgrade is
               //- gated — once unlocked we drop the badge entirely so
               //- the row reads the same as any other.
               span.stage-lock-chip(v-if="card.stageLocked")
-                | 🔒 Stage {{ card.minStage }}
-            span.text-white.game-text(class="text-[10px] sm:text-xs opacity-70") {{ card.description }}
+                | {{ t('upgrades.unlocksAtStage', { n: card.minStage }) }}
+            span.text-white.game-text(class="text-[10px] sm:text-xs opacity-70") {{ t(card.descKey) }}
             span.text-cyan-200.game-text(
               v-if="!card.formatted.suppress"
               class="text-[9px] sm:text-[10px]"
@@ -188,7 +188,7 @@ const onWatchAdForUpgrade = async (id: string) => {
               :title="isAdCooldownActive ? `Available in ${adCooldownSeconds}s` : 'Watch a short ad to upgrade'"
             )
               span(v-if="isAdCooldownActive") {{ adCooldownSeconds }}s
-              span(v-else) ▶ Watch ad
+              span(v-else) {{ t('upgrades.watchAd') }}
             span.font-black.game-text.text-yellow-300(v-else-if="card.maxed" class="text-xs") {{ t('upgrades.maxedOut') }}
 </template>
 

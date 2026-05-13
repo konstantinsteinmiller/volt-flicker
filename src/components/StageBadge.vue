@@ -35,7 +35,10 @@ const progressLabel = computed(() => {
 const progressComplete = computed(() => props.targetClears > 0 && props.cleared >= props.targetClears)
 
 const displayName = computed(() => {
-  return t(`stages.${props.name}`, props.name)
+  // Keyed by stage id so locales don't need to track the literal English
+  // names. The English bundle round-trips back to `props.name` via the
+  // i18n fallback.
+  return t(`stages.s${props.stageId}`, props.name)
 })
 
 interface StageTheme {

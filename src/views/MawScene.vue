@@ -155,6 +155,7 @@ const {
   chainLength,
   isOverIsland,
   isPaused,
+  isInvincible,
   isRapidDeath,
   lastClearedTimeMs,
   lastClearedWasBest,
@@ -275,7 +276,7 @@ const showClickToMoveHint = computed(() =>
 )
 const isTouchDevice = computed(() => isMobilePortrait.value || isMobileLandscape.value)
 const clickToMoveLabel = computed(() =>
-  isTouchDevice.value ? 'Tap to move' : 'Click / Space to move'
+  isTouchDevice.value ? t('maw.clickToMoveTouch') : t('maw.clickToMoveDesktop')
 )
 
 // ─── Desktop scroll-hint ──────────────────────────────────────────────
@@ -1033,7 +1034,16 @@ const paint = () => {
 
   // 4. Robot
   if (phase.value !== 'idle') {
+    // Spawn-shield blink: a 10 Hz square-wave alpha pulse during the
+    // invincibility window so the player reads "I'm safe right now" at
+    // a glance without obscuring the chain's swing path.
+    const blinking = isInvincible.value
+    if (blinking) {
+      ctx.save()
+      ctx.globalAlpha = (Math.floor(performance.now() / 100) % 2 === 0) ? 0.35 : 1
+    }
     drawRobot(ctx, anchorPos.value, swingPos.value, swingAngle.value, anchorIsLeft.value, liveChainLevel.value)
+    if (blinking) ctx.restore()
     // Debug overlay AFTER the gears so the hit-zone bands sit on top
     // and the visual-vs-hit gap is obvious.
     if (isDebug.value) {
@@ -1118,7 +1128,7 @@ const showStartHint = computed(() =>
       div.saw-spotlight-overlay.pointer-events-auto.fixed.inset-0(
         v-if="showSawSpotlight"
       )
-        div.saw-spotlight-arrow Upgrade now! →
+        div.saw-spotlight-arrow {{ t('hints.sawSpotlightArrow') }}
 
     //- Chain-adjust ("live chain") spotlight — fires after the player
     //- reaches Longer Chain Lv 2. Dims the scene and points the player
@@ -1129,8 +1139,7 @@ const showStartHint = computed(() =>
       div.chain-live-spotlight-overlay.pointer-events-auto.fixed.inset-0(
         v-if="showChainLiveSpotlight"
       )
-        div.chain-live-spotlight-arrow
-          | Increase or decrease your chain length during the game to tackle the challenges before you. →
+        div.chain-live-spotlight-arrow {{ t('hints.chainLiveSpotlight') }}
           span(v-if="!isMobilePortrait && !isMobileLandscape") Shortcut: Scroll
     //- Centre-bottom stack for the onboarding pills: click-to-move and,
     //- on desktop, the chain-scroll hint stacked under it. Pinned to the
@@ -1144,27 +1153,24 @@ const showStartHint = computed(() =>
         div.chain-scroll-hint(
           v-if="showChainScrollHint"
           :class="{ shine: chainScrollHintWithShine }"
-        ) Scroll to increase / decrease chain length
+        ) {{ t('hints.scrollChain') }}
       //- Sharper-Saws Lv 3 nudge — sits BELOW the scroll-hint so the
       //- chain tip stays the most-prominent hint, and only renders mid-
       //- battle (`phase === 'playing'`) so it doesn't ghost over the
       //- start / countdown overlays.
       Transition(name="fade")
-        div.saw-lv3-hint(v-if="showSharperSawLv3Hint && phase === 'playing'")
-          | Upgrade Sharper Saws to Lv 3 to break through stones
+        div.saw-lv3-hint(v-if="showSharperSawLv3Hint && phase === 'playing'") {{ t('hints.sawLv3') }}
       //- Sharper-Saws Lv 6 nudge — only after the player has crashed
       //- into crystals twice. Below the Lv 3 hint so the chain reads
       //- as a difficulty ladder.
       Transition(name="fade")
-        div.saw-lv6-hint(v-if="showSharperSawLv6Hint && phase === 'playing'")
-          | Tired of crashing into crystals? Upgrade your saw to Lv 6 and pulverize them
+        div.saw-lv6-hint(v-if="showSharperSawLv6Hint && phase === 'playing'") {{ t('hints.sawLv6') }}
       //- Longer-Chain nudge: kicks in after 10 splash deaths, clears
       //- once chainLength reaches Lv 2. The companion spotlight (20
       //- splashes) auto-opens the upgrades modal, so this hint exists
       //- mostly to telegraph what's coming before the modal pops.
       Transition(name="fade")
-        div.long-chain-hint(v-if="showLongerChainHint && phase === 'playing'")
-          | You can make your chains larger by upgrading Longer Chains
+        div.long-chain-hint(v-if="showLongerChainHint && phase === 'playing'") {{ t('hints.longerChain') }}
 
     //- HUD
     div.absolute.inset-0.pointer-events-none
@@ -1198,8 +1204,8 @@ const showStartHint = computed(() =>
             div.saw-hint-banner.pointer-events-none(
               v-if="showSharperSawHint && phase === 'playing'"
             )
-              span.font-bold.uppercase.tracking-wider(class="text-[10px] text-yellow-300") Tip
-              span.game-text(class="text-xs sm:text-sm") Upgrade Sharper Saw to Lv 1 to cut tree stumps
+              span.font-bold.uppercase.tracking-wider(class="text-[10px] text-yellow-300") {{ t('tip') }}
+              span.game-text(class="text-xs sm:text-sm") {{ t('hints.sawLv1') }}
 
         //- Top-right HUD: SpeedrunButton (with its own live timer
         //- underneath) sits LEFT of the CoinBadge, then the existing
@@ -1297,12 +1303,12 @@ const showStartHint = computed(() =>
           v-if="!isTestingStage"
           class="bg-purple-600 hover:bg-purple-500 active:scale-95 text-white"
           @click="goToEditor"
-        ) ✎ Editor
+        ) {{ t('editorOpen') }}
         button.px-3.py-1.rounded.font-bold.text-xs.shadow-lg(
           v-else
           class="bg-yellow-500 hover:bg-yellow-400 active:scale-95 text-black"
           @click="exitTestStage"
-        ) ◀ Back to Editor
+        ) {{ t('editorBack') }}
 
       //- Stage objective. The HUD top-bar now stacks the StageBadge and
       //- LifeBadge vertically; on portrait that pushes the natural
@@ -1436,7 +1442,7 @@ const showStartHint = computed(() =>
             @click="onAcceptContinueCoins"
           )
             IconCoin(class="w-5 h-5")
-            span Continue · {{ REVIVE_COIN_COST }}
+            span {{ t('maw.continueCoins', { n: REVIVE_COIN_COST }) }}
           button.cursor-pointer.transition-transform(
             class="w-full px-4 py-2 rounded-lg bg-slate-700 border-2 border-slate-500 text-white font-bold uppercase game-text hover:scale-[103%] active:scale-95 disabled:opacity-50"
             :disabled="isAdInFlight"
@@ -1467,10 +1473,10 @@ const showStartHint = computed(() =>
           v-if="gameResult === 'win' && lastClearedTimeMs !== null"
         )
           div.flex.items-center.gap-2
-            span.opacity-70.uppercase.tracking-wider.text-xs Time
+            span.opacity-70.uppercase.tracking-wider.text-xs {{ t('speedrun.time') }}
             span.font-mono.font-black.text-yellow-200(class="text-base sm:text-xl") {{ formatTimeMs(lastClearedTimeMs) }}
           div.flex.items-center.gap-2(v-if="stageBestTimeMs !== null")
-            span.opacity-70.uppercase.tracking-wider.text-xs Best
+            span.opacity-70.uppercase.tracking-wider.text-xs {{ t('speedrun.best') }}
             span.font-mono.font-black(
               class="text-base sm:text-xl"
               :class="lastClearedWasBest ? 'text-emerald-300' : 'text-white'"
@@ -1478,11 +1484,11 @@ const showStartHint = computed(() =>
           div.text-emerald-300.font-black.game-text.tracking-wide(
             v-if="lastClearedWasBest && lastClearedPrevBestMs !== null"
             class="text-sm sm:text-base"
-          ) 🎉 New record! (was {{ formatTimeMs(lastClearedPrevBestMs) }})
+          ) {{ t('speedrun.newRecord', { prev: formatTimeMs(lastClearedPrevBestMs) }) }}
           div.text-emerald-300.font-black.game-text.tracking-wide(
             v-else-if="lastClearedWasBest"
             class="text-sm sm:text-base"
-          ) 🎉 First clear — set the bar!
+          ) {{ t('speedrun.firstClear') }}
         //- Sharper-saw onboarding hint — only on the lose screen, only
         //- until the player has actually bought saw level 2.
         div.saw-hint-banner.pointer-events-none(
@@ -1500,8 +1506,8 @@ const showStartHint = computed(() =>
           v-if="gameResult === 'lose' && showSharperSawLv3Hint"
           class="!max-w-xs"
         )
-          span.font-bold.uppercase.tracking-wider(class="text-[10px] text-yellow-300") Tip
-          span.game-text(class="text-xs sm:text-sm") Upgrade Sharper Saws to Lv 3 to break through stones
+          span.font-bold.uppercase.tracking-wider(class="text-[10px] text-yellow-300") {{ t('tip') }}
+          span.game-text(class="text-xs sm:text-sm") {{ t('hints.sawLv3') }}
         //- Crystal nudge: after the player has crashed into crystals
         //- twice, escalate to "buy Lv 6 to pulverise them". Stays on the
         //- lose screen until they actually hit Lv 6.
@@ -1509,8 +1515,8 @@ const showStartHint = computed(() =>
           v-if="gameResult === 'lose' && showSharperSawLv6Hint"
           class="!max-w-xs"
         )
-          span.font-bold.uppercase.tracking-wider(class="text-[10px] text-yellow-300") Tip
-          span.game-text(class="text-xs sm:text-sm") Tired of crashing into crystals? Upgrade your saw to Lv 6 and pulverize them
+          span.font-bold.uppercase.tracking-wider(class="text-[10px] text-yellow-300") {{ t('tip') }}
+          span.game-text(class="text-xs sm:text-sm") {{ t('hints.sawLv6') }}
         //- Longer-Chain nudge on the lose screen — mirrors the gameplay
         //- hint so a player who drowns repeatedly sees the prompt in
         //- both contexts. The companion spotlight auto-opens the modal
@@ -1519,8 +1525,8 @@ const showStartHint = computed(() =>
           v-if="gameResult === 'lose' && showLongerChainHint"
           class="!max-w-xs"
         )
-          span.font-bold.uppercase.tracking-wider(class="text-[10px] text-cyan-200") Tip
-          span.game-text(class="text-xs sm:text-sm") You can make your chains larger by upgrading Longer Chains
+          span.font-bold.uppercase.tracking-wider(class="text-[10px] text-cyan-200") {{ t('tip') }}
+          span.game-text(class="text-xs sm:text-sm") {{ t('hints.longerChain') }}
         //- Rapid-death rescue: when the engine has just flagged 3 deaths
         //- in 10 s and the one-time bonus hasn't been claimed, surface a
         //- watch-ad button that buys a free Reinforced Frame level. Hides
@@ -1532,7 +1538,7 @@ const showStartHint = computed(() =>
           @click="onAcceptRapidDeathLifeOffer"
         )
           span.text-xl ❤️
-          span.game-text.font-black.uppercase ▶ Watch ad · +1 Reinforced Frame
+          span.game-text.font-black.uppercase {{ t('hints.rapidDeathLifeOffer') }}
         div.flex.items-center.gap-3(ref="rewardCoinRef")
           IconCoin(class="w-8 h-8 text-yellow-300")
           span.text-yellow-400.font-black.game-text(class="text-2xl sm:text-4xl") +{{ gameResult === 'win' ? stage.rewardWin : stage.rewardLose }}
@@ -1562,20 +1568,21 @@ const showStartHint = computed(() =>
       @continue="onRestartCampaign"
     )
       template(#ribbon)
-        span.text-white.font-black.uppercase.italic.game-text(class="sm:text-2xl") MOW-A-HERO
+        span.text-white.font-black.uppercase.italic.game-text(class="sm:text-2xl") {{ t('maw.mowAHero') }}
       div.hero-reward.flex.flex-col.items-center.gap-4.text-center
         div.font-black.uppercase.tracking-wider.game-text.text-yellow-300(class="text-3xl sm:text-5xl")
-          | Congratulations!
+          | {{ t('maw.heroCongrats') }}
         div.text-white.game-text(class="text-base sm:text-lg max-w-md leading-snug")
-          | You have completed every course and are a true
-          span.text-yellow-300.font-black  MOW-A-HERO
+          span {{ t('maw.heroSubtitle1') }}
+          | &nbsp;
+          span.text-yellow-300.font-black {{ t('maw.mowAHero') }}
           | .
           br
-          | Your name will enter the Hall of Fame.
+          span {{ t('maw.heroSubtitle2') }}
         button.hero-reward-btn(
           class="cursor-pointer active:scale-95 transition-transform"
           @click="onRestartCampaign"
-        ) ▶ Play from Stage 1 again
+        ) ▶ {{ t('maw.tapToStart') }}
 </template>
 
 <style scoped lang="sass">
