@@ -35,7 +35,6 @@ import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import useAssets from '@/use/useAssets'
 import { prependBaseUrl } from '@/utils/function'
 import { stopLoading } from '@/use/useCrazyGames'
-import { isPlaygama } from '@/use/useUser'
 
 const logoSrc = prependBaseUrl('images/logo/logo_256x256.webp')
 
@@ -108,13 +107,40 @@ const signalGameReadyToCG = () => {
 // Playgama's `game_ready` is certification-mandatory — fire it on the same
 // splash-resolved edge as CG's loadingStop. The plugin guards the message
 // internally so it fires once even if the watcher re-triggers.
+//
+// Gate uses the inline `import.meta.env.VITE_APP_*` literal (NOT the
+// `isPlaygama` re-export from `useUser`) so Rollup can statically
+// eliminate the dynamic-import branch on non-Playgama builds. The
+// cross-module constant propagation isn't reliable enough for the
+// re-exported `const` to be recognised as a build-time literal, and
+// without DCE every build picks up a ~5 KB lazy `playgamaPlugin` chunk
+// it never loads. Same pattern in `main.ts`.
 let playgamaLoadSignaled = false
 const signalGameReadyToPlaygama = () => {
-  if (playgamaLoadSignaled || !isPlaygama) return
+  if (playgamaLoadSignaled) return
+  if (import.meta.env.VITE_APP_PLAYGAMA !== 'true') return
   playgamaLoadSignaled = true
   void import('@/utils/playgamaPlugin').then(({ playgamaGameLoadingStop }) => {
     try { playgamaGameLoadingStop() }
     catch (e) { console.warn('[FLogoProgress] Playgama game_ready failed', e) }
+  })
+}
+
+// GamePix's `gameLoaded` is the analogous certification-critical edge —
+// the toolkit's pause/resume self-test requires a complete
+// `customLoading → gameLoading(0..100) → gameLoaded` chain or
+// `processLoadingEvent` dies on every pause click. The plugin guards the
+// `gameLoaded` fire internally so re-triggering is harmless. Same
+// `import.meta.env` literal pattern as the Playgama branch above so
+// non-GamePix builds DCE the dynamic-import entirely.
+let gamepixLoadSignaled = false
+const signalGameReadyToGamepix = () => {
+  if (gamepixLoadSignaled) return
+  if (import.meta.env.VITE_APP_GAMEPIX !== 'true') return
+  gamepixLoadSignaled = true
+  void import('@/utils/gamepixPlugin').then(({ gamePixGameLoadingStop }) => {
+    try { gamePixGameLoadingStop() }
+    catch (e) { console.warn('[FLogoProgress] GamePix gameLoaded failed', e) }
   })
 }
 
@@ -124,6 +150,7 @@ watch(done, (isDone) => {
       backdropHidden.value = true
       signalGameReadyToCG()
       signalGameReadyToPlaygama()
+      signalGameReadyToGamepix()
     }, 150)
   }
 })

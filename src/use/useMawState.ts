@@ -84,7 +84,12 @@ const persistRaw = (blob: Record<string, unknown>): void => {
 const PERSIST_DEBOUNCE_MS = 200
 let persistTimer: ReturnType<typeof setTimeout> | null = null
 
-const flushPersist = () => {
+/** Force the debounced blob write to happen NOW — cancels the pending
+ *  timer and writes `maw_state` to localStorage synchronously. Called from
+ *  the page-hide handlers below, and (via `useSaveStatus.flushSaveNow`) at
+ *  hard checkpoints like a level change so the cloud push starts immediately
+ *  instead of waiting out the debounce. */
+export const flushPersist = () => {
   if (persistTimer != null) {
     clearTimeout(persistTimer)
     persistTimer = null

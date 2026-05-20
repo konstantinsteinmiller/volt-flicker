@@ -172,6 +172,15 @@ export default defineConfig(({ mode, command }) => {
           // module resolution. (resolveAdProvider stays static-import
           // sync, so it doesn't need an exclude.)
           /platforms[\\/]resolveSaveStrategy\.ts$/,
+          // useCrazyGames is the CrazyGames save-strategy delegate that
+          // resolveSaveStrategy hands off to. It lazy-loads
+          // `@/utils/save/CrazyGamesStrategy` via dynamic import. Without
+          // this exclude the obfuscator's stringArray rewrite mangles the
+          // literal, Vite can't resolve the `@/` alias, and the browser
+          // surfaces `Failed to resolve module specifier
+          // '@/utils/save/CrazyGamesStrategy'` at runtime (CG QA flagged
+          // it 2026-05-20).
+          /use[\\/]useCrazyGames\.ts$/,
           // GameDistributionProvider lazy-loads the heavy
           // `@/utils/gameDistributionPlugin` (~500 LOC) via dynamic
           // import so non-GD builds don't ship the GD SDK code.
@@ -181,12 +190,26 @@ export default defineConfig(({ mode, command }) => {
           // same reason — keeps the ~280 LOC bridge module off non-Playgama
           // builds. The obfuscator would mangle the dynamic-import literal.
           /use[\\/]ads[\\/]PlaygamaProvider\.ts$/,
-          // FLogoProgress dynamic-imports `@/utils/playgamaPlugin` to fire
-          // the certification-mandatory `game_ready` edge on Playgama
-          // builds. Without this exclude, the obfuscator mangles the
-          // literal and the QA tool surfaces
-          // `Failed to resolve module specifier '@/utils/playgamaPlugin'`.
-          /components[\\/]atoms[\\/]FLogoProgress\.vue$/,
+          // GamepixProvider lazy-loads `@/utils/gamepixPlugin` so the
+          // GamePix SDK glue only ships on GamePix builds. Same
+          // obfuscator-vs-dynamic-import constraint as the others.
+          /use[\\/]ads[\\/]GamepixProvider\.ts$/,
+          // FLogoProgress dynamic-imports `@/utils/playgamaPlugin` and
+          // `@/utils/gamepixPlugin` to fire the certification-mandatory
+          // `game_ready` / `gameLoaded` edges. Without this exclude the
+          // obfuscator wraps the string literal in a stringArray-decoder
+          // call expression — Rollup can't statically analyse it for
+          // alias resolution, so `@/utils/...` survives into the chunk
+          // and the browser surfaces `Failed to resolve module specifier
+          // '@/utils/gamepixPlugin'` at runtime.
+          //
+          // NOTE: no `$` end-anchor — Vue SFCs are presented to the
+          // obfuscator's transform hook as virtual paths like
+          // `FLogoProgress.vue?vue&type=script&setup=true&lang.ts`,
+          // which an anchored regex would miss. Match anywhere on the
+          // path so both the raw `.vue` file AND the script-block
+          // virtual module are excluded.
+          /components[\\/]atoms[\\/]FLogoProgress\.vue/,
           // useMawCampaign lazy-loads the heavy `useStageBuilder`
           // chunk via `await import('@/use/useStageBuilder')` so all
           // 20 stage builds stay off the boot critical path. The
@@ -287,6 +310,23 @@ export default defineConfig(({ mode, command }) => {
       transformIndexHtml(html: string) {
         return html.replace(
           /<!-- Load the SDK before your game code -->\s*<script[^>]*bridge\.playgama\.com[^>]*><\/script>\s*/,
+          ''
+        )
+      }
+    })
+  }
+
+  // Strip the GamePix SDK <script> tag from non-GamePix builds. Same reason
+  // as the Playgama strip — we don't want an extra DNS lookup to
+  // integration.gamepix.com on other portals. The plugin polls for
+  // `window.GamePix` after init and stays inert if it never appears.
+  const isGamepix = env.VITE_APP_GAMEPIX === 'true'
+  if (!isGamepix) {
+    plugins.push({
+      name: 'strip-gamepix-sdk',
+      transformIndexHtml(html: string) {
+        return html.replace(
+          /<!-- Load the SDK before your game code -->\s*<script[^>]*integration\.gamepix\.com[^>]*><\/script>\s*/,
           ''
         )
       }

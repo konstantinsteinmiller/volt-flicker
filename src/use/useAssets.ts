@@ -17,14 +17,13 @@ export const resourceCache = {
 
 let sharedAudioCtx: AudioContext | null = null
 let resumeListenerArmed = false
-let visibilityListenerArmed = false
 /** Counts every active reason the audio layer should be globally
- *  silent (tab hidden, rewarded ad mid-show, interstitial mid-show).
- *  Each `suspendAllAudio()` increments, each `resumeAllAudio()`
- *  decrements; the AudioContext only resumes when the counter hits 0.
- *  This stops a "rewarded-ad finishes while the tab is hidden" race
- *  from accidentally re-unmuting the game underneath the backgrounded
- *  tab. */
+ *  silent. The single driver is now `useGamePauseAudio`, which holds one
+ *  slot for the whole `isGamePaused` gate (ad mid-show, tab hidden,
+ *  platform SDK pause, app modal). Each `suspendAllAudio()` increments,
+ *  each `resumeAllAudio()` decrements; the AudioContext only resumes when
+ *  the counter hits 0 — so an overlapping suspend (e.g. modal opened
+ *  during an ad) can never re-unmute early. */
 let suspendDepth = 0
 
 export const getAudioContext = (): AudioContext | null => {
@@ -37,9 +36,13 @@ export const getAudioContext = (): AudioContext | null => {
     return null
   }
   armResumeOnGesture()
-  armVisibilitySuspend()
   return sharedAudioCtx
 }
+
+/** True while engine audio is globally suspended (an ad is on-screen, the
+ *  tab is hidden, etc.). SFX entry points (`useSound`) read this to refuse
+ *  starting a new one-shot during an ad — so nothing leaks past the mute. */
+export const isAudioSuspended = (): boolean => suspendDepth > 0
 
 const armResumeOnGesture = (): void => {
   if (resumeListenerArmed) return
@@ -99,22 +102,24 @@ export const resumeAllAudio = (): void => {
   }
 }
 
-const armVisibilitySuspend = (): void => {
-  if (visibilityListenerArmed) return
-  visibilityListenerArmed = true
-  if (typeof document === 'undefined') return
-  let visibilityHidden = false
-  document.addEventListener('visibilitychange', () => {
-    const hidden = document.visibilityState === 'hidden'
-    if (hidden && !visibilityHidden) {
-      visibilityHidden = true
-      suspendAllAudio()
-    } else if (!hidden && visibilityHidden) {
-      visibilityHidden = false
-      resumeAllAudio()
-    }
-  })
-}
+// Visibility-driven suspend used to live here (`armVisibilitySuspend`). It
+// moved into the unified pause gate: `useGamePause` owns the
+// `visibilitychange` listener (flipping `isVisibilityHidden`) and
+// `useGamePauseAudio` suspends/resumes audio off that gate for ALL builds —
+// so there is one suspend driver instead of two overlapping ones.
+
+// ⚠️ TEMP TEST HARNESS (remove before commit) — exposes the live audio state
+// so the Chrome MCP can assert "no sound during the fake interstitial". Reads
+// the module-private AudioContext + tracked-element registry that aren't
+// otherwise observable from the page. Paired with `window.__testInterstitial`
+// / `window.__audioDebug` in `useAds.ts`.
+export const __audioDebugSnapshot = () => ({
+  audioCtxState: sharedAudioCtx ? sharedAudioCtx.state : 'none',
+  suspendDepth,
+  trackedAudioCount: trackedAudioElements.size,
+  trackedAudioPaused: [...trackedAudioElements].map((e) => e.paused),
+  anyTrackedAudioPlaying: [...trackedAudioElements].some((e) => !e.paused)
+})
 
 export const getCachedImage = (src: string): HTMLImageElement => {
   // Route every bitmap src through `prependBaseUrl` so the URL matches

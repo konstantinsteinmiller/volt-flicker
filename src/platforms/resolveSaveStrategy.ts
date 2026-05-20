@@ -55,6 +55,16 @@ export const resolveSaveStrategy = async (_flags: PlatformFlags): Promise<SaveSt
     const { createPlaygamaSaveStrategy } = await import('@/utils/playgamaPlugin')
     return await createPlaygamaSaveStrategy()
   }
+  if (import.meta.env.VITE_APP_GAMEPIX === 'true') {
+    // GamePix has portal-side cross-device storage at
+    // `window.GamePix.localStorage`. Native localStorage alone gets
+    // wiped on every toolkit upload (each upload is a fresh iframe
+    // origin), so we must mirror through the strategy. The strategy
+    // handles the boot race (SDK init lags SaveManager init) with a
+    // pending-writes queue + 250 ms flush poll.
+    const { GamePixStrategy } = await import('@/utils/save/GamePixStrategy')
+    return new GamePixStrategy()
+  }
   const { LocalStorageStrategy } = await import('@/utils/save/LocalStorageStrategy')
   return new LocalStorageStrategy()
 }

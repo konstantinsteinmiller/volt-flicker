@@ -19,7 +19,7 @@
 //   • `STAGE_COUNT` / `STAGE_NAMES` — re-exported from useStageMeta for
 //     callers that just need the count or a stage name.
 import { ref, computed, watch, type Ref } from 'vue'
-import { saveDataVersion } from '@/use/useSaveStatus'
+import { saveDataVersion, flushSaveNow } from '@/use/useSaveStatus'
 import { STAGE_KEY } from '@/keys'
 import { testStage, campaignOverrides } from '@/use/useCustomStages'
 import { getState, setState } from '@/use/useMawState'
@@ -109,6 +109,13 @@ const currentStageId: Ref<number> = ref(readStoredStage())
 
 const persistStage = (id: number) => {
   setState(STAGE_KEY, id)
+  // A level change is a hard checkpoint: flush immediately (bypass the
+  // persist + cloud-flush debounces) so the new stage reaches the backend
+  // right away. Without this, clearing a stage and reloading a moment later
+  // — before the ~debounce + async cloud write completes — drops the player
+  // back on the old stage (the reported CrazyGames bug). Fire-and-forget so
+  // the stage transition never blocks on the network.
+  void flushSaveNow()
 }
 
 watch(saveDataVersion, () => {

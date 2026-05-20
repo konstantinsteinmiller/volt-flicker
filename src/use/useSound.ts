@@ -1,6 +1,6 @@
 import { prependBaseUrl } from '@/utils/function'
 import useUser from '@/use/useUser'
-import { getAudioContext, loadAudioBuffer, resourceCache, registerHtmlAudio, unregisterHtmlAudio } from '@/use/useAssets'
+import { getAudioContext, loadAudioBuffer, resourceCache, registerHtmlAudio, unregisterHtmlAudio, isAudioSuspended } from '@/use/useAssets'
 
 import { ref, onMounted, watch, onUnmounted } from 'vue'
 
@@ -246,13 +246,31 @@ const useSounds = () => {
     // Firefox throws DOMException if volume is NaN or out of range (can
     // happen when userSoundVolume hasn't loaded from IndexedDB yet).
     audio.volume = clampVolume(ratio)
-    audio.play().catch(() => {
+    // Track this element with the global suspend registry so a mid-flight
+    // SFX (this fallback path fires while a buffer is still decoding) is
+    // paused if an ad opens before it finishes. Auto-unregister when the
+    // one-shot ends so the WeakSet/Set don't grow unbounded.
+    registerHtmlAudio(audio)
+    const release = () => unregisterHtmlAudio(audio)
+    audio.addEventListener('ended', release, { once: true })
+    audio.addEventListener('error', release, { once: true })
+    // `play()` returns a Promise in modern browsers, but `undefined` under
+    // jsdom and old Safari — guard the `.catch` so a non-Promise return
+    // doesn't throw and abort the gameplay tick that triggered the SFX.
+    audio.play()?.catch(() => {
       /* autoplay blocked or media failed — ignore */
     })
     return audio
   }
 
   const playSound = (effect: string, ratio = 0.025, pitch = 1): SoundHandle | null => {
+    // Hard mute while the game is paused for an ad / hidden tab. The Web
+    // Audio context is already suspended (so a started source would be
+    // frozen), but the HTMLAudio fallback would otherwise play immediately
+    // under the ad — refuse to start any one-shot at all. This is the
+    // "pause all sounds during ads" guarantee QA asked for.
+    if (isAudioSuspended()) return null
+
     const src = prependBaseUrl(`audio/sfx/${effect}.ogg`)
 
     // Fast path: preloaded AudioBuffer + Web Audio.
@@ -296,6 +314,10 @@ const useSounds = () => {
    *  shots; this is for chain-saw whirs, ambient drones, anything that
    *  should pulse for the duration of a state. */
   const playLoop = (effect: string, ratio = 0.025): LoopHandle | null => {
+    // Don't spin up a looping voice while audio is globally suspended (ad
+    // on screen / tab hidden). Gameplay is paused in that window anyway, so
+    // nothing should be requesting a new loop — this is belt-and-braces.
+    if (isAudioSuspended()) return null
     const src = prependBaseUrl(`audio/sfx/${effect}.ogg`)
     const ctx = getAudioContext()
     if (!ctx) return null

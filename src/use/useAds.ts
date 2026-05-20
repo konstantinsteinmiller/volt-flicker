@@ -19,17 +19,37 @@
 // GameDistribution because the SDK script is dynamically injected and we
 // don't want to pay that latency on the boot critical path.
 import { computed, ref } from 'vue'
-import { isCrazyWeb, isWaveDash, isItch, isGlitch, isGameDistribution, isPlaygama, isNative, showMediatorAds } from '@/use/useUser'
+import { isCrazyWeb, isWaveDash, isItch, isGlitch, isGameDistribution, isPlaygama, isGamepix, isNative, showMediatorAds } from '@/use/useUser'
 import type { AdProvider } from './ads/types'
 import { resolveAdProvider } from '@/platforms/resolveAdProvider'
 import { isRewardedThrottled, recordRewardedGranted } from '@/use/useRewardedThrottle'
-import { suspendAllAudio, resumeAllAudio } from '@/use/useAssets'
+import { isAdShowing, isGamePaused } from '@/use/useGamePause'
+import { installGamePauseAudio } from '@/use/useGamePauseAudio'
+import { __audioDebugSnapshot } from '@/use/useAssets'
+import { isDebug } from '@/use/useMatch'
 
 const provider: AdProvider = resolveAdProvider({
-  flags: { isCrazyWeb, isWaveDash, isItch, isGlitch, isGameDistribution, isPlaygama },
+  flags: { isCrazyWeb, isWaveDash, isItch, isGlitch, isGameDistribution, isPlaygama, isGamepix },
   showMediatorAds,
   isNative
 })
+
+// Wire the universal pause gate → audio-suspend orchestrator at module
+// load. `useAds` is imported by `main.ts` on every build, so this guarantees
+// the audio mute is armed before any ad can show — even if `main.ts`'s
+// explicit install is ever reordered. Idempotent: the orchestrator installs
+// a single subscriber no matter how many callers invoke it.
+installGamePauseAudio()
+
+const TAG = '[ads]'
+
+/** Debug-gated info log for the ad lifecycle (START/END). Fires on every ad,
+ *  so gate it behind `isDebug` (set via the `cmarc` cheat or
+ *  `localStorage.setItem('debug','true')`). The ERROR `console.warn`s on the
+ *  cut-off path stay unconditional. */
+const dlog = (...args: unknown[]): void => {
+  if (isDebug.value) console.info(...args)
+}
 
 export const adProviderName = provider.name
 // `isAdsReady` is the coarse "SDK initialised" gate. Most placements
@@ -78,10 +98,15 @@ export const showRewardedAd = async (): Promise<boolean> => {
   // already hidden via `isRewardedReady`, so this branch only fires
   // if a placement somehow bypassed that check.
   if (isRewardedThrottled.value) return false
-  // Mute the game while the ad plays. `try/finally` so a thrown
-  // SDK error can't strand the engine in a permanent suspended
-  // state — the resume always runs.
-  suspendAllAudio()
+  // Flip `isAdShowing` BEFORE the await. It OR's into `isGamePaused`,
+  // which the audio orchestrator (`useGamePauseAudio`) watches with
+  // `flush: 'sync'` — so the renderer pause AND the audio suspend both
+  // fire inside THIS call stack, before the SDK call yields. GamePix's
+  // rewarded ad opens its overlay synchronously and never fires the
+  // platform pause callback for rewarded placements, so this flip is the
+  // only signal that mutes audio + physics underneath the ad.
+  dlog(`${TAG} ▶ rewarded START (provider=${provider.name})`)
+  isAdShowing.value = true
   try {
     const granted = await provider.showRewardedAd()
     if (granted) {
@@ -89,18 +114,71 @@ export const showRewardedAd = async (): Promise<boolean> => {
     } else if (provider.isAdsBlocked.value) {
       isAdsBlockedModalShown.value = true
     }
+    dlog(`${TAG} ⏹ rewarded END (provider=${provider.name}, granted=${granted})`)
     return granted
+  } catch (e) {
+    // Defensive: provider contract is not to reject, but if a backend
+    // throws (SDK error, network) we still drop the pause gate so audio +
+    // gameplay resume — the "cut off due to error" case QA called out.
+    console.warn(`${TAG} ✖ rewarded ERROR (provider=${provider.name}) — resuming`, e)
+    return false
   } finally {
-    resumeAllAudio()
+    // Dropping `isAdShowing` clears the gate (assuming no other reason is
+    // active) → orchestrator resumes audio synchronously, render loop
+    // restarts. Runs on success, no-fill, AND the throw path above.
+    isAdShowing.value = false
   }
 }
 
 export const showMidgameAd = async (): Promise<void> => {
-  suspendAllAudio()
+  dlog(`${TAG} ▶ interstitial START (provider=${provider.name})`)
+  isAdShowing.value = true
   try {
     await provider.showMidgameAd()
+    dlog(`${TAG} ⏹ interstitial END (provider=${provider.name})`)
+  } catch (e) {
+    // Same "cut off due to error" safety net as the rewarded path: never
+    // leave the game muted/paused if the interstitial backend throws.
+    console.warn(`${TAG} ✖ interstitial ERROR (provider=${provider.name}) — resuming`, e)
   } finally {
-    resumeAllAudio()
+    isAdShowing.value = false
+  }
+}
+
+// ⚠️ TEMP TEST HARNESS (remove before commit) ──────────────────────────────
+// Deterministic verification of the universal pause+mute gate WITHOUT a live
+// ad SDK. From the browser console / Chrome DevTools MCP, with a battle
+// running and music playing:
+//     window.__audioDebug()             // snapshot before  → audioCtxState:'running'
+//     await window.__testInterstitial() // holds the gate for 5s
+//     window.__audioDebug()             // snapshot during  → suspended + paused
+// During the hold: `isGamePaused` is true (render loop early-returns in
+// MawScene) and the AudioContext is suspended + every tracked HTMLAudio is
+// paused (no music, no SFX). This mirrors EXACTLY what `showMidgameAd` does
+// around a real interstitial — only the provider/SDK call is replaced by a
+// timer, so it isolates the gate from SDK promise-timing quirks.
+// Gated on `import.meta.env.DEV`, so it is dead-code-eliminated from every
+// production/platform build.
+if (import.meta.env.DEV && typeof window !== 'undefined') {
+  const w = window as unknown as Record<string, unknown>
+  w.__testInterstitial = async (ms = 5000): Promise<void> => {
+    console.info(`${TAG} [TEST] ▶ fake interstitial START — holding gate ${ms}ms`)
+    isAdShowing.value = true
+    try {
+      await new Promise((resolve) => setTimeout(resolve, ms))
+    } finally {
+      isAdShowing.value = false
+      console.info(`${TAG} [TEST] ⏹ fake interstitial END — gate released`)
+    }
+  }
+  w.__audioDebug = () => {
+    const snap = {
+      isGamePaused: isGamePaused.value,
+      isAdShowing: isAdShowing.value,
+      ...__audioDebugSnapshot()
+    }
+    console.info(`${TAG} [TEST] audio snapshot`, snap)
+    return snap
   }
 }
 

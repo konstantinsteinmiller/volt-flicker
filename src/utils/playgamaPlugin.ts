@@ -20,7 +20,7 @@
 import { ref } from 'vue'
 import { isPlaygama } from '@/use/useUser'
 import { isDebug } from '@/use/useMatch'
-import { suspendAllAudio, resumeAllAudio } from '@/use/useAssets'
+import { pauseGame, resumeGame } from '@/use/useGamePause'
 import type { SaveStrategy } from '@/utils/save/types'
 // Static import — the obfuscator's `stringArray` mangles dynamic-import
 // literals, which on the Playgama QA Tool surfaced as
@@ -64,14 +64,16 @@ let gameReadySent = false
 let gameplayStartedActive = false
 let heldPause = false
 let injectPromise: Promise<any> | null = null
-/** Re-rents the audio suspend/resume counter so a double-`paused=true`
- *  emission from the bridge can't drift the counter — every transition
- *  is edge-triggered through `setPaused`. */
+/** Edge-triggered bridge → unified pause gate. A double-`paused=true`
+ *  emission from the bridge can't drift anything: we flip
+ *  `isPlatformPaused` (idempotent), and the shared `useGamePauseAudio`
+ *  orchestrator is what actually suspends/resumes audio off the aggregate
+ *  `isGamePaused` — one suspend driver for every build, no double-count. */
 const setPaused = (paused: boolean): void => {
   if (paused === heldPause) return
   heldPause = paused
-  if (paused) suspendAllAudio()
-  else resumeAllAudio()
+  if (paused) pauseGame()
+  else resumeGame()
 }
 
 const getBridge = (): any =>

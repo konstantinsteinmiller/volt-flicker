@@ -11,7 +11,8 @@ import {
 } from '@/i18n'
 import { LANGUAGES } from '@/utils/enums'
 import { initAds } from '@/use/useAds'
-import useUser, { isCrazyWeb, isWaveDash, isItch, isGlitch, isGameDistribution, isPlaygama } from '@/use/useUser'
+import { installGamePauseAudio } from '@/use/useGamePauseAudio'
+import useUser, { isCrazyWeb, isWaveDash, isItch, isGlitch, isGameDistribution, isPlaygama, isGamepix } from '@/use/useUser'
 import { isDebug } from '@/use/useMatch.ts'
 import { hasState, reloadMawState } from '@/use/useMawState'
 import { SaveManager } from '@/utils/save/SaveManager'
@@ -44,6 +45,12 @@ const looksLikeCrazyGamesPortal = (): boolean => {
 }
 
 const bootstrap = async () => {
+  // Wire the universal pause gate → audio mute before anything can show an
+  // ad. One subscriber, every build: rewarded / interstitial ads, tab-hide,
+  // platform SDK pause, and app modals all suspend music + SFX through this
+  // and log the transition. Idempotent (useAds also calls it at import).
+  installGamePauseAudio()
+
   // vConsole is mounted on demand via either:
   //   • the StageBadge chord (N taps in 60s) — see `useVConsole.ts`
   //   • a URL query/hash flag (`?vconsole=1` or `#vconsole`)
@@ -117,6 +124,23 @@ const bootstrap = async () => {
     } catch (e) {
       console.warn('[Wavedash] SDK init failed:', e)
     }
+  } else if (isGamepix) {
+    // **Awaited** init — must finish BEFORE `saveManager.init()` runs
+    // hydrate. The v3 SDK's `window.GamePix.localStorage.getItem`
+    // returns null outside an initialized Player context, so a hydrate
+    // that races SDK init reads as empty and the player boots with
+    // default state — losing their cloud save on every reload. By the
+    // time the SDK fires its first `setItem` (during gameplay), the
+    // cloud row holds defaults, not the real progress, and the loss
+    // gets committed permanently. CrazyGames takes the same approach
+    // (awaits `initCrazyGames()` here for the same reason).
+    //
+    // The `gamePixGameLoadingStart()` follow-up is intentionally
+    // NOT awaited — it opens the toolkit's loading bracket but is
+    // otherwise side-effect free, so it can race the rest of boot.
+    const { gamepixPlugin, gamePixGameLoadingStart } = await import('@/utils/gamepixPlugin')
+    await gamepixPlugin()
+    gamePixGameLoadingStart()
   }
 
   // Pick the save strategy by build flag. `SaveManager.init()` hydrates
@@ -129,7 +153,7 @@ const bootstrap = async () => {
   // unit-testable in isolation. Adding a platform = add an arm there,
   // not edit this file.
   const strategy = await resolveSaveStrategy({
-    isCrazyWeb, isWaveDash, isItch, isGlitch, isGameDistribution, isPlaygama
+    isCrazyWeb, isWaveDash, isItch, isGlitch, isGameDistribution, isPlaygama, isGamepix
   })
 
   // CrazyGames cloud-only mode: gameplay state and our save bookkeeping
@@ -250,6 +274,11 @@ const bootstrap = async () => {
       void playgamaPlugin().then(() => playgamaLoadingStart())
     })
   }
+
+  // GamePix init already ran (awaited) earlier — see the `else if
+  // (isGamepix)` branch above. This block intentionally has no GamePix
+  // arm: the SDK must be ready before hydrate, so the parallel-init
+  // pattern used by Playgama / GD doesn't fit here.
 
   // CG QA: NO locally-saved data on CG builds — we no longer mirror the
   // CrazyGames-reported locale into sessionStorage. The portal locale is

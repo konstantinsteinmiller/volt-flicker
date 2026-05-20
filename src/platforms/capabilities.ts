@@ -18,6 +18,7 @@ export interface PlatformFlags {
   isGlitch: boolean
   isGameDistribution: boolean
   isPlaygama: boolean
+  isGamepix: boolean
 }
 
 export type GlitchLicenseStatus = 'pending' | 'ok' | 'denied'
@@ -51,6 +52,9 @@ export interface ResolvedCapabilities {
    *  arm is flag-only (always render when the build flag is set, no
    *  hostname check). */
   allowedToShowOnPlaygama: boolean
+  /** GamePix runs the iframe on gamepix.com (or partner portals embedding
+   *  it). Hostname-gated like CrazyGames / GameDistribution. */
+  allowedToShowOnGamepix: boolean
   /** True when Glitch was selected but their license API rejected the player. */
   isGlitchDenied: boolean
   /** True when the build targets a platform AND the license check has settled.
@@ -85,6 +89,9 @@ const isGlitchUrl = (hostname: string, parentOrigin: string): boolean => {
 const isGameDistUrl = (hostname: string): boolean =>
   hostname.includes('gamedistribution.com')
 
+const isGamepixUrl = (hostname: string): boolean =>
+  hostname.includes('gamepix.com')
+
 // ─── Resolver ───────────────────────────────────────────────────────────────
 
 export const resolveCapabilities = (input: CapabilitiesInput): ResolvedCapabilities => {
@@ -92,7 +99,7 @@ export const resolveCapabilities = (input: CapabilitiesInput): ResolvedCapabilit
   const parentOrigin = input.parentOrigin ?? ''
 
   const isNotPlatformBuild =
-    !flags.isCrazyWeb && !flags.isWaveDash && !flags.isItch && !flags.isGlitch && !flags.isGameDistribution && !flags.isPlaygama
+    !flags.isCrazyWeb && !flags.isWaveDash && !flags.isItch && !flags.isGlitch && !flags.isGameDistribution && !flags.isPlaygama && !flags.isGamepix
 
   const allowedToShowOnCrazyGames =
     (flags.isCrazyWeb && isCrazyGamesUrl(hostname)) || isNotPlatformBuild
@@ -114,8 +121,11 @@ export const resolveCapabilities = (input: CapabilitiesInput): ResolvedCapabilit
   // Playgama's Technical Requirements forbid runtime URL gating — flag-only.
   const allowedToShowOnPlaygama = flags.isPlaygama || isNotPlatformBuild
 
+  const allowedToShowOnGamepix =
+    (flags.isGamepix && isGamepixUrl(hostname)) || isNotPlatformBuild
+
   const anyPlatform =
-    flags.isCrazyWeb || flags.isWaveDash || flags.isItch || flags.isGlitch || flags.isGameDistribution || flags.isPlaygama
+    flags.isCrazyWeb || flags.isWaveDash || flags.isItch || flags.isGlitch || flags.isGameDistribution || flags.isPlaygama || flags.isGamepix
   const showOnlyAvailableText = anyPlatform && glitchLicenseStatus !== 'pending'
 
   const plattformText = flags.isWaveDash
@@ -130,7 +140,9 @@ export const resolveCapabilities = (input: CapabilitiesInput): ResolvedCapabilit
             ? 'gamedistribution.com'
             : flags.isPlaygama
               ? 'playgama.com'
-              : ''
+              : flags.isGamepix
+                ? 'gamepix.com'
+                : ''
 
   return {
     isNotPlatformBuild,
@@ -140,6 +152,7 @@ export const resolveCapabilities = (input: CapabilitiesInput): ResolvedCapabilit
     allowedToShowOnGlitch,
     allowedToShowOnGameDistribution,
     allowedToShowOnPlaygama,
+    allowedToShowOnGamepix,
     isGlitchDenied,
     showOnlyAvailableText,
     plattformText

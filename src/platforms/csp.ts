@@ -31,6 +31,9 @@ const BASE_HOSTS: ReadonlyArray<string> = [
   'https://playgama.com',
   'https://*.playgama.com',
   'https://bridge.playgama.com',
+  'https://gamepix.com',
+  'https://*.gamepix.com',
+  'https://integration.gamepix.com',
   'https://www.clarity.ms',
   'https://api.jsonbin.io'
 ]
@@ -133,10 +136,11 @@ export const buildCsp = (env: Record<string, string>): string => {
   const isGlitch = env.VITE_APP_GLITCH === 'true'
   const isCrazyWeb = env.VITE_APP_CRAZY_WEB === 'true'
   const isPlaygama = env.VITE_APP_PLAYGAMA === 'true'
+  const isGamepix = env.VITE_APP_GAMEPIX === 'true'
 
-  // Playgama runs an ad-waterfall like GD / GamePix / Y8 — open the same
+  // Playgama / GamePix run an ad-waterfall like GD — open the same
   // directives so partner creatives / bidders aren't refused.
-  const adWaterfallBuild = isGameDistribution || isPlaygama
+  const adWaterfallBuild = isGameDistribution || isPlaygama || isGamepix
 
   const hosts: string[] = [
     ...BASE_HOSTS,

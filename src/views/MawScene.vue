@@ -40,7 +40,9 @@ import { isMobilePortrait, isMobileLandscape } from '@/use/useUser'
 import useCheats from '@/use/useCheats'
 import { spawnCoinExplosion } from '@/use/useCoinExplosion'
 import { stopGameplay, startGameplay, triggerHappytime } from '@/use/useCrazyGames'
+import { gamePixHappyMoment } from '@/utils/gamepixPlugin'
 import { isInterstitialReady, showMidgameAd, isRewardedReady, showRewardedAd } from '@/use/useAds'
+import { isGamePaused } from '@/use/useGamePause'
 import SpeedrunButton from '@/components/organisms/SpeedrunButton.vue'
 import {
   ghostStateAt,
@@ -574,7 +576,6 @@ const startMeteorIntro = () => {
   runCountdown(() => {
     stopMeteorShower()
     startMatch()
-    triggerHappytime()
   })
 }
 
@@ -623,7 +624,6 @@ const beginPlay = async () => {
   evaluateChainScrollHint()
   startBattleMusic()
   startMatch()
-  triggerHappytime()
 }
 
 // Drive the chain-whir loop off `phase` + `isPaused`. Started on the
@@ -651,9 +651,14 @@ watch(phase, (p) => {
         // CG SDK happytime (a no-op on non-CG builds).
         playSound('win', 0.22)
         triggerHappytime()
+        gamePixHappyMoment()
         return
       }
+      // Per-stage win screen — celebrate the level clear with the CG SDK
+      // happytime / GamePix happy-moment (no-ops on other platforms).
       showReward.value = true
+      triggerHappytime()
+      gamePixHappyMoment()
       nextTick(() => fireCoinExplosion(rewardCoinRef.value))
       return
     }
@@ -685,6 +690,15 @@ watch(phase, (p) => {
     } else {
       showReward.value = true
     }
+  }
+})
+
+// Lose-screen stinger — fires once when the FReward overlay opens on a
+// loss. Delayed 200ms so it lands just after the per-reason death sound
+// (chainsaw-break / water-splash) instead of stacking on the same frame.
+watch(showReward, (open) => {
+  if (open && gameResult.value === 'lose') {
+    setTimeout(() => playSound('lose', 0.12), 200)
   }
 })
 
@@ -895,6 +909,17 @@ const onKeyDown = (e: KeyboardEvent) => {
 let raf: number | null = null
 let lastTime = 0
 const renderLoop = (now: number) => {
+  // Global pause gate — true whenever an ad is on-screen, the tab is
+  // hidden, the platform SDK asked us to pause, or an app-side modal
+  // acquired a pause. Keep the rAF heartbeat alive so we resume cleanly,
+  // but skip simulation/render and reset `lastTime` so the first frame
+  // after resume doesn't try to advance physics by the entire pause gap.
+  if (isGamePaused.value) {
+    lastTime = 0
+    raf = requestAnimationFrame(renderLoop)
+    return
+  }
+
   const dt = lastTime === 0 ? 0 : Math.min(0.05, (now - lastTime) / 1000)
   lastTime = now
 
