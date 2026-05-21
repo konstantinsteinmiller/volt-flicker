@@ -25,8 +25,9 @@ import { resolveAdProvider } from '@/platforms/resolveAdProvider'
 import { isRewardedThrottled, recordRewardedGranted } from '@/use/useRewardedThrottle'
 import { isAdShowing, isGamePaused } from '@/use/useGamePause'
 import { installGamePauseAudio } from '@/use/useGamePauseAudio'
-import { __audioDebugSnapshot } from '@/use/useAssets'
+import { __audioDebugSnapshot, killOneShotSfx } from '@/use/useAssets'
 import { isDebug } from '@/use/useMatch'
+import { forceStopMusic } from '@/use/useSound'
 
 const provider: AdProvider = resolveAdProvider({
   flags: { isCrazyWeb, isWaveDash, isItch, isGlitch, isGameDistribution, isPlaygama, isGamepix },
@@ -105,6 +106,10 @@ export const showRewardedAd = async (): Promise<boolean> => {
   // rewarded ad opens its overlay synchronously and never fires the
   // platform pause callback for rewarded placements, so this flip is the
   // only signal that mutes audio + physics underneath the ad.
+  // Kill any in-flight one-shot SFX before requesting the ad so nothing tails
+  // into it (the ctx-suspend below only freezes Web Audio; an early gate-drop
+  // would otherwise let a stray one-shot resume under the ad).
+  killOneShotSfx()
   dlog(`${TAG} ▶ rewarded START (provider=${provider.name})`)
   isAdShowing.value = true
   try {
@@ -131,6 +136,17 @@ export const showRewardedAd = async (): Promise<boolean> => {
 }
 
 export const showMidgameAd = async (): Promise<void> => {
+  // Kill the background music BEFORE the ad is even requested. The pause gate
+  // (below, via `isAdShowing`) also suspends audio, but the GamePix SDK can
+  // resolve `interstitialAd()` before the ad visually closes — which would
+  // drop the gate and let the gate's own resume restart the music UNDER the
+  // ad. Hard-stopping it here makes that impossible (an already-stopped track
+  // is never queued for auto-resume); the next round's `startBattleMusic()`
+  // brings it back. This is the definitive fix for the GamePix QA report
+  // "music audible while interstitial ads are playing".
+  forceStopMusic()
+  // Also kill every in-flight one-shot SFX so nothing tails into the ad.
+  killOneShotSfx()
   dlog(`${TAG} ▶ interstitial START (provider=${provider.name})`)
   isAdShowing.value = true
   try {

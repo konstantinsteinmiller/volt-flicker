@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { watch } from 'vue'
+import { watch, onMounted, onUnmounted } from 'vue'
 import FTabs, { type TabOption } from '@/components/atoms/FTabs.vue'
 import { isMobileLandscape, isMobilePortrait } from '@/use/useUser'
 import useSounds from '@/use/useSound'
+import { acquireModalOpen } from '@/use/useModalState'
 
 interface Props {
   modelValue: boolean | any
@@ -29,9 +30,25 @@ defineOptions({ inheritAttrs: false })
 // Options, etc.) inherits it for free without each one wiring its own
 // playSound call.
 const { playSound } = useSounds()
+
+// Signal "a modal is open" so the CrazyGames gameplay-lifecycle driver fires
+// `gameplayStop()` on open and `gameplayStart()` on close. Centralised here so
+// every FModal consumer participates without wiring it per-modal. Refcounted
+// release; held once per open and dropped on close or unmount.
+let releaseModalOpen: (() => void) | null = null
+const markOpen = (): void => { if (!releaseModalOpen) releaseModalOpen = acquireModalOpen() }
+const markClosed = (): void => { releaseModalOpen?.(); releaseModalOpen = null }
+
 watch(() => props.modelValue, (open, prev) => {
   if (open && !prev) playSound('modal-open', 0.07)
+  if (open) markOpen()
+  else markClosed()
 })
+
+// Catch a modal that mounts already-open, and always release on teardown so a
+// modal destroyed while open can't strand the gameplay-stopped state.
+onMounted(() => { if (props.modelValue) markOpen() })
+onUnmounted(() => markClosed())
 
 const close = () => {
   emit('update:modelValue', false)

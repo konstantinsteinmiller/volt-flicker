@@ -1,6 +1,6 @@
 import { prependBaseUrl } from '@/utils/function'
 import useUser from '@/use/useUser'
-import { getAudioContext, loadAudioBuffer, resourceCache, registerHtmlAudio, unregisterHtmlAudio, isAudioSuspended } from '@/use/useAssets'
+import { getAudioContext, loadAudioBuffer, resourceCache, registerHtmlAudio, unregisterHtmlAudio, isAudioSuspended, registerOneShotSource } from '@/use/useAssets'
 
 import { ref, onMounted, watch, onUnmounted } from 'vue'
 
@@ -12,6 +12,32 @@ const isPlaying = ref(false)
 // in progress). Used so visibility-change resume only un-pauses when there's
 // actually a battle running.
 const shouldPlay = ref(false)
+
+/**
+ * Hard-stop the background music IMMEDIATELY (no fade) and clear the
+ * play-intent flags. Use right before an interstitial ad is requested.
+ *
+ * Why this and not just the suspend gate: the pause gate (`useGamePauseAudio`)
+ * pauses the music while `isAdShowing` is true and RESUMES it when the flag
+ * drops. But the GamePix `interstitialAd()` promise can resolve before the ad
+ * visually closes — `isAdShowing` then drops and the gate restarts the music
+ * UNDER the still-open ad (the bug GamePix QA keeps reporting). Stopping the
+ * music here first makes that impossible: the element is already paused before
+ * any suspend runs, so it's never queued for auto-resume, and `shouldPlay =
+ * false` stops any in-flight fade. The next round's `startBattleMusic()`
+ * brings it back. Idempotent and null-safe.
+ */
+export const forceStopMusic = (): void => {
+  shouldPlay.value = false
+  try {
+    bgMusic.value?.pause()
+    if (bgMusic.value) {
+      bgMusic.value.volume = 0
+    }
+  } catch { /* element gone / not ready */ }
+  console.log('tried pausing music forceStopMusic: ', bgMusic.value, bgMusic.value?.volume)
+  isPlaying.value = false
+}
 
 export const useMusic = () => {
   const { userMusicVolume } = useUser()
@@ -56,6 +82,8 @@ export const useMusic = () => {
       isLoaded.value = false
     })
   }
+
+  const isMusicPlaying = (): boolean => !!bgMusic.value && isPlaying.value
 
   const startBattleMusic = () => {
     if (!bgMusic.value) return
@@ -150,7 +178,7 @@ export const useMusic = () => {
   }
 
 
-  return { initMusic, isLoaded, isPlaying, pauseMusic, continueMusic, startBattleMusic, stopBattleMusic }
+  return { initMusic, isLoaded, isPlaying, isMusicPlaying, pauseMusic, continueMusic, startBattleMusic, stopBattleMusic }
 }
 
 // ─── SFX playback ──────────────────────────────────────────────────────────
@@ -227,6 +255,9 @@ const useSounds = () => {
       gain.gain.value = clampVolume(ratio)
       source.connect(gain).connect(ctx.destination)
       source.start()
+      // Track so an ad can hard-stop it (ctx.suspend only freezes; an early
+      // gate-drop would otherwise let it tail audibly under the ad).
+      registerOneShotSource(source)
       return makeWebAudioHandle(source)
     } catch (e) {
       // Browser refused to start (context killed, etc.) — signal the

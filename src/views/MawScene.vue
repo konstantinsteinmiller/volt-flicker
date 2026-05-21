@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
-import type { Ref } from 'vue'
-import { useI18n } from 'vue-i18n'
-import { useRouter } from 'vue-router'
-import { isDebug } from '@/use/useMatch'
-import { testStage, setTestStage } from '@/use/useCustomStages'
-import { getState, setState } from '@/use/useMawState'
+import {ref, computed, watch, onMounted, onUnmounted, nextTick} from 'vue'
+import type {Ref} from 'vue'
+import {useI18n} from 'vue-i18n'
+import {useRouter} from 'vue-router'
+import {isDebug} from '@/use/useMatch'
+import {testStage, setTestStage} from '@/use/useCustomStages'
+import {getState, setState} from '@/use/useMawState'
 import useMawGame from '@/use/useMawGame'
 import useMawConfig from '@/use/useMawConfig'
 import useMawCampaign from '@/use/useMawCampaign'
@@ -31,18 +31,19 @@ import useMawProgress, {
   splashDeathCount,
   UPGRADES
 } from '@/use/useMawProgress'
-import useSounds, { useMusic, type LoopHandle } from '@/use/useSound'
-import { schedulePreloadOnIdle } from '@/use/useSoundPreload'
-import { useScreenshake } from '@/use/useScreenshake'
+import useSounds, {useMusic, type LoopHandle} from '@/use/useSound'
+import {schedulePreloadOnIdle} from '@/use/useSoundPreload'
+import {useScreenshake} from '@/use/useScreenshake'
 import useUser from '@/use/useUser'
 import useBottomSafe from '@/use/useBottomSafe'
-import { isMobilePortrait, isMobileLandscape } from '@/use/useUser'
+import {isMobilePortrait, isMobileLandscape} from '@/use/useUser'
 import useCheats from '@/use/useCheats'
-import { spawnCoinExplosion } from '@/use/useCoinExplosion'
-import { stopGameplay, startGameplay, triggerHappytime } from '@/use/useCrazyGames'
-import { gamePixHappyMoment } from '@/utils/gamepixPlugin'
-import { isInterstitialReady, showMidgameAd, isRewardedReady, showRewardedAd } from '@/use/useAds'
-import { isGamePaused } from '@/use/useGamePause'
+import {spawnCoinExplosion} from '@/use/useCoinExplosion'
+import {stopGameplay, startGameplay, triggerHappytime} from '@/use/useCrazyGames'
+import {gamePixHappyMoment} from '@/utils/gamepixPlugin'
+import {isInterstitialReady, showMidgameAd, isRewardedReady, showRewardedAd} from '@/use/useAds'
+import {isGamePaused} from '@/use/useGamePause'
+import {isAnyModalOpen} from '@/use/useModalState'
 import SpeedrunButton from '@/components/organisms/SpeedrunButton.vue'
 import {
   ghostStateAt,
@@ -109,9 +110,9 @@ const exitTestStage = () => {
   router.push('/editor')
 }
 
-const { t } = useI18n()
-const { playSound, playLoop } = useSounds()
-const { startBattleMusic, stopBattleMusic } = useMusic()
+const {t} = useI18n()
+const {playSound, playLoop} = useSounds()
+const {startBattleMusic, stopBattleMusic} = useMusic()
 
 // ─── Chain whir loop ────────────────────────────────────────────────────
 // Continuous mow-robot sound that plays for the duration of an active
@@ -130,8 +131,8 @@ const startChainLoop = () => {
   chainLoop = playLoop('mow-loop', 0.035)
 }
 onUnmounted(() => stopChainLoop())
-const { shakeStyle } = useScreenshake()
-const { } = useUser()
+const {shakeStyle} = useScreenshake()
+const {} = useUser()
 
 const {
   phase,
@@ -166,9 +167,9 @@ const {
   reqsMet
 } = useMawGame()
 
-const { coins: coinTotal, spendCoins, addCoins } = useMawConfig()
-const { currentStageId, currentStage, stageReinitSignal, resetCampaign, isLastStage } = useMawCampaign()
-const { buyUpgrade, pendingAchClaims } = useMawProgress()
+const {coins: coinTotal, spendCoins, addCoins} = useMawConfig()
+const {currentStageId, currentStage, stageReinitSignal, resetCampaign, isLastStage} = useMawCampaign()
+const {buyUpgrade, pendingAchClaims} = useMawProgress()
 
 // ─── Speedrun timer + ghost replay ──────────────────────────────────────
 // `liveElapsedMs` is the wall-clock time since the current attempt's
@@ -380,8 +381,8 @@ const forceSawUpgradeOnly = computed(() => sawSpotlightArmed.value)
 // can't cut anything), so it deserves the first slot.
 const restrictedUpgradeId = computed<string | null>(() =>
   sawSpotlightArmed.value ? 'sawDamage'
-  : chainSplashSpotlightArmed.value ? 'chainLength'
-  : null
+    : chainSplashSpotlightArmed.value ? 'chainLength'
+      : null
 )
 
 // ─── Chain-adjust ("live chain") spotlight ────────────────────────────
@@ -508,7 +509,7 @@ const rewardCoinRef = ref<HTMLElement | null>(null)
 
 const fireCoinExplosion = (sourceEl: HTMLElement | null) => {
   if (sourceEl && coinBadgeEl.value) {
-    spawnCoinExplosion({ sourceEl, targetEl: coinBadgeEl.value })
+    spawnCoinExplosion({sourceEl, targetEl: coinBadgeEl.value})
   }
 }
 
@@ -562,7 +563,7 @@ const updateCanvasSize = () => {
   precomputeMeteorShower(canvasWidth.value, canvasHeight.value)
 }
 
-const { bottomGapPx, scheduleBottomMeasure } = useBottomSafe()
+const {bottomGapPx, scheduleBottomMeasure} = useBottomSafe()
 
 // ─── Game flow ───────────────────────────────────────────────────────────
 /** Kick off the meteor-intro sequence. Extracted so the ad-break path can
@@ -610,7 +611,8 @@ const beginPlay = async () => {
       phase.value = 'ad_break'
       try {
         await showMidgameAd()
-      } catch { /* SDK error → fall through to gameplay */ }
+      } catch { /* SDK error → fall through to gameplay */
+      }
       // If the player navigated away (route change / unmount), the phase
       // ref will have been reinitialised — bail rather than racing the
       // next mount's start.
@@ -626,13 +628,16 @@ const beginPlay = async () => {
   startMatch()
 }
 
-// Drive the chain-whir loop off `phase` + `isPaused`. Started on the
-// first frame of any `'playing'` state, stopped on any other phase or
-// when the saw-spotlight pause flips on (pause watch lives below).
-watch([phase, isPaused], ([p, paused]) => {
-  if (p === 'playing' && !paused) startChainLoop()
+// Drive the chain-whir loop off `phase` + `isPaused` + the global pause gate.
+// Started on the first frame of any `'playing'` state; stopped on any other
+// phase, when the saw-spotlight pause flips on (pause watch below), OR while
+// an ad / tab-hide holds `isGamePaused`. Stopping the LOOP (not just freezing
+// the ctx) means an early ad gate-drop can't let the whir resume under the ad;
+// it's recreated when `isGamePaused` clears and play continues.
+watch([phase, isPaused, isGamePaused], ([p, paused, gamePaused]) => {
+  if (p === 'playing' && !paused && !gamePaused) startChainLoop()
   else stopChainLoop()
-}, { immediate: true })
+}, {immediate: true})
 
 watch(phase, (p) => {
   if (p === 'game_over') {
@@ -1085,7 +1090,7 @@ const paint = () => {
       }
       ctx.save()
       ctx.globalAlpha = 0.32
-      drawRobot(ctx, { x: ghostState.x, y: ghostState.y }, ghostSwing, ghostAngle, true, ghostLevel)
+      drawRobot(ctx, {x: ghostState.x, y: ghostState.y}, ghostSwing, ghostAngle, true, ghostLevel)
       ctx.restore()
     }
   }
@@ -1121,6 +1126,25 @@ const onViewportChange = () => {
   scheduleBottomMeasure()
 }
 
+// ─── CrazyGames gameplay lifecycle ──────────────────────────────────────────
+//
+// CG wants `gameplayStart()` the moment interactive play begins (the robot
+// starts swinging — `phase === 'playing'`) and `gameplayStop()` whenever it's
+// interrupted. A blocking modal is an interruption, so gameplay is "active"
+// only while a match is running AND no modal is open. This single driver
+// covers all three required edges:
+//   • match start (phase → 'playing')      → gameplayStart
+//   • modal opened (isAnyModalOpen → true) → gameplayStop
+//   • modal closed (isAnyModalOpen → false, still playing) → gameplayStart
+// Mid-game / rewarded ads flip `phase` to 'ad_break' (and the CG ad wrappers
+// also bracket themselves), so they're covered too. `start/stopGameplay` are
+// idempotent, so the watcher just mirrors the computed truth. No-op off CG.
+const isGameplayActive = computed(() => phase.value === 'playing' && !isAnyModalOpen.value)
+watch(isGameplayActive, (active) => {
+  if (active) startGameplay()
+  else stopGameplay()
+}, {immediate: true})
+
 onMounted(() => {
   updateCanvasSize()
   scheduleBottomMeasure()
@@ -1132,12 +1156,13 @@ onMounted(() => {
   initGame()
   raf = requestAnimationFrame(renderLoop)
 
-  // Start on first interaction — players land into the menu state with the
-  // game world rendered so the "tap to start" CTA explains the loop without
-  // a full-screen tutorial.
-  startGameplay()
-  // Auto-fire the meteor intro after a short beat so players who don't tap
-  // still see the countdown and play.
+  // NOTE: gameplayStart() is no longer fired here (that signalled CG at the
+  // menu, before play began). The `isGameplayActive` watcher above fires it
+  // when `phase` becomes 'playing' — i.e. the moment the robot starts
+  // swinging — which is what CG wants.
+  //
+  // Auto-fire the intro after a short beat so players who don't tap still
+  // drop into play (→ phase 'playing' → gameplayStart()).
   setTimeout(() => {
     if (phase.value === 'idle') beginPlay()
   }, 800)
@@ -1686,8 +1711,10 @@ const showStartHint = computed(() =>
   &:hover:not(:disabled)
     transform: scale(1.03)
     filter: brightness(1.07)
+
   &:active:not(:disabled)
     transform: scale(0.97)
+
   &:disabled
     opacity: 0.55
     cursor: wait

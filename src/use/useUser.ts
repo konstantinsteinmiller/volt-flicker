@@ -63,8 +63,14 @@ const readString = <T extends string>(key: string, fallback: T): T => {
   return String(v) as T
 }
 
-const userSoundVolume: Ref<number> = ref(readNumber(SOUND_KEY, 0.7))
-const userMusicVolume: Ref<number> = ref(readNumber(MUSIC_KEY, 0.6))
+/** Default audio levels for a fresh install. Exported so the mute toggle
+ *  (`useCrazyMuteSync`) can restore to the same levels when a user unmutes
+ *  but there's no pre-mute snapshot to fall back to. */
+export const DEFAULT_SOUND_VOLUME = 0.7
+export const DEFAULT_MUSIC_VOLUME = 0.6
+
+const userSoundVolume: Ref<number> = ref(readNumber(SOUND_KEY, DEFAULT_SOUND_VOLUME))
+const userMusicVolume: Ref<number> = ref(readNumber(MUSIC_KEY, DEFAULT_MUSIC_VOLUME))
 const userLanguage: Ref<string> = ref(readString(LANGUAGE_KEY, 'en'))
 
 // Re-read on hydrate-success bump. Module init reads these synchronously

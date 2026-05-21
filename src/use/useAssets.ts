@@ -102,6 +102,43 @@ export const resumeAllAudio = (): void => {
   }
 }
 
+// ─── Active one-shot SFX registry ─────────────────────────────────────────
+// Transient one-shot SFX (the Web Audio fast path in `useSound`) play on the
+// shared AudioContext and aren't HTMLAudio elements, so the suspend gate only
+// FREEZES them via `ctx.suspend()`. On an early gate-drop they'd resume and
+// tail audibly under an ad. We track them so an ad can hard-STOP them outright.
+const activeOneShotSources = new Set<AudioBufferSourceNode>()
+
+/** Register a one-shot Web Audio source so `killOneShotSfx()` can stop it.
+ *  Auto-removes itself when the source finishes. */
+export const registerOneShotSource = (source: AudioBufferSourceNode): void => {
+  activeOneShotSources.add(source)
+  source.addEventListener('ended', () => activeOneShotSources.delete(source), { once: true })
+}
+
+/**
+ * Hard-stop EVERY in-flight one-shot SFX so nothing tails into an ad — called
+ * right before an interstitial / rewarded ad is requested. Covers:
+ *   • Web Audio one-shots  (stopped outright), and
+ *   • non-looping tracked HTMLAudio (the decode-fallback one-shots) — paused
+ *     AND dropped from the auto-resume set so the gate's resume can't restart
+ *     them under or after the ad.
+ * Intentionally leaves the bg music (HTMLAudio with `loop=true` → owned by
+ * `forceStopMusic`) and the gameplay Web Audio LOOP (owned by the scene's
+ * pause watcher) alone, so each is restored by its proper lifecycle.
+ */
+export const killOneShotSfx = (): void => {
+  for (const s of [...activeOneShotSources]) {
+    try { s.stop() } catch { /* already ended */ }
+    activeOneShotSources.delete(s)
+  }
+  for (const el of trackedAudioElements) {
+    if (el.loop) continue // bg music — forceStopMusic owns its stop/restart
+    pausedByGlobalSuspend.delete(el)
+    if (!el.paused) { try { el.pause() } catch { /* ignore */ } }
+  }
+}
+
 // Visibility-driven suspend used to live here (`armVisibilitySuspend`). It
 // moved into the unified pause gate: `useGamePause` owns the
 // `visibilitychange` listener (flipping `isVisibilityHidden`) and
@@ -118,7 +155,8 @@ export const __audioDebugSnapshot = () => ({
   suspendDepth,
   trackedAudioCount: trackedAudioElements.size,
   trackedAudioPaused: [...trackedAudioElements].map((e) => e.paused),
-  anyTrackedAudioPlaying: [...trackedAudioElements].some((e) => !e.paused)
+  anyTrackedAudioPlaying: [...trackedAudioElements].some((e) => !e.paused),
+  activeOneShotSfx: activeOneShotSources.size
 })
 
 export const getCachedImage = (src: string): HTMLImageElement => {
