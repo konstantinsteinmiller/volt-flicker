@@ -12,7 +12,7 @@ import {
 import { LANGUAGES } from '@/utils/enums'
 import { initAds } from '@/use/useAds'
 import { installGamePauseAudio } from '@/use/useGamePauseAudio'
-import useUser, { isCrazyWeb, isWaveDash, isItch, isGlitch, isGameDistribution, isPlaygama, isGamepix } from '@/use/useUser'
+import useUser, { isCrazyWeb, isWaveDash, isItch, isGlitch, isGameDistribution, isPlaygama, isGamepix, isGameMonetize } from '@/use/useUser'
 import { isDebug } from '@/use/useMatch.ts'
 import { hasState, reloadMawState } from '@/use/useMawState'
 import { SaveManager } from '@/utils/save/SaveManager'
@@ -153,7 +153,7 @@ const bootstrap = async () => {
   // unit-testable in isolation. Adding a platform = add an arm there,
   // not edit this file.
   const strategy = await resolveSaveStrategy({
-    isCrazyWeb, isWaveDash, isItch, isGlitch, isGameDistribution, isPlaygama, isGamepix
+    isCrazyWeb, isWaveDash, isItch, isGlitch, isGameDistribution, isPlaygama, isGamepix, isGameMonetize
   })
 
   // CrazyGames cloud-only mode: gameplay state and our save bookkeeping
@@ -272,6 +272,17 @@ const bootstrap = async () => {
   if (import.meta.env.VITE_APP_PLAYGAMA === 'true') {
     void import('@/utils/playgamaPlugin').then(({ playgamaPlugin, playgamaLoadingStart }) => {
       void playgamaPlugin().then(() => playgamaLoadingStart())
+    })
+  }
+
+  // GameMonetize: same parallel-init pattern as GD / Playgama. The plugin sets
+  // `window.SDK_OPTIONS`, lazily injects the SDK script
+  // (api.gamemonetize.com/sdk.js), and resolves on SDK_READY. The AdProvider's
+  // init() (post-mount via initAds) joins the same cached promise. There's no
+  // certification-mandatory loading/ready signal — it's purely an ad SDK.
+  if (import.meta.env.VITE_APP_GAME_MONETIZE === 'true') {
+    void import('@/utils/gameMonetizePlugin').then(({ gameMonetizePlugin }) => {
+      gameMonetizePlugin()
     })
   }
 

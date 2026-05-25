@@ -1,6 +1,6 @@
 import { ref, computed, watch, type Ref } from 'vue'
 import useMawConfig from '@/use/useMawConfig'
-import { saveDataVersion } from '@/use/useSaveStatus'
+import { saveDataVersion, flushSaveNow } from '@/use/useSaveStatus'
 import { getState, setState } from '@/use/useMawState'
 
 /**
@@ -127,6 +127,9 @@ const claimStage = (stage: number): ClaimResult | null => {
   addCoins(coins)
   state.value.claimedStages = [...state.value.claimedStages, stage]
   saveState()
+  // Discrete reward claim — flush immediately so the claim (and its coins)
+  // survive an instant reload instead of riding the coin throttle.
+  void flushSaveNow()
   return { stage, coins }
 }
 

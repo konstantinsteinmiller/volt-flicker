@@ -173,6 +173,26 @@ describe('buildCsp', () => {
     })
   })
 
+  describe('GameMonetize build (VITE_APP_GAME_MONETIZE=true)', () => {
+    const env = (): Record<string, string> => ({ VITE_APP_GAME_MONETIZE: 'true' })
+
+    it('includes the GameMonetize API hosts', () => {
+      const csp = buildCsp(env())
+      expect(csp).toContain('https://api.gamemonetize.com')
+      expect(csp).toContain('https://*.gamemonetize.com')
+    })
+
+    it('opens script-src / img-src / frame-src to https: for the Google-IMA bidder chain', () => {
+      const csp = buildCsp(env())
+      const scriptSrc = csp.match(/script-src ([^;]+)/)![1]!
+      expect(scriptSrc.split(/\s+/)).toContain('https:')
+      const imgSrc = csp.match(/img-src ([^;]+)/)![1]!
+      expect(imgSrc.split(/\s+/)).toContain('https:')
+      const frameSrc = csp.match(/frame-src ([^;]+)/)![1]!
+      expect(frameSrc.split(/\s+/)).toContain('https:')
+    })
+  })
+
   describe('directive ordering and shape', () => {
     it('emits all 8 standard directives separated by "; "', () => {
       const csp = buildCsp(baseEnv())

@@ -33,6 +33,7 @@ import { createCrazyGamesProvider } from '@/use/ads/CrazyGamesProvider'
 import { createGameDistributionProvider } from '@/use/ads/GameDistributionProvider'
 import { createPlaygamaProvider } from '@/use/ads/PlaygamaProvider'
 import { createGamepixProvider } from '@/use/ads/GamepixProvider'
+import { createGameMonetizeProvider } from '@/use/ads/GameMonetizeProvider'
 import { createNoopProvider } from '@/use/ads/NoopProvider'
 import type { AdProvider } from '@/use/ads/types'
 import type { PlatformFlags } from './capabilities'
@@ -50,5 +51,6 @@ export const resolveAdProvider = (input: AdResolverInput): AdProvider => {
   if (import.meta.env.VITE_APP_GAME_DISTRIBUTION === 'true') return createGameDistributionProvider()
   if (import.meta.env.VITE_APP_PLAYGAMA === 'true') return createPlaygamaProvider()
   if (import.meta.env.VITE_APP_GAMEPIX === 'true') return createGamepixProvider()
+  if (import.meta.env.VITE_APP_GAME_MONETIZE === 'true') return createGameMonetizeProvider()
   return createNoopProvider()
 }

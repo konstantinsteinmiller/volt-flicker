@@ -14,7 +14,7 @@ import SaveStatusBanner from '@/components/atoms/SaveStatusBanner.vue'
 import AdsBlockedModal from '@/components/atoms/AdsBlockedModal.vue'
 import VConsoleHideButton from '@/components/atoms/VConsoleHideButton.vue'
 import { useCrazyMuteSync } from '@/use/useCrazyMuteSync'
-import { isCrazyWeb, isWaveDash, isItch, isGlitch, isGameDistribution, isPlaygama, isGamepix, isNative, orientation } from '@/use/useUser'
+import { isCrazyWeb, isWaveDash, isItch, isGlitch, isGameDistribution, isPlaygama, isGamepix, isGameMonetize, isNative, orientation } from '@/use/useUser'
 import { glitchLicenseStatus } from '@/use/useGlitchLicense'
 import { resolveCapabilities } from '@/platforms/capabilities'
 
@@ -110,7 +110,7 @@ onUnmounted(() => {
 const hostname = window.location.hostname
 const parentOrigin = window.location.ancestorOrigins?.[0] ?? document.referrer ?? ''
 const platformFlags = {
-  isCrazyWeb, isWaveDash, isItch, isGlitch, isGameDistribution, isPlaygama, isGamepix
+  isCrazyWeb, isWaveDash, isItch, isGlitch, isGameDistribution, isPlaygama, isGamepix, isGameMonetize
 }
 const capabilities = computed(() => resolveCapabilities({
   flags: platformFlags,
@@ -127,6 +127,7 @@ const isGameShowAllowed = computed(() =>
   capabilities.value.allowedToShowOnGameDistribution ||
   capabilities.value.allowedToShowOnPlaygama ||
   capabilities.value.allowedToShowOnGamepix ||
+  capabilities.value.allowedToShowOnGameMonetize ||
   location.hostname.includes('localhost')
 )
 const isGlitchDenied = computed(() => capabilities.value.isGlitchDenied)

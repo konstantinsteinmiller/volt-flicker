@@ -6,24 +6,10 @@ import {
   setCrazyMuted
 } from '@/use/useCrazyGames'
 import { isDbInitialized } from '@/use/useMatch'
-import { getState, setState } from '@/use/useMawState'
 
 const { userSoundVolume, userMusicVolume, setSettingValue } = useUser()
 
 const isMuted = computed(() => userMusicVolume.value === 0 && userSoundVolume.value === 0)
-
-// Persisted "the player took control" flag. CrazyGames' platform mute is
-// one-way (chrome → game, no public setter), so the in-game button can never
-// flip the CG chrome toggle. To make the in-game button "always win" we
-// instead stop letting the platform RE-mute the player's explicit choice:
-// once the player taps the button, the in-game mute state is authoritative
-// and platform-mute events are ignored — now, after a reload, and across
-// devices (it rides in `maw_state`). The platform mute still seeds first-time
-// players who have never touched the button. Lives in `maw_state` so it
-// round-trips through whichever save backend the build uses.
-const MUTE_OVERRIDE_KEY = 'spinner_user_mute_overridden'
-const hasUserMuteChoice = (): boolean => getState<boolean>(MUTE_OVERRIDE_KEY, false) === true
-const markUserMuteChoice = (): void => setState(MUTE_OVERRIDE_KEY, true)
 
 // Snapshot of the volumes at the moment WE muted in response to a
 // platform-mute event. `null` means "no platform-mute in this session"
@@ -58,20 +44,15 @@ export const applyMute = (muted: boolean) => {
   }
 }
 
-/** Apply a mute that originated from the CrazyGames platform, UNLESS the
- *  player has already taken control via the in-game button — in which case
- *  the in-game state wins and the platform event is ignored. This is what
- *  keeps an in-game unmute from being re-muted by CG (now, after a reload,
- *  and across devices). Exported so the sync hook and tests share one path. */
+/** Apply a mute that originated from the CrazyGames platform toolbar. Keeps
+ *  the in-game state in sync with the CG chrome toggle (one-way: CG → game,
+ *  since the SDK exposes no setter to push the in-game button back to CG).
+ *  Thin wrapper over `applyMute` so the sync hook and tests share one path. */
 export const applyPlatformMute = (muted: boolean) => {
-  if (hasUserMuteChoice()) return
   applyMute(muted)
 }
 
 export const toggleMute = () => {
-  // Tapping the button is the player taking control — from now on the in-game
-  // state wins and platform-mute events no longer override it.
-  markUserMuteChoice()
   const next = !isMuted.value
   if (next) {
     // Muting: snapshot the current (audible) volumes, then zero them.

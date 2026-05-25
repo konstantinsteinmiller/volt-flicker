@@ -24,7 +24,7 @@
 // survives. The plugin module itself can stay obfuscated — the
 // obfuscator is only harmful for files that *contain* `await import`.
 
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import type { AdProvider } from './types'
 
 export const createGameDistributionProvider = (): AdProvider => {
@@ -33,6 +33,12 @@ export const createGameDistributionProvider = (): AdProvider => {
   // module is loaded (see `init()` below).
   const isReady = ref(false)
   const isAdsBlocked = ref(false)
+  // Per-format fill signals bridged from the plugin. `isRewardedFilled`
+  // tracks the real preload-backed fill (a rewarded creative is cached);
+  // `isCoolingDown` is the post-ad min-gap window during which a too-soon
+  // ad would just hit the SDK's frequency cap.
+  const isRewardedFilled = ref(false)
+  const isCoolingDown = ref(false)
 
   // Cache the plugin module so repeated method calls only pay one
   // dynamic-import round trip. Vite/Rollup also cache module
@@ -48,9 +54,14 @@ export const createGameDistributionProvider = (): AdProvider => {
   return {
     name: 'gameDistribution',
     isReady,
-    // GD SDK has no per-format readiness query; mirror the coarse gate.
-    isRewardedReady: isReady,
-    isInterstitialReady: isReady,
+    // Rewarded readiness is now FILL-backed, not just "SDK booted": the
+    // button only shows when the plugin's preload probe has a cached
+    // creative. This is the fix for "tap watch-ad too fast → silent no-fill,
+    // no reward, no explanation" — no fill, no button.
+    isRewardedReady: computed(() => isReady.value && isRewardedFilled.value && !isCoolingDown.value),
+    // Interstitial gate closes during the post-ad min-gap so we don't pause
+    // gameplay to request an ad the SDK's frequency cap would just skip.
+    isInterstitialReady: computed(() => isReady.value && !isCoolingDown.value),
     isAdsBlocked,
     init: async () => {
       try {
@@ -63,6 +74,12 @@ export const createGameDistributionProvider = (): AdProvider => {
         }, { immediate: true })
         watch(m.isGdAdsBlocked, (v) => {
           isAdsBlocked.value = v
+        }, { immediate: true })
+        watch(m.isGdRewardedFilled, (v) => {
+          isRewardedFilled.value = v
+        }, { immediate: true })
+        watch(m.isGdAdCoolingDown, (v) => {
+          isCoolingDown.value = v
         }, { immediate: true })
       } catch (e) {
         console.warn('[ads/gd] plugin init failed', e)

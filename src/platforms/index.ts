@@ -25,8 +25,9 @@ import { platform as itch } from './itch'
 import { platform as wavedash } from './wavedash'
 import { platform as playgama } from './playgama'
 import { platform as gamepix } from './gamepix'
+import { platform as gamemonetize } from './gamemonetize'
 
-export const ALL_PLATFORMS = [crazygames, gamedistribution, glitch, itch, wavedash, playgama, gamepix] as const
+export const ALL_PLATFORMS = [crazygames, gamedistribution, glitch, itch, wavedash, playgama, gamepix, gamemonetize] as const
 export type ActivePlatform = (typeof ALL_PLATFORMS)[number]
 
 /**

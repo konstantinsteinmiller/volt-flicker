@@ -9,6 +9,7 @@ import useSounds from '@/use/useSound.ts'
 import { stopGameplay } from '@/use/useCrazyGames'
 import { spawnCoinExplosion } from '@/use/useCoinExplosion'
 import { getState, setState } from '@/use/useMawState'
+import { flushSaveNow } from '@/use/useSaveStatus'
 
 const emit = defineEmits<{
   (e: 'coins-awarded', sourceEl: HTMLElement): void
@@ -75,6 +76,9 @@ const claim = (sourceEl: HTMLElement) => {
   state.value.currentDay = (state.value.currentDay + 1) % DAILY_REWARDS.length
   state.value.lastCollected = todayStr()
   saveState(state.value)
+  // Discrete daily-reward claim — flush immediately (the claim + its coins
+  // must survive an instant reload, not ride the coin throttle).
+  void flushSaveNow()
   setTimeout(() => { isModalOpen.value = false }, 700)
 }
 

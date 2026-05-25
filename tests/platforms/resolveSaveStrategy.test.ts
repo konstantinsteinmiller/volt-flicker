@@ -17,6 +17,7 @@ const allOff: PlatformFlags = {
   isItch: false,
   isGlitch: false,
   isGameDistribution: false,
+  isGameMonetize: false,
   isY8: false,
   isGamePix: false
 }
@@ -24,6 +25,7 @@ const allOff: PlatformFlags = {
 const ALL_PLATFORM_ENVS = [
   'VITE_APP_CRAZY_WEB',
   'VITE_APP_GAME_DISTRIBUTION',
+  'VITE_APP_GAME_MONETIZE',
   'VITE_APP_GLITCH'
 ] as const
 
@@ -73,6 +75,13 @@ describe('resolveSaveStrategy', () => {
     const resolveSaveStrategy = await loadResolver()
     const strategy = await resolveSaveStrategy({ ...allOff, isGameDistribution: true })
     expect(strategy.name).toBe('gameDistribution')
+  })
+
+  it('returns GameMonetizeStrategy (local-only) when isGameMonetize env is set', async () => {
+    vi.stubEnv('VITE_APP_GAME_MONETIZE', 'true')
+    const resolveSaveStrategy = await loadResolver()
+    const strategy = await resolveSaveStrategy({ ...allOff, isGameMonetize: true })
+    expect(strategy.name).toBe('gamemonetize')
   })
 
   it('returns GlitchStrategy or LocalStorageStrategy fallback when isGlitch env is set', async () => {

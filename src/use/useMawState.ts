@@ -82,27 +82,45 @@ const persistRaw = (blob: Record<string, unknown>): void => {
 // edge write after PERSIST_DEBOUNCE_MS of quiet, and we hard-flush on
 // `pagehide` so a tab close mid-burst doesn't drop data.
 const PERSIST_DEBOUNCE_MS = 200
+// Hard cap on how long un-persisted changes may sit in the trailing debounce.
+// A pure trailing debounce never fires while a value keeps changing — coins
+// tick up every frame during a long mow, so the 200ms timer resets forever
+// and nothing reaches localStorage (→ cloud) until the player stops. This cap
+// forces a write ~every 2.5s during a continuous stream, which is the
+// throttle the coin path relies on (discrete events bypass it entirely via
+// `flushPersist`/`flushSaveNow`).
+const PERSIST_MAX_WAIT_MS = 2500
 let persistTimer: ReturnType<typeof setTimeout> | null = null
+// Timestamp of the first change in the current un-persisted batch (0 = clean).
+let firstDirtyAt = 0
 
 /** Force the debounced blob write to happen NOW — cancels the pending
  *  timer and writes `maw_state` to localStorage synchronously. Called from
  *  the page-hide handlers below, and (via `useSaveStatus.flushSaveNow`) at
- *  hard checkpoints like a level change so the cloud push starts immediately
- *  instead of waiting out the debounce. */
+ *  hard checkpoints like a level change / upgrade / claim so the cloud push
+ *  starts immediately instead of waiting out the debounce. */
 export const flushPersist = () => {
   if (persistTimer != null) {
     clearTimeout(persistTimer)
     persistTimer = null
   }
+  firstDirtyAt = 0
   persistRaw(mawState.value)
 }
 
 const schedulePersist = () => {
+  const now = Date.now()
+  if (firstDirtyAt === 0) firstDirtyAt = now
   if (persistTimer != null) clearTimeout(persistTimer)
+  // Trailing debounce, but never wait past MAX_WAIT since the batch's first
+  // change — so a continuous stream still flushes ~every 2.5s.
+  const remaining = PERSIST_MAX_WAIT_MS - (now - firstDirtyAt)
+  const delay = Math.max(0, Math.min(PERSIST_DEBOUNCE_MS, remaining))
   persistTimer = setTimeout(() => {
     persistTimer = null
+    firstDirtyAt = 0
     persistRaw(mawState.value)
-  }, PERSIST_DEBOUNCE_MS)
+  }, delay)
 }
 
 if (typeof window !== 'undefined') {

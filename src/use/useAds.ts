@@ -19,7 +19,7 @@
 // GameDistribution because the SDK script is dynamically injected and we
 // don't want to pay that latency on the boot critical path.
 import { computed, ref } from 'vue'
-import { isCrazyWeb, isWaveDash, isItch, isGlitch, isGameDistribution, isPlaygama, isGamepix, isNative, showMediatorAds } from '@/use/useUser'
+import { isCrazyWeb, isWaveDash, isItch, isGlitch, isGameDistribution, isPlaygama, isGamepix, isGameMonetize, isNative, showMediatorAds } from '@/use/useUser'
 import type { AdProvider } from './ads/types'
 import { resolveAdProvider } from '@/platforms/resolveAdProvider'
 import { isRewardedThrottled, recordRewardedGranted } from '@/use/useRewardedThrottle'
@@ -30,7 +30,7 @@ import { isDebug } from '@/use/useMatch'
 import { forceStopMusic } from '@/use/useSound'
 
 const provider: AdProvider = resolveAdProvider({
-  flags: { isCrazyWeb, isWaveDash, isItch, isGlitch, isGameDistribution, isPlaygama, isGamepix },
+  flags: { isCrazyWeb, isWaveDash, isItch, isGlitch, isGameDistribution, isPlaygama, isGamepix, isGameMonetize },
   showMediatorAds,
   isNative
 })
@@ -109,6 +109,7 @@ export const showRewardedAd = async (): Promise<boolean> => {
   // Kill any in-flight one-shot SFX before requesting the ad so nothing tails
   // into it (the ctx-suspend below only freezes Web Audio; an early gate-drop
   // would otherwise let a stray one-shot resume under the ad).
+  forceStopMusic()
   killOneShotSfx()
   dlog(`${TAG} ▶ rewarded START (provider=${provider.name})`)
   isAdShowing.value = true

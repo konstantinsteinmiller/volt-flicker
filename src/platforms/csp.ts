@@ -34,6 +34,10 @@ const BASE_HOSTS: ReadonlyArray<string> = [
   'https://gamepix.com',
   'https://*.gamepix.com',
   'https://integration.gamepix.com',
+  'https://gamemonetize.com',
+  'https://*.gamemonetize.com',
+  'https://api.gamemonetize.com',
+  'https://html5.gamemonetize.com',
   'https://www.clarity.ms',
   'https://api.jsonbin.io'
 ]
@@ -137,10 +141,12 @@ export const buildCsp = (env: Record<string, string>): string => {
   const isCrazyWeb = env.VITE_APP_CRAZY_WEB === 'true'
   const isPlaygama = env.VITE_APP_PLAYGAMA === 'true'
   const isGamepix = env.VITE_APP_GAMEPIX === 'true'
+  const isGameMonetize = env.VITE_APP_GAME_MONETIZE === 'true'
 
-  // Playgama / GamePix run an ad-waterfall like GD — open the same
-  // directives so partner creatives / bidders aren't refused.
-  const adWaterfallBuild = isGameDistribution || isPlaygama || isGamepix
+  // Playgama / GamePix / GameMonetize run an ad-waterfall like GD — open the
+  // same directives so partner creatives / bidders (the Google-IMA bidder
+  // chain) aren't refused.
+  const adWaterfallBuild = isGameDistribution || isPlaygama || isGamepix || isGameMonetize
 
   const hosts: string[] = [
     ...BASE_HOSTS,

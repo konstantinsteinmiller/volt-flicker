@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import IconCoin from '@/components/icons/IconCoin.vue'
+import IconMovie from '@/components/icons/IconMovie.vue'
 import { isRewardedReady, showRewardedAd } from '@/use/useAds'
 import useMawConfig from '@/use/useMawConfig'
 import { getState, setState } from '@/use/useMawState'
@@ -74,17 +75,8 @@ const triggerAdReward = async () => {
       div.relative.rounded-lg.border-2.flex.items-center.justify-center.p-2(
         class="bg-gradient-to-b from-[#ffcd00] to-[#f7a000] border-[#0f1a30]"
       )
-        //- Programmatic "play / movie" icon — sized like the gear / trophy
-        //- siblings.
-        svg(
-          xmlns="http://www.w3.org/2000/svg"
-          class="w-7 h-7"
-          viewBox="0 0 24 24"
-          fill="none"
-        )
-          rect(x="3" y="6" width="14" height="12" rx="1.5" fill="#fff" stroke="#1a2b4b" stroke-width="1.5")
-          path(d="M17 10 L21 7 L21 17 L17 14 Z" fill="#fff" stroke="#1a2b4b" stroke-width="1.5" stroke-linejoin="round")
-          path(d="M9 10 L13 12 L9 14 Z" fill="#1a2b4b")
+        //- Shared "play / movie" icon — sized like the gear / trophy siblings.
+        IconMovie(class="w-7 h-7")
       //- Reward badge — small pill at the top-right corner. Matches the
       //- `pendingClaimCount` and "is-collectable" indicators on the other
       //- bottom-row buttons so the visual language stays consistent.

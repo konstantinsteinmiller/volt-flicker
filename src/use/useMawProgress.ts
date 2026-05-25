@@ -1,5 +1,5 @@
 import { ref, computed, watch, type Ref } from 'vue'
-import { saveDataVersion } from '@/use/useSaveStatus'
+import { saveDataVersion, flushSaveNow } from '@/use/useSaveStatus'
 import { UPGRADES_KEY } from '@/keys'
 import { getState, setState } from '@/use/useMawState'
 
@@ -463,6 +463,10 @@ const claimAchievement = (id: string): number => {
   if (!isAchUnlocked(id) || isAchClaimed(id)) return 0
   ach.value.claimed = [...ach.value.claimed, id]
   persistAch()
+  // Discrete progression event — flush to the cloud immediately rather than
+  // riding the coin throttle (a claimed achievement must survive an instant
+  // reload). The reward coins it grants ride along in the same flush.
+  void flushSaveNow()
   return def.reward
 }
 
@@ -504,6 +508,9 @@ const useMawProgress = () => {
       if (lvl >= def.maxLevel) return false
       state.value.levels = { ...state.value.levels, [id]: lvl + 1 }
       persist()
+      // Buying / receiving an upgrade is a hard checkpoint — flush to the
+      // cloud immediately so it can't be lost to an instant reload.
+      void flushSaveNow()
       return true
     },
 

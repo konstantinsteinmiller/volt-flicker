@@ -40,17 +40,21 @@ describe('useCrazyMuteSync.toggleMute', () => {
     expect(getState(SOUND_KEY)).toBe(DEFAULT_SOUND_VOLUME)
   })
 
-  it('platform mute seeds a first-time player who has not touched the button', async () => {
+  it('CG toolbar mute/unmute stays in sync with the in-game state', async () => {
     const { isMuted, applyPlatformMute } = await import('@/use/useCrazyMuteSync')
-    expect(isMuted.value).toBe(false) // audible defaults, no user choice yet
+    expect(isMuted.value).toBe(false) // audible defaults
 
-    applyPlatformMute(true) // CrazyGames chrome muted
+    applyPlatformMute(true)  // player clicks mute in the CG toolbar
+    expect(isMuted.value).toBe(true) // → in-game button shows muted
 
-    expect(isMuted.value).toBe(true) // platform mute applied (seeds the player)
+    applyPlatformMute(false) // player clicks unmute in the CG toolbar
+    expect(isMuted.value).toBe(false) // → in-game button shows unmuted
   })
 
-  it('in-game button wins: the platform cannot re-mute after the player unmutes', async () => {
-    // Boot muted from a cloud-saved 0/0 (no snapshot) — the reported CG case.
+  it('CG toolbar can STILL mute after the player used the in-game button (regression)', async () => {
+    // Booted muted from a cloud-saved 0/0; player unmutes in-game. The CG
+    // toolbar must remain able to mute afterwards — the persisted "in-game
+    // wins" override used to swallow this event, which broke the sync.
     const { setState } = await import('@/use/useMawState')
     setState(MUSIC_KEY, 0)
     setState(SOUND_KEY, 0)
@@ -58,15 +62,11 @@ describe('useCrazyMuteSync.toggleMute', () => {
     const { isMuted, toggleMute, applyPlatformMute } = await import('@/use/useCrazyMuteSync')
     expect(isMuted.value).toBe(true)
 
-    toggleMute() // player unmutes → takes control + restores defaults
+    toggleMute() // player unmutes in-game
     expect(isMuted.value).toBe(false)
 
-    applyPlatformMute(true) // CrazyGames tries to re-mute…
-    expect(isMuted.value).toBe(false) // …ignored — the in-game choice wins
-
-    // And it persists: a fresh module load (reload) still ignores the platform.
-    const { getState } = await import('@/use/useMawState')
-    expect(getState('spinner_user_mute_overridden')).toBe(true)
+    applyPlatformMute(true) // CG toolbar mute — now syncs again
+    expect(isMuted.value).toBe(true)
   })
 
   it('mute → unmute restores the exact prior volumes via the snapshot', async () => {

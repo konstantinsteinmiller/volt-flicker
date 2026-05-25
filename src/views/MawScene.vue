@@ -36,12 +36,12 @@ import {schedulePreloadOnIdle} from '@/use/useSoundPreload'
 import {useScreenshake} from '@/use/useScreenshake'
 import useUser from '@/use/useUser'
 import useBottomSafe from '@/use/useBottomSafe'
-import {isMobilePortrait, isMobileLandscape} from '@/use/useUser'
+import {isMobilePortrait, isMobileLandscape, isGameDistribution, isGameMonetize} from '@/use/useUser'
 import useCheats from '@/use/useCheats'
 import {spawnCoinExplosion} from '@/use/useCoinExplosion'
 import {stopGameplay, startGameplay, triggerHappytime} from '@/use/useCrazyGames'
 import {gamePixHappyMoment} from '@/utils/gamepixPlugin'
-import {isInterstitialReady, showMidgameAd, isRewardedReady, showRewardedAd} from '@/use/useAds'
+import {isInterstitialReady, showMidgameAd, isRewardedReady, showRewardedAd, isAdsBlocked} from '@/use/useAds'
 import {isGamePaused} from '@/use/useGamePause'
 import {isAnyModalOpen} from '@/use/useModalState'
 import SpeedrunButton from '@/components/organisms/SpeedrunButton.vue'
@@ -69,6 +69,7 @@ import FIconButton from '@/components/atoms/FIconButton.vue'
 import FMuteButton from '@/components/atoms/FMuteButton.vue'
 import FReward from '@/components/atoms/FReward.vue'
 import IconCoin from '@/components/icons/IconCoin.vue'
+import IconMovie from '@/components/icons/IconMovie.vue'
 
 import {
   countdownText,
@@ -580,7 +581,14 @@ const startMeteorIntro = () => {
   })
 }
 
-const beginPlay = async () => {
+// GameDistribution + GameMonetize relocate the interstitial: instead of the
+// attempt-start cadence other builds use, those two portals fire it only when
+// the player clicks "continue" on the win/lose reward screen (see `beginPlay`'s
+// `fromReward` path). The ad plays during the transition into the next attempt,
+// so it never covers the reward screen or live gameplay.
+const isWinLoseScreenAdBuild = isGameDistribution || isGameMonetize
+
+const beginPlay = async (fromReward = false) => {
   // Re-entrancy guard. `beginPlay` can be triggered by the idle-screen
   // click, the auto-fire timeout, the loss-reward "continue" button, AND
   // the post-attempt cadence — drop the call if a run is already mid-flight.
@@ -591,32 +599,55 @@ const beginPlay = async () => {
   ) return
   initGame()
 
-  // Mid-attempt ad cadence: every 3rd attempt we run a midgame ad as its
-  // own phase BEFORE gameplay. The counter bumps on every beginPlay
-  // regardless of platform; the actual ad show is gated on
-  // `isInterstitialReady` so a Noop / blocked / no-fill state silently
-  // falls through.
-  // Additionally, every 5th 'broke' loss fires the ad — see the
-  // breakdown counter wired in the loss watcher. Whichever counter
-  // tripped is reset; the other keeps counting so the two cadences stay
-  // independent (the user gets ads on the union of triggers, not just
-  // one).
-  bumpAdCounter()
-  const triggerByAttempts = battlesSinceAd.value >= 3
-  const triggerByBreakdowns = breakdownsSinceAd.value >= BREAKDOWN_AD_THRESHOLD
-  if (triggerByAttempts || triggerByBreakdowns) {
-    if (triggerByAttempts) resetAdCounter()
-    if (triggerByBreakdowns) resetBreakdownAdCounter()
-    if (isInterstitialReady.value) {
-      phase.value = 'ad_break'
-      try {
-        await showMidgameAd()
-      } catch { /* SDK error → fall through to gameplay */
-      }
-      // If the player navigated away (route change / unmount), the phase
-      // ref will have been reinitialised — bail rather than racing the
-      // next mount's start.
-      if (phase.value !== 'ad_break') return
+  // Interstitial cadence — two placement strategies:
+  //   • GameDistribution + GameMonetize fire the interstitial ONLY when the
+  //     player clicked "continue" on the win/lose reward screen (`fromReward`).
+  //     The ad then plays during the transition into the next attempt — after
+  //     the player has seen and dismissed the reward — in its own `ad_break`
+  //     phase, so it never covers the reward screen or live gameplay.
+  //     SDK-throttled: the ~2-min frequency cap folded into
+  //     `isInterstitialReady` caps it to ~one ad per cooldown window.
+  //   • Every other build keeps the attempt-start cadence: every 3rd attempt
+  //     OR every 5th 'broke' loss (the breakdown counter is bumped in the loss
+  //     watcher). Whichever counter tripped resets; the other keeps counting
+  //     so the two cadences stay independent.
+  let shouldShowAd = false
+  if (isWinLoseScreenAdBuild) {
+    shouldShowAd = fromReward && isInterstitialReady.value
+  } else {
+    bumpAdCounter()
+    const triggerByAttempts = battlesSinceAd.value >= 3
+    const triggerByBreakdowns = breakdownsSinceAd.value >= BREAKDOWN_AD_THRESHOLD
+    if (triggerByAttempts || triggerByBreakdowns) {
+      if (triggerByAttempts) resetAdCounter()
+      if (triggerByBreakdowns) resetBreakdownAdCounter()
+      shouldShowAd = isInterstitialReady.value
+    }
+  }
+  if (shouldShowAd) {
+    phase.value = 'ad_break'
+    try {
+      // The game is held paused for the FULL ad duration: `showMidgameAd`
+      // flips `isAdShowing` (→ `isGamePaused`) synchronously before awaiting,
+      // and both GD + GameMonetize resolve only once the ad CLOSES — so the
+      // render loop's `tick` stays frozen underneath the ad.
+      await showMidgameAd()
+    } catch { /* SDK error → fall through to gameplay */
+    }
+    // If the player navigated away (route change / unmount), the phase
+    // ref will have been reinitialised — bail rather than racing the
+    // next mount's start.
+    if (phase.value !== 'ad_break') return
+    // GameDistribution + GameMonetize: after the post-reward interstitial
+    // closes, drop back to the idle "tap to start" screen instead of
+    // auto-starting the match. The tap that dismissed the ad (or any stray
+    // tap as it closes) would otherwise bleed straight into a live match —
+    // the "unintentional game start after the win/lose screen is gone" the
+    // player reported. `initGame()` above already reset the board, so the
+    // next deliberate tap (idle @click → `beginPlay()`) starts cleanly.
+    if (isWinLoseScreenAdBuild) {
+      phase.value = 'idle'
+      return
     }
   }
   // Meteor shower + 3-2-1 countdown removed from the entry path — they
@@ -716,34 +747,49 @@ const onContinue = async () => {
   // reward CTA (tap / click / Space / Enter on the FReward overlay).
   playSound('reward-continue', 0.08)
   showReward.value = false
-  // Interstitial cadence is now driven from `beginPlay` at attempt start
-  // (every 3rd attempt, in its own `ad_break` phase) — this handler just
-  // dismisses the modal and kicks off the next attempt.
-  beginPlay()
+  // Kick off the next attempt. `fromReward = true` marks this as the
+  // post-reward continue — the only point at which GameDistribution /
+  // GameMonetize fire their interstitial (in the `ad_break` phase, after the
+  // player has dismissed the reward screen). Other builds run their own
+  // attempt-start cadence inside `beginPlay` regardless of this flag.
+  beginPlay(true)
 }
 
-/** Player accepts the watch-ad continue offer. On a granted ad we resume
- *  the run with full life; on a refusal / no-fill we fall through to the
- *  regular loss-reward modal so the death isn't swept under the rug. The
- *  15s cooldown timer is stamped regardless of grant so a quick refusal
- *  can't immediately re-prompt the player. */
+/** Player accepts the watch-ad continue offer. After the ad we revive the run
+ *  with full life (back at the last safe anchor for a splash death). The revive
+ *  is deliberately NOT gated on the strict rewarded-completion grant — see the
+ *  body for why — so only a detected ad-blocker falls through to the regular
+ *  loss-reward modal. The 15s cooldown timer is stamped regardless so a quick
+ *  re-death can't immediately re-prompt the player. */
 const onAcceptContinueAd = async () => {
   if (isAdInFlight.value) return
   isAdInFlight.value = true
   lastContinueOfferAt = Date.now()
+  // Dismiss the prompt BEFORE the ad shows — its full-screen blurred backdrop
+  // (z-[110]) otherwise sits on top of the ad iframe. After the ad we either
+  // resume the run or fall through to the standard loss-reward modal.
+  showContinueOffer.value = false
   try {
     const granted = await showRewardedAd()
-    if (granted) {
+    // Revive the player after the ad. We intentionally do NOT gate this revive
+    // on the strict "watched-to-completion" grant: across portals the rewarded
+    // SDKs report that completion signal unreliably (the completion event races
+    // the show-promise resolution — e.g. GameDistribution's
+    // SDK_REWARDED_WATCH_COMPLETE, GameMonetize's ALL_ADS_COMPLETED), which left
+    // players who actually watched the ad stranded on the loss screen. For this
+    // ephemeral second-chance revive we resume whenever the ad ran and wasn't
+    // blocked; only a detected ad-blocker withholds it (and `showRewardedAd`
+    // surfaces the AdsBlockedModal). Permanent rewards (coins / upgrades / the
+    // rapid-death life offer) keep the strict `granted` gate.
+    if (granted || !isAdsBlocked.value) {
       const resumed = continueAfterDeath()
       if (resumed) {
-        showContinueOffer.value = false
         startBattleMusic()
         return
       }
     }
-    // Ad not granted (skipped / no-fill / blocked) OR continue refused —
-    // fall through to the standard loss-reward modal.
-    showContinueOffer.value = false
+    // Ad-blocked, or the run wasn't in a revivable state — fall through to the
+    // standard loss-reward modal so the death isn't swept under the rug.
     showReward.value = true
   } finally {
     isAdInFlight.value = false
@@ -1337,7 +1383,7 @@ const showStartHint = computed(() =>
         div(
           v-if="phase === 'idle'"
           class="text-center pointer-events-auto cursor-pointer"
-          @click="beginPlay"
+          @click="beginPlay()"
         )
           div.text-white.font-black.uppercase.tracking-wider.animate-pulse.game-text(
             class="text-3xl sm:text-5xl mb-2"
@@ -1510,12 +1556,14 @@ const showStartHint = computed(() =>
           //- Watch-ad path — only offered for broke deaths and only
           //- when the rewarded SDK is ready + the 15s cooldown has
           //- elapsed (eligibility computed by `continueAdAvailable`).
-          button.cursor-pointer.transition-transform(
+          button.cursor-pointer.transition-transform.flex.items-center.justify-center.gap-2(
             v-if="continueAdAvailable"
             class="w-full px-4 py-2 rounded-lg bg-gradient-to-b from-emerald-400 to-emerald-700 border-2 border-emerald-200 text-white font-black uppercase game-text hover:scale-[103%] active:scale-95 disabled:opacity-50 disabled:cursor-wait"
             :disabled="isAdInFlight"
             @click="onAcceptContinueAd"
-          ) ▶ {{ t('maw.watchAdAndContinue') }}
+          )
+            IconMovie(class="w-5 h-5 shrink-0")
+            span {{ t('maw.watchAdAndContinue') }}
           //- Coin-revive path — available for BOTH death types. Splash
           //- deaths use the pre-splash safe anchor in `continueAfterDeath`.
           button.cursor-pointer.transition-transform.flex.items-center.justify-center.gap-2(

@@ -65,6 +65,13 @@ export const resolveSaveStrategy = async (_flags: PlatformFlags): Promise<SaveSt
     const { GamePixStrategy } = await import('@/utils/save/GamePixStrategy')
     return new GamePixStrategy()
   }
+  if (import.meta.env.VITE_APP_GAME_MONETIZE === 'true') {
+    // GameMonetize has no cloud-save / player-data API — local-only. Its own
+    // strategy (rather than LocalStorageStrategy) so SaveManager.strategyName
+    // reports `gamemonetize` in telemetry.
+    const { GameMonetizeStrategy } = await import('@/utils/save/GameMonetizeStrategy')
+    return new GameMonetizeStrategy()
+  }
   const { LocalStorageStrategy } = await import('@/utils/save/LocalStorageStrategy')
   return new LocalStorageStrategy()
 }

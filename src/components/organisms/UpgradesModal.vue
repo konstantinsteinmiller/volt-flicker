@@ -3,6 +3,7 @@ import { computed, ref, watch, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import FModal from '@/components/molecules/FModal.vue'
 import IconCoin from '@/components/icons/IconCoin.vue'
+import IconMovie from '@/components/icons/IconMovie.vue'
 import useMawProgress, { UPGRADES, maxStageReached } from '@/use/useMawProgress'
 import useMawConfig from '@/use/useMawConfig'
 import { stopGameplay } from '@/use/useCrazyGames'
@@ -188,7 +189,7 @@ const onWatchAdForUpgrade = async (id: string) => {
               :title="isAdCooldownActive ? `Available in ${adCooldownSeconds}s` : 'Watch a short ad to upgrade'"
             )
               span(v-if="isAdCooldownActive") {{ adCooldownSeconds }}s
-              span(v-else) {{ t('upgrades.watchAd') }}
+              IconMovie(v-else class="w-5 h-5 mx-auto")
             span.font-black.game-text.text-yellow-300(v-else-if="card.maxed" class="text-xs") {{ t('upgrades.maxedOut') }}
 </template>
 

@@ -35,7 +35,6 @@ export const forceStopMusic = (): void => {
       bgMusic.value.volume = 0
     }
   } catch { /* element gone / not ready */ }
-  console.log('tried pausing music forceStopMusic: ', bgMusic.value, bgMusic.value?.volume)
   isPlaying.value = false
 }
 

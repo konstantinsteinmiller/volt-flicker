@@ -16,7 +16,7 @@
 
 export interface PlatformModule {
   /** Canonical platform identifier — used in logs/telemetry. */
-  readonly id: 'crazygames' | 'gamedistribution' | 'glitch' | 'itch' | 'wavedash' | 'playgama' | 'gamepix'
+  readonly id: 'crazygames' | 'gamedistribution' | 'glitch' | 'itch' | 'wavedash' | 'playgama' | 'gamepix' | 'gamemonetize'
   /** Vite env-var suffix that activates this platform (full name is
    *  `VITE_APP_<envFlag>`). */
   readonly envFlag: string

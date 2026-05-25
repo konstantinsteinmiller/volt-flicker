@@ -82,3 +82,78 @@ describe('flushSaveNow — immediate flush on a hard checkpoint', () => {
     expect(cloudBlob.spinner_coins).toBe(250)
   })
 })
+
+// A short tick that lets a fire-and-forget `void flushSaveNow()` async chain
+// settle WITHOUT advancing far enough to trip the 200ms persist debounce — so
+// anything in the cloud after it got there via the immediate checkpoint flush,
+// not the throttle.
+const settle = () => new Promise((r) => setTimeout(r, 0))
+
+describe('discrete progression events flush to the backend immediately', () => {
+  it('buying an upgrade flushes without waiting for the debounce', async () => {
+    const data = makeFakeData()
+    await bootCloudOnly(data)
+    const { default: useMawProgress } = await import('@/use/useMawProgress')
+    const prog = useMawProgress()
+
+    expect(prog.buyUpgrade('sawDamage')).toBe(true)
+    await settle()
+
+    const blob = JSON.parse(data.store.get(STATE_KEY) || '{}')
+    expect(blob.spinner_upgrades?.levels?.sawDamage).toBe(1)
+  })
+
+  it('claiming an achievement flushes immediately', async () => {
+    const data = makeFakeData()
+    await bootCloudOnly(data)
+    const { default: useMawProgress } = await import('@/use/useMawProgress')
+    const prog = useMawProgress()
+
+    prog.recordMetric('totalGrass', 10) // unlock 'first-cut' (goal 10)
+    expect(prog.claimAchievement('first-cut')).toBe(25)
+    await settle()
+
+    const blob = JSON.parse(data.store.get(STATE_KEY) || '{}')
+    expect(blob.spinner_achievements?.claimed).toContain('first-cut')
+  })
+
+  it('a coin change does NOT flush immediately — it stays throttled', async () => {
+    const data = makeFakeData()
+    await bootCloudOnly(data)
+    const { default: useMawConfig } = await import('@/use/useMawConfig')
+    const { flushSaveNow } = await import('@/use/useSaveStatus')
+    const cfg = useMawConfig()
+
+    cfg.addCoins(123)
+    await settle()
+    // Still on the throttle — nothing reached the cloud within a tick.
+    expect(data.store.get(STATE_KEY)).toBeUndefined()
+
+    // …but a later checkpoint (or the next discrete event) carries it.
+    await flushSaveNow()
+    const blob = JSON.parse(data.store.get(STATE_KEY) || '{}')
+    expect(blob.spinner_coins).toBe(123)
+  })
+})
+
+describe('coin persist throttle — 2.5s max-wait', () => {
+  it('forces a localStorage write within ~2.5s of a continuous change stream', async () => {
+    vi.useFakeTimers()
+    try {
+      const { setState } = await import('@/use/useMawState')
+      // Coins tick every 100ms — faster than the 200ms trailing debounce, so a
+      // pure debounce would never fire. The max-wait must force a write by 2.5s.
+      for (let t = 100; t <= 2000; t += 100) {
+        setState('spinner_coins', t)
+        vi.advanceTimersByTime(100)
+      }
+      expect(window.localStorage.getItem(STATE_KEY)).toBeNull() // not yet (under 2.5s)
+
+      setState('spinner_coins', 2100)
+      vi.advanceTimersByTime(600) // cross the 2.5s cap
+      expect(window.localStorage.getItem(STATE_KEY)).not.toBeNull()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+})
