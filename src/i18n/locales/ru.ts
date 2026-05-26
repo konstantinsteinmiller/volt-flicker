@@ -1,5 +1,5 @@
 export default {
-  'gameName': 'spin & mow',
+  'gameName': 'Spin & Mow',
   'cancel': 'Отмена',
   'close': 'Закрыть',
   'understood': 'Понятно',

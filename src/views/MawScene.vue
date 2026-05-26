@@ -36,7 +36,7 @@ import {schedulePreloadOnIdle} from '@/use/useSoundPreload'
 import {useScreenshake} from '@/use/useScreenshake'
 import useUser from '@/use/useUser'
 import useBottomSafe from '@/use/useBottomSafe'
-import {isMobilePortrait, isMobileLandscape, isGameDistribution, isGameMonetize} from '@/use/useUser'
+import {isMobilePortrait, isMobileLandscape, isGameDistribution, isGameMonetize, isGamepix} from '@/use/useUser'
 import useCheats from '@/use/useCheats'
 import {spawnCoinExplosion} from '@/use/useCoinExplosion'
 import {stopGameplay, startGameplay, triggerHappytime} from '@/use/useCrazyGames'
@@ -581,14 +581,16 @@ const startMeteorIntro = () => {
   })
 }
 
-// GameDistribution + GameMonetize relocate the interstitial: instead of the
-// attempt-start cadence other builds use, those two portals fire it only when
-// the player clicks "continue" on the win/lose reward screen (see `beginPlay`'s
-// `fromReward` path). The ad plays during the transition into the next attempt,
-// so it never covers the reward screen or live gameplay.
-const isWinLoseScreenAdBuild = isGameDistribution || isGameMonetize
+// GameDistribution + GameMonetize + GamePix relocate the interstitial: instead
+// of the attempt-start cadence other builds use, those portals fire it 500ms
+// after the win/lose `FReward` opens (see the `showReward` / `showHeroReward`
+// watchers below), plus once on first load via `FLogoProgress`. The continue
+// tap on the reward modal is intentionally ad-free — portal QA rejected the
+// older "ad on continue" placement because the ad should land on the result
+// screen, not the transition out of it.
+const isWinLoseScreenAdBuild = isGameDistribution || isGameMonetize || isGamepix
 
-const beginPlay = async (fromReward = false) => {
+const beginPlay = async (_fromReward = false) => {
   // Re-entrancy guard. `beginPlay` can be triggered by the idle-screen
   // click, the auto-fire timeout, the loss-reward "continue" button, AND
   // the post-attempt cadence — drop the call if a run is already mid-flight.
@@ -599,22 +601,15 @@ const beginPlay = async (fromReward = false) => {
   ) return
   initGame()
 
-  // Interstitial cadence — two placement strategies:
-  //   • GameDistribution + GameMonetize fire the interstitial ONLY when the
-  //     player clicked "continue" on the win/lose reward screen (`fromReward`).
-  //     The ad then plays during the transition into the next attempt — after
-  //     the player has seen and dismissed the reward — in its own `ad_break`
-  //     phase, so it never covers the reward screen or live gameplay.
-  //     SDK-throttled: the ~2-min frequency cap folded into
-  //     `isInterstitialReady` caps it to ~one ad per cooldown window.
-  //   • Every other build keeps the attempt-start cadence: every 3rd attempt
-  //     OR every 5th 'broke' loss (the breakdown counter is bumped in the loss
-  //     watcher). Whichever counter tripped resets; the other keeps counting
-  //     so the two cadences stay independent.
+  // Interstitial cadence — every build EXCEPT the reward-screen builds
+  // (GameDistribution / GameMonetize / GamePix) uses the attempt-start
+  // cadence: every 3rd attempt OR every 5th 'broke' loss (the breakdown
+  // counter is bumped in the loss watcher). Whichever counter tripped
+  // resets; the other keeps counting so the two cadences stay independent.
+  // The reward-screen builds fire from the `showReward` / `showHeroReward`
+  // watchers below (and once on first load), so they skip this entirely.
   let shouldShowAd = false
-  if (isWinLoseScreenAdBuild) {
-    shouldShowAd = fromReward && isInterstitialReady.value
-  } else {
+  if (!isWinLoseScreenAdBuild) {
     bumpAdCounter()
     const triggerByAttempts = battlesSinceAd.value >= 3
     const triggerByBreakdowns = breakdownsSinceAd.value >= BREAKDOWN_AD_THRESHOLD
@@ -638,17 +633,6 @@ const beginPlay = async (fromReward = false) => {
     // ref will have been reinitialised — bail rather than racing the
     // next mount's start.
     if (phase.value !== 'ad_break') return
-    // GameDistribution + GameMonetize: after the post-reward interstitial
-    // closes, drop back to the idle "tap to start" screen instead of
-    // auto-starting the match. The tap that dismissed the ad (or any stray
-    // tap as it closes) would otherwise bleed straight into a live match —
-    // the "unintentional game start after the win/lose screen is gone" the
-    // player reported. `initGame()` above already reset the board, so the
-    // next deliberate tap (idle @click → `beginPlay()`) starts cleanly.
-    if (isWinLoseScreenAdBuild) {
-      phase.value = 'idle'
-      return
-    }
   }
   // Meteor shower + 3-2-1 countdown removed from the entry path — they
   // were padding game-entry. `startMeteorIntro` / `runCountdown` are
@@ -738,6 +722,33 @@ watch(showReward, (open) => {
   }
 })
 
+// GameDistribution + GameMonetize + GamePix: portal QA requires the
+// interstitial to land ON the win/lose reward screen (not on the player's
+// continue tap, which was the previous placement and got rejected by GD +
+// GameMonetize). 500ms grace keeps the ad from snapping onto the screen the
+// same frame the reward modal opens — the player needs a beat to register
+// the result before the ad covers it. `isInterstitialReady` carries the
+// SDK frequency-cap gate, so back-to-back wins/losses naturally throttle
+// to ~one ad per cooldown window. Covers BOTH the standard per-stage
+// `showReward` AND the end-of-campaign `showHeroReward`. Other builds
+// skip the schedule entirely (their ads run via the attempt-start cadence
+// in `beginPlay`).
+if (isWinLoseScreenAdBuild) {
+  const REWARD_AD_DELAY_MS = 500
+  const scheduleRewardInterstitial = () => {
+    setTimeout(() => {
+      if (!isInterstitialReady.value) return
+      void showMidgameAd()
+    }, REWARD_AD_DELAY_MS)
+  }
+  watch(showReward, (open) => {
+    if (open) scheduleRewardInterstitial()
+  })
+  watch(showHeroReward, (open) => {
+    if (open) scheduleRewardInterstitial()
+  })
+}
+
 watch(stageReinitSignal, () => {
   initGame()
 })
@@ -747,11 +758,11 @@ const onContinue = async () => {
   // reward CTA (tap / click / Space / Enter on the FReward overlay).
   playSound('reward-continue', 0.08)
   showReward.value = false
-  // Kick off the next attempt. `fromReward = true` marks this as the
-  // post-reward continue — the only point at which GameDistribution /
-  // GameMonetize fire their interstitial (in the `ad_break` phase, after the
-  // player has dismissed the reward screen). Other builds run their own
-  // attempt-start cadence inside `beginPlay` regardless of this flag.
+  // Kick off the next attempt. `fromReward = true` is preserved for the
+  // signature even though the GD / GameMonetize interstitial no longer
+  // fires here (portal QA moved it onto the reward-open edge — see the
+  // `showReward` / `showHeroReward` watchers above). Other builds run
+  // their own attempt-start cadence inside `beginPlay`.
   beginPlay(true)
 }
 

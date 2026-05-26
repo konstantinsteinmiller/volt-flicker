@@ -3,7 +3,8 @@
     //- Ensure classes with special characters are in parentheses
     div.fixed.inset-0.flex.flex-col.items-center.justify-center.backdrop-blur-md.p-4.touch-none.cursor-pointer(
       v-if="modelValue"
-      class="z-[100] bg-black/60"
+      class="bg-black/60"
+      :class="isAdShowing ? 'z-0' : 'z-[100]'"
       :style="{\
         paddingTop: 'calc(1rem + env(safe-area-inset-top, 0px))',\
         paddingBottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))',\
@@ -41,6 +42,11 @@
 import { computed, useSlots, watch, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { isMobileLandscape, isMobilePortrait } from '@/use/useUser'
+// Sink the reward overlay below the ad layer whenever an interstitial/rewarded
+// is on screen. GameMonetize (and several other portals) inject their ad
+// container at a z-index lower than this modal's z-[100], so without this the
+// modal — including its backdrop-blur — paints OVER the playing ad.
+import { isAdShowing } from '@/use/useGamePause'
 
 const props = defineProps<{
   modelValue: boolean

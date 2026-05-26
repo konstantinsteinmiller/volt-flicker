@@ -35,6 +35,7 @@ import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import useAssets from '@/use/useAssets'
 import { prependBaseUrl } from '@/utils/function'
 import { stopLoading } from '@/use/useCrazyGames'
+import { armFirstLoadInterstitial, notifySplashGone } from '@/use/useFirstLoadInterstitial'
 
 const logoSrc = prependBaseUrl('images/logo/logo_256x256.webp')
 
@@ -42,6 +43,21 @@ const { loadingProgress, preloadAssets } = useAssets()
 const progress = computed(() => loadingProgress.value)
 
 void preloadAssets()
+
+// First-load interstitial — portal-mandated on GameDistribution +
+// GameMonetize + GamePix ("show ads the first time after the game loads").
+// Arm the orchestrator at setup so the SDK-ready watcher is in place before
+// the splash even fades; `notifySplashGone()` below trips the actual fire.
+// Every env read is a static literal so Rollup DCEs the entire branch (helper
+// module included) on other platform builds — same pattern as the Playgama /
+// GamePix loading signals further down.
+if (
+  import.meta.env.VITE_APP_GAME_DISTRIBUTION === 'true'
+  || import.meta.env.VITE_APP_GAME_MONETIZE === 'true'
+  || import.meta.env.VITE_APP_GAMEPIX === 'true'
+) {
+  armFirstLoadInterstitial()
+}
 
 const done = ref(false)
 const backdropHidden = ref(false)
@@ -151,6 +167,11 @@ watch(done, (isDone) => {
       signalGameReadyToCG()
       signalGameReadyToPlaygama()
       signalGameReadyToGamepix()
+      // Triggers the GD / GameMonetize first-load interstitial (no-op on
+      // other builds — the orchestrator was never armed). Runs alongside
+      // the platform `game_ready` / `gameLoaded` signals so the ad lands
+      // immediately once the splash is gone and the SDK is fillable.
+      notifySplashGone()
     }, 150)
   }
 })
