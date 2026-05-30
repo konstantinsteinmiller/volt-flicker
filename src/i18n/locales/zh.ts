@@ -44,18 +44,29 @@ export default {
     'subtitle': '花费金币永久强化。',
     'level': '等级{n}',
     'maxedOut': '满级',
+    'sellBack': '出售 +{n}',
     'unlocksAtStage': '🔒 关卡 {n}',
     'names': {
       'powerupDuration': '能量增强',
       'magnetRange': '磁铁范围',
       'coinValue': '金币价值',
-      'itemLuck': '幸运箱'
+      'itemLuck': '幸运箱',
+      'dodgeApprentice': '闪避学徒',
+      'rollingBoulder': '滚动巨石'
     },
     'descriptions': {
       'powerupDuration': '所有道具持续更久（每级+0.75秒）。',
       'magnetRange': '金币磁铁范围更大。',
       'coinValue': '每枚金币更值钱。',
-      'itemLuck': '道具箱出现更频繁。'
+      'itemLuck': '道具箱出现更频繁。',
+      'dodgeApprentice': '自动闪避一个致命格子，然后充能（10秒，每级−0.5秒）。',
+      'rollingBoulder': '直接碾过木箱障碍，毫发无伤。'
+    },
+    'secondChance': {
+      'name': '第二次机会',
+      'description': '每局以天使之翼开始 — 抵挡一次撞击或坠落。使用前持续有效。',
+      'active': '已激活',
+      'watch': '免费'
     }
   },
   'battlePass': {
@@ -75,12 +86,26 @@ export default {
     'day': '第{n}天',
     'dayShort': 'D{n}'
   },
-  'en': '英语',
-  'de': '德语',
-  'fr': '法语',
-  'es': '西班牙语',
-  'jp': '日语',
-  'kr': '韩语',
-  'zh': '中文',
-  'ru': '俄语'
+  'skins': {
+    'title': '球皮肤',
+    'subtitle': '花费金币解锁并装备新外观。',
+    'equip': '装备',
+    'equipped': '已装备'
+  },
+  'options': {
+    'title': '选项',
+    'general': '常规',
+    'audio': '音频',
+    'language': '语言',
+    'difficulty': '难度',
+    'soundEffects': '音效',
+    'music': '音乐',
+    'close': '保存并关闭',
+    'difficulties': { 'easy': '简单', 'medium': '中等', 'hard': '困难' },
+    'difficultyHints': {
+      'easy': '移动速度更慢——有更多反应时间。',
+      'medium': '标准平衡节奏。',
+      'hard': '移动速度更快——需要更精准的时机。'
+    }
+  }
 }

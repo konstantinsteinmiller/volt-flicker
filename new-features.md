@@ -5,29 +5,32 @@
 - a grid tile with a trap, the trap is invisible until the player steps on it, then it pushes the player into the current move direction by 2 grid tiles.
 - a grid tile with a spring, that launches the player ball to a random grid tile on the grid forwards when stepped on.
 
-The overall game is fun and challenging.
-But at the current amount of obstacles, the game is too hard for beginners,
-even I cant get past 45 tiles travelled.
-So we need to adjust the game difficulty, especially in the first 5 stages, where player
-don't have skills yet and no upgrades bought.
-Coin magnet upgrade increase 1 tile reach per level up.
-Make the first upgrade level for each upgrade a lot cheaper(50%). 
-Adjust BattlePass and dailyLoginModal rewards to the new gameplay.
-in contrast to spin&mow where coins could be aquired fast with 
-simply playing, the upgrade costs increased rapidly.
-The current player can effectively get max ~40(with 2xRewardButton) on a successful run on stage 1.
+
+Create a rubber band effect for the first 3 stages, so that players that struggle a lot, their tile goal per stage is reduces by 10% per failed attempt, down to a minimum of 50% from
+the original goal. E.g. if a player has lost 4 times on stage 1, he only needs to pass 12 tiles to finish stage 1. This variable does not need to be tracked in localStorage or in sdks, its a session variable that is acceptably deleted on reload.
+
+Read game-design.md and add a short description, a long descripition, and the goal of the game under the appropriate headings.
+the cmarc debug unlock seems not to work, or at least it does not flip/set the debug localStorage property.
+
+Add a SkinModal, that allows to buy different player ball skins for 500 coins each.
+The skins textures are found under [models](public/images/models)
+
+
+create a roadmap(min 15 features/action points) for future features that would increase the Day1 retention, the average playtime, the easy-to-pickup and hard-to-put-down
+metrics, that increase conversion of new players with actionable implementations suggestions. So that I can tackle these features later if I value them benefical.
 
 
 
-Leave the current stage 1 as the test level enterable by using the
-CTRL+ALT+SHIFT+t cheat from src/use/useCheats.ts. Also this level will be our stage 10 when difficulty will ramp up significantly.
+
+##Add a new upgrade as the very last upgrade called "time bubble". 
+This upgrade has only 1 level and grants the ability to roll over 
+the box obstacles without being affected by them as if you had the Push Force pickup.
+This upgrade is a late game upgrade and should cost 10000 coins and not be 
+acquirable with rewarded ads. the hint for this upgrade needs to be precise and short,
+but easily understandable what it provides.
 
 
-Level 1 must be a very easy level to introduce the game mechanics, with only a few obstacles and a short path to the goal(20 tiles to finish level 1).
-From level 2 more obstacles will be added, and the path to the goal will be longer, but the game should still be easy enough for beginners to complete(30 tiles to finish level 2).
-From level 3, the game will be more challenging, with more obstacles and a longer path to the goal, but it should still be possible for beginners to complete with some practice(by this point all currently available types of obstacles are used except for the portal, so boxes, boulders, holes, lava and pyramids)(40 tiles to finish level 3).
-From level 4, the game will be even more challenging,
-with more obstacles and a longer path to the goal, but it should still be possible for beginners to complete with some practice(by this point all currently available types of obstacles are used). Each level adds 10 more tiles to travel to complete it.
-figure out the other levels yourself.
-On stage 1-5 the rolling speed is increasing from 100% to 130% over the length of the stage, so over 20 tiles in stage 1, the rolling speed will increase by 30%, meaning after 10 tiles the rolling speed has increased by 15% overall, etc..
-Also from stage 6+ the rolling speed of the ball should increase up to 66% based on the starting rolling speed.
+
+
+Add a leaderboard to the game with the LeaderboardButton and LeaderboardModal.
+It displays the amount of tries you failed on the current stage. The Leaderboard show

@@ -44,18 +44,29 @@ export default {
     'subtitle': 'Gib Münzen aus, um dich dauerhaft zu verstärken.',
     'level': 'Stufe {n}',
     'maxedOut': 'MAX',
+    'sellBack': 'Verkaufen +{n}',
     'unlocksAtStage': '🔒 Etappe {n}',
     'names': {
       'powerupDuration': 'Power-Boost',
       'magnetRange': 'Magnetreichweite',
       'coinValue': 'Münzwert',
-      'itemLuck': 'Glücksboxen'
+      'itemLuck': 'Glücksboxen',
+      'dodgeApprentice': 'Ausweich-Lehrling',
+      'rollingBoulder': 'Rollender Felsbrocken'
     },
     'descriptions': {
       'powerupDuration': 'Alle Power-ups halten länger (+0,75s pro Stufe).',
       'magnetRange': 'Der Münzmagnet reicht weiter.',
       'coinValue': 'Jede Münze ist mehr wert.',
-      'itemLuck': 'Item-Boxen erscheinen häufiger.'
+      'itemLuck': 'Item-Boxen erscheinen häufiger.',
+      'dodgeApprentice': 'Weicht einem tödlichen Feld automatisch aus, dann Abklingzeit (10s; −0,5s pro Stufe).',
+      'rollingBoulder': 'Rolle unbeschadet direkt durch Kisten-Hindernisse.'
+    },
+    'secondChance': {
+      'name': 'Zweite Chance',
+      'description': 'Starte jeden Lauf mit Engelsflügeln — überlebe einen Crash oder Sturz. Aktiv bis verbraucht.',
+      'active': 'AKTIV',
+      'watch': 'Gratis'
     }
   },
   'battlePass': {
@@ -75,12 +86,26 @@ export default {
     'day': 'Tag {n}',
     'dayShort': 'T{n}'
   },
-  'en': 'Englisch',
-  'de': 'Deutsch',
-  'fr': 'Französisch',
-  'es': 'Spanisch',
-  'jp': 'Japanisch',
-  'kr': 'Koreanisch',
-  'zh': 'Chinesisch',
-  'ru': 'Russisch'
+  'skins': {
+    'title': 'Ball-Skins',
+    'subtitle': 'Gib Münzen aus, um neue Looks freizuschalten und auszurüsten.',
+    'equip': 'Ausrüsten',
+    'equipped': 'Ausgerüstet'
+  },
+  'options': {
+    'title': 'Optionen',
+    'general': 'Allgemein',
+    'audio': 'Audio',
+    'language': 'Sprache',
+    'difficulty': 'Schwierigkeit',
+    'soundEffects': 'Soundeffekte',
+    'music': 'Musik',
+    'close': 'Speichern & Schließen',
+    'difficulties': { 'easy': 'Einfach', 'medium': 'Mittel', 'hard': 'Schwer' },
+    'difficultyHints': {
+      'easy': 'Langsameres Tempo — mehr Zeit zum Reagieren.',
+      'medium': 'Das ausgewogene Standardtempo.',
+      'hard': 'Schnelleres Tempo — präziseres Timing nötig.'
+    }
+  }
 }

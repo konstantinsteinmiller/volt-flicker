@@ -14,6 +14,7 @@ import SaveStatusBanner from '@/components/atoms/SaveStatusBanner.vue'
 import AdsBlockedModal from '@/components/atoms/AdsBlockedModal.vue'
 import VConsoleHideButton from '@/components/atoms/VConsoleHideButton.vue'
 import { useCrazyMuteSync } from '@/use/useCrazyMuteSync'
+import { installDebugUnlock } from '@/use/useCheats'
 import { isCrazyWeb, isWaveDash, isItch, isGlitch, isGameDistribution, isPlaygama, isGamepix, isGameMonetize, isYandex, isNative, orientation } from '@/use/useUser'
 import { glitchLicenseStatus } from '@/use/useGlitchLicense'
 import { resolveCapabilities } from '@/platforms/capabilities'
@@ -24,6 +25,10 @@ const { initMusic, pauseMusic, continueMusic } = useMusic()
 useExtensionGuard()
 const { resourceCache } = useAssets()
 useCrazyMuteSync()
+// Attach the "cmarc" debug-unlock key listener at app boot (App.vue is eager),
+// so typing it anywhere flips debug mode — the lazy game scene used to be the
+// only importer, which tree-shook the listener out of production builds.
+installDebugUnlock()
 
 initMusic()
 

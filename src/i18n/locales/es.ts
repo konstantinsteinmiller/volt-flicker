@@ -44,18 +44,29 @@ export default {
     'subtitle': 'Gasta monedas para potenciarte permanentemente.',
     'level': 'Nv.{n}',
     'maxedOut': 'MÁX',
+    'sellBack': 'Vender +{n}',
     'unlocksAtStage': '🔒 Nivel {n}',
     'names': {
       'powerupDuration': 'Refuerzo',
       'magnetRange': 'Alcance del imán',
       'coinValue': 'Valor de monedas',
-      'itemLuck': 'Cajas de suerte'
+      'itemLuck': 'Cajas de suerte',
+      'dodgeApprentice': 'Aprendiz de Esquiva',
+      'rollingBoulder': 'Roca Rodante'
     },
     'descriptions': {
       'powerupDuration': 'Los potenciadores duran más (+0,75s por nivel).',
       'magnetRange': 'El imán de monedas llega más lejos.',
       'coinValue': 'Cada moneda vale más.',
-      'itemLuck': 'Las cajas de objetos aparecen más a menudo.'
+      'itemLuck': 'Las cajas de objetos aparecen más a menudo.',
+      'dodgeApprentice': 'Esquiva auto una casilla mortal, luego recarga (10s; −0,5s por nivel).',
+      'rollingBoulder': 'Atraviesa las cajas sin sufrir daño.'
+    },
+    'secondChance': {
+      'name': 'Segunda Oportunidad',
+      'description': 'Empieza cada partida con alas de ángel: sobrevive a un choque o caída. Activo hasta usarse.',
+      'active': 'ACTIVO',
+      'watch': 'Gratis'
     }
   },
   'battlePass': {
@@ -75,12 +86,26 @@ export default {
     'day': 'Día {n}',
     'dayShort': 'D{n}'
   },
-  'en': 'Inglés',
-  'de': 'Alemán',
-  'fr': 'Francés',
-  'es': 'Español',
-  'jp': 'Japonés',
-  'kr': 'Coreano',
-  'zh': 'Chino',
-  'ru': 'Ruso'
+  'skins': {
+    'title': 'Aspectos de Bola',
+    'subtitle': 'Gasta monedas para desbloquear y equipar nuevos aspectos.',
+    'equip': 'Equipar',
+    'equipped': 'Equipado'
+  },
+  'options': {
+    'title': 'Opciones',
+    'general': 'General',
+    'audio': 'Audio',
+    'language': 'Idioma',
+    'difficulty': 'Dificultad',
+    'soundEffects': 'Efectos de Sonido',
+    'music': 'Música',
+    'close': 'Guardar y Cerrar',
+    'difficulties': { 'easy': 'Fácil', 'medium': 'Media', 'hard': 'Difícil' },
+    'difficultyHints': {
+      'easy': 'Velocidad más lenta: más tiempo para reaccionar.',
+      'medium': 'El ritmo estándar y equilibrado.',
+      'hard': 'Velocidad mayor: se necesita un tiempo más preciso.'
+    }
+  }
 }

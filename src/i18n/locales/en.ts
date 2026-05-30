@@ -48,18 +48,29 @@ export default {
     'subtitle': 'Spend coins to power up permanently.',
     'level': 'Lv.{n}',
     'maxedOut': 'MAXED',
+    'sellBack': 'Sell +{n}',
     'unlocksAtStage': '🔒 Stage {n}',
     'names': {
       'powerupDuration': 'Power Boost',
       'magnetRange': 'Magnet Range',
       'coinValue': 'Coin Value',
-      'itemLuck': 'Lucky Boxes'
+      'itemLuck': 'Lucky Boxes',
+      'dodgeApprentice': 'Dodge Apprentice',
+      'rollingBoulder': 'Rolling Boulder'
     },
     'descriptions': {
       'powerupDuration': 'All power-ups last longer (+0.75s per level).',
       'magnetRange': 'The Coin Magnet reaches further.',
       'coinValue': 'Each coin you grab is worth more.',
-      'itemLuck': 'Item boxes appear more often.'
+      'itemLuck': 'Item boxes appear more often.',
+      'dodgeApprentice': 'Auto-dodge one deadly tile, then recharge (10s; −0.5s per level).',
+      'rollingBoulder': 'Roll straight through box obstacles, unharmed.'
+    },
+    'secondChance': {
+      'name': 'Second Chance',
+      'description': 'Start each run with angel wings — survive one crash or fall. Active until used.',
+      'active': 'ACTIVE',
+      'watch': 'Free'
     }
   },
   'battlePass': {
@@ -79,12 +90,30 @@ export default {
     'day': 'Day {n}',
     'dayShort': 'D{n}'
   },
-  'en': 'English',
-  'de': 'German',
-  'fr': 'French',
-  'es': 'Spanish',
-  'jp': 'Japanese',
-  'kr': 'Korean',
-  'zh': 'Chinese',
-  'ru': 'Russian'
+  'skins': {
+    'title': 'Ball Skins',
+    'subtitle': 'Spend coins to unlock and equip new looks.',
+    'equip': 'Equip',
+    'equipped': 'Equipped'
+  },
+  'options': {
+    'title': 'Options',
+    'general': 'General',
+    'audio': 'Audio',
+    'language': 'Language',
+    'difficulty': 'Difficulty',
+    'soundEffects': 'Sound Effects',
+    'music': 'Music',
+    'close': 'Save & Close',
+    'difficulties': {
+      'easy': 'Easy',
+      'medium': 'Medium',
+      'hard': 'Hard'
+    },
+    'difficultyHints': {
+      'easy': 'Slower travel speed — more time to react.',
+      'medium': 'The standard, balanced pace.',
+      'hard': 'Faster travel speed — tighter, more precise timing.'
+    }
+  }
 }

@@ -17,11 +17,51 @@ export type Difficulties = (typeof DIFFICULTY)[keyof typeof DIFFICULTY]
 // `locales/`, append the code here.
 export const LANGUAGES: Array<string> = [
   'en',
-  'de',
-  'fr',
-  'es',
-  'jp',
-  'kr',
+  'ar',
   'zh',
-  'ru'
+  'de',
+  'nl',
+  'es',
+  'fr',
+  'hi',
+  'id',
+  'it',
+  'ja',
+  'ko',
+  'kk',
+  'pl',
+  'pt',
+  'ru',
+  'th',
+  'tr',
+  'uk',
+  'uz',
+  'vi'
 ]
+
+// Native name (autonym) for each language, shown in the picker so every option
+// is legible regardless of the active UI language — the standard for language
+// switchers, and it avoids translating 21 language names into 21 languages.
+export const LANGUAGE_AUTONYMS: Record<string, string> = {
+  en: 'English',
+  ar: 'العربية',
+  zh: '中文',
+  de: 'Deutsch',
+  nl: 'Nederlands',
+  es: 'Español',
+  fr: 'Français',
+  hi: 'हिन्दी',
+  id: 'Bahasa Indonesia',
+  it: 'Italiano',
+  ja: '日本語',
+  ko: '한국어',
+  kk: 'Қазақша',
+  pl: 'Polski',
+  pt: 'Português',
+  ru: 'Русский',
+  th: 'ไทย',
+  tr: 'Türkçe',
+  uk: 'Українська',
+  uz: 'Oʻzbekcha',
+  vi: 'Tiếng Việt'
+}

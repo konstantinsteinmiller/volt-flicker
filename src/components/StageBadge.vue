@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { registerChordTap } from '@/use/useVConsole'
+import { isMobilePortrait } from '@/use/useUser'
 
 const { t } = useI18n()
 
@@ -62,8 +63,8 @@ const progress = computed(() => {
       class="pointer-events-none"
     )
     div.relative.flex.items-center.gap-2.rounded-xl.border-2.shadow-lg.overflow-hidden(
-      :class="['bg-gradient-to-b', stageTheme.from, stageTheme.to, stageTheme.border, stageTheme.glow]"
-      class="pl-1.5 pr-3 py-1"
+      :class="['bg-gradient-to-b', stageTheme.from, stageTheme.to, stageTheme.border, stageTheme.glow, isMobilePortrait ? 'pr-2' : 'pr-3']"
+      class="pl-1.5 py-1"
     )
       //- Stage number chip
       div.relative.flex.items-center.justify-center.rounded-lg.border(
@@ -74,9 +75,11 @@ const progress = computed(() => {
           :class="stageTheme.number"
           class="text-sm sm:text-base"
         ) {{ stageId }}
-      //- Label + progress
-      div.flex.flex-col.leading-tight(class="min-w-16")
-        span.font-black.uppercase.tracking-wider.game-text.text-white(
+      //- Label + progress. On mobile portrait the column sizes to the (short)
+      //- label so the badge stays compact; the bar matches that width. On wider
+      //- screens a min width keeps the bar a comfortable length.
+      div.flex.flex-col.leading-tight(:class="isMobilePortrait ? 'min-w-0' : 'min-w-16'")
+        span.font-black.uppercase.tracking-wider.game-text.text-white.whitespace-nowrap(
           class="text-[9px] sm:text-[11px] opacity-90"
         ) {{ t('stage') + ' ' + stageId }}
         //- Slim progress bar toward the stage's clear target.

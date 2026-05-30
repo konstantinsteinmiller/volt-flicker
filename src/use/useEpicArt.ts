@@ -35,10 +35,14 @@ const ITEM_SPARKLE_SRC = 'images/props/item-box-sparkles_256y256.webp'
 const VORTEX_SRC = 'images/props/vortex_256x256.webp'
 const LAVA_SRC = 'images/props/lava_256x256.webp'
 const SPIKE_SRC = 'images/props/spiky-pole_256x256.webp'
+const LIBERTY_CAT_SRC = 'images/props/liberty-cat.webp'
+const BALL_SKIN_SRC = 'images/models/ball-eye-texture.webp'
+const WINGS_SRC = 'images/props/wings_260x108.webp'
 
 const TILE_SRCS = [
   ...FLOOR_VARIANTS, ...SPECIAL_VARIANTS,
-  COIN_SRC, BOX_SRC, BOULDER_SRC, ITEM_BOX_SRC, ITEM_SPARKLE_SRC, VORTEX_SRC, LAVA_SRC, SPIKE_SRC
+  COIN_SRC, BOX_SRC, BOULDER_SRC, ITEM_BOX_SRC, ITEM_SPARKLE_SRC, VORTEX_SRC, LAVA_SRC, SPIKE_SRC, LIBERTY_CAT_SRC,
+  BALL_SKIN_SRC, WINGS_SRC
 ]
 
 const getImg = (src: string): HTMLImageElement => {
@@ -184,11 +188,22 @@ const drawSpriteProp = (ctx: CanvasRenderingContext2D, src: string, x: number, y
 
 /** Iso obstacle — all kinds are bitmap props now. `jitter` (per-cell, ~0.9–1.1)
  *  varies box/boulder size so the field doesn't look uniform. */
+/** Source bitmap backing each obstacle kind (used by both the live renderer and
+ *  the shatter snapshot). */
+const obstacleSrc = (kind: ObstacleKind): string => {
+  if (kind === 'stone') return BOULDER_SRC
+  if (kind === 'pyramid') return SPIKE_SRC
+  if (kind === 'libertyCat') return LIBERTY_CAT_SRC
+  return BOX_SRC // box + wall both use the box art
+}
+
 const drawObstacle = (ctx: CanvasRenderingContext2D, kind: ObstacleKind, x: number, y: number, jitter = 1): void => {
   if (kind === 'box') { drawSpriteProp(ctx, BOX_SRC, x, y, 0.9 * jitter); return }
   if (kind === 'stone') { drawSpriteProp(ctx, BOULDER_SRC, x, y, jitter); return }
   // The old grey procedural block read poorly next to holes — use the box art.
   if (kind === 'wall') { drawSpriteProp(ctx, BOX_SRC, x, y, 1.035 * jitter); return }
+  // Liberty Cat → its own upright sprite (late-game spiky-pole replacement).
+  if (kind === 'libertyCat') { drawSpriteProp(ctx, LIBERTY_CAT_SRC, x, y, 1.0); return }
   // Pyramid → spiky-pole sprite (the bitmap is already upright; just scale to fit).
   drawSpriteProp(ctx, SPIKE_SRC, x, y, 1.0)
 }
@@ -199,22 +214,16 @@ const drawObstacle = (ctx: CanvasRenderingContext2D, kind: ObstacleKind, x: numb
 const drawItemSparkles = (ctx: CanvasRenderingContext2D, x: number, cy: number, base: number, now: number, seed: number): void => {
   const img = getImg(ITEM_SPARKLE_SRC)
   if (!ready(img)) return
-  const N = 6
-  const period = 820
-  for (let i = 0; i < N; i++) {
-    const ph = ((now + i * (period / N) + seed * 137) % period) / period // 0..1 life
-    const fadeIn = Math.min(1, ph / 0.18)               // fast fade-in
-    const fadeOut = ph > 0.55 ? Math.max(0, 1 - (ph - 0.55) / 0.45) : 1
-    const grow = 0.8 + ph * 0.3                          // 0.8 → 1.1
-    const shrink = ph > 0.85 ? 1 - ((ph - 0.85) / 0.15) * 0.1 : 1 // shrink 10% at the end
-    // Spread the sparkles around the box rim so they read clearly against it.
-    const ang = seed * 1.7 + i * (Math.PI * 2 / N) + now / 1400
-    const sx = x + Math.cos(ang) * base * 0.62
-    const sy = cy + Math.sin(ang) * base * 0.42
-    const sz = base * 0.5 * grow * shrink
-    ctx.globalAlpha = fadeIn * fadeOut
-    ctx.drawImage(img, sx - sz / 2, sy - sz / 2, sz, sz)
-  }
+  // The sparkle bitmap is a full overlay that frames the whole box, so draw ONE
+  // copy centred on the box (matching its footprint) and pulse its opacity +
+  // scale for a twinkle. The previous version scattered six tiny copies of the
+  // entire overlay around the rim, which were too small/faint to read at all.
+  const pulse = 0.6 + 0.4 * (0.5 + 0.5 * Math.sin(now / 240 + seed)) // 0.6 → 1.0
+  const breathe = 1.06 + Math.sin(now / 300 + seed * 1.3) * 0.06     // size twinkle
+  const w = base * 1.25 * breathe
+  const h = w * (img.naturalHeight / img.naturalWidth)
+  ctx.globalAlpha = pulse
+  ctx.drawImage(img, x - w / 2, cy - h / 2, w, h)
   ctx.globalAlpha = 1
 }
 
@@ -268,9 +277,10 @@ const drawPortal = (ctx: CanvasRenderingContext2D, x: number, y: number, now: nu
   ctx.translate(x, y)
   ctx.scale(1, geo.tileH / geo.tileW) // lie flat on the ground plane
   ctx.rotate(dir * (now / speed) + phase)
-  // Another 10% smaller (~0.72), plus a breathing pulse between 95% and 100%.
+  // Shrunk another 10% (~0.65) so the swirl art never clips the tile edge,
+  // plus a breathing pulse between 95% and 100%.
   const pulse = 0.975 + Math.sin(now / 480 + seed) * 0.025
-  const s = geo.tileW * 0.72 * pulse
+  const s = geo.tileW * 0.648 * pulse
   ctx.globalAlpha = 0.95
   ctx.drawImage(img, -s / 2, -s / 2, s, s)
   ctx.restore()
@@ -317,46 +327,195 @@ const drawCoinSprite = (ctx: CanvasRenderingContext2D, x: number, y: number, siz
   ctx.globalAlpha = 1
 }
 
-/** White angel wings with a thick black outline, drawn BEHIND the ball, to mark
- *  a banked Second Chance. One feathered wing is built then mirrored. Gently
- *  flaps over time. Programmatic placeholder until real wing art lands. */
+/** Angel-wings sprite drawn BEHIND the ball to mark a banked Second Chance.
+ *  Centred on the ball with a gentle flapping "breath" (vertical squash); draws
+ *  nothing until the bitmap decodes. */
 const drawAngelWings = (ctx: CanvasRenderingContext2D, x: number, cy: number, radius: number, now: number): void => {
-  const flap = Math.sin(now / 260) * 0.12
-  const drawWing = (dir: 1 | -1): void => {
-    ctx.save()
-    ctx.translate(x + dir * radius * 0.55, cy - radius * 0.1)
-    ctx.scale(dir, 1)
-    ctx.rotate(-0.35 + flap)
-    // Wing silhouette: a curved spine with three feather scallops.
-    const u = radius * 1.5
-    ctx.beginPath()
-    ctx.moveTo(0, -u * 0.1)
-    ctx.quadraticCurveTo(u * 0.55, -u * 0.62, u * 1.05, -u * 0.5) // top edge sweep out
-    ctx.quadraticCurveTo(u * 0.78, -u * 0.2, u * 0.95, -u * 0.05) // feather 1
-    ctx.quadraticCurveTo(u * 0.66, u * 0.06, u * 0.82, u * 0.22)  // feather 2
-    ctx.quadraticCurveTo(u * 0.5, u * 0.28, u * 0.6, u * 0.42)    // feather 3
-    ctx.quadraticCurveTo(u * 0.25, u * 0.4, 0, u * 0.2)           // bottom back to root
-    ctx.closePath()
-    ctx.lineJoin = 'round'
-    ctx.strokeStyle = '#000000'
-    ctx.lineWidth = radius * 0.16        // thick black outline
-    ctx.stroke()
-    ctx.fillStyle = '#ffffff'
-    ctx.fill()
-    // Inner feather lines for a touch of definition.
-    ctx.strokeStyle = 'rgba(0,0,0,0.45)'
-    ctx.lineWidth = radius * 0.05
-    ctx.beginPath()
-    ctx.moveTo(u * 0.1, u * 0.02); ctx.quadraticCurveTo(u * 0.5, -u * 0.18, u * 0.92, -u * 0.42)
-    ctx.stroke()
-    ctx.restore()
-  }
-  drawWing(-1)
-  drawWing(1)
+  const img = getImg(WINGS_SRC)
+  if (!ready(img)) return
+  const w = radius * 3.4
+  const h = w * (img.naturalHeight / img.naturalWidth)
+  // Subtle flap: the wings squash/stretch vertically a touch over time.
+  const flap = 1 + Math.sin(now / 240) * 0.08
+  const fh = h * flap
+  ctx.drawImage(img, x - w / 2, cy - fh * 0.5, w, fh)
 }
 
 const POWERUP_COLOR: Record<string, string> = {
   invuln: '#ffd23f', magnet: '#3fa9ff', dodge: '#37e0a0', slowmo: '#b06bff', push: '#ff7a3f'
+}
+
+// ─── 3D rolling-ball renderer ──────────────────────────────────────────────
+//
+// A single ball image is treated as an equirectangular SURFACE texture and
+// sphere-mapped in real time. The trick that sells "real 3D object": the
+// LIGHTING (highlight + terminator) is baked into screen space and stays fixed,
+// while the TEXTURE scrolls around a horizontal axis as the ball travels — so
+// it reads as a solid sphere rolling forward, with no per-skin spritesheets.
+//
+// Per-pixel sphere math (UV + Lambert + specular) is precomputed ONCE into a
+// fixed-resolution LUT; each frame only adds a rolling phase to the longitude,
+// samples the texture, and blits the small buffer scaled to the display size —
+// so cost is constant regardless of how big the ball draws.
+//
+// IMPORTANT: the source should be a FLAT, BORDERLESS, roughly-seamless square
+// texture (just the surface pattern). A painted-on rim/outline or baked
+// highlight will smear across the face as it rolls — the rim + shine here are
+// generated procedurally instead.
+const BALL_LUT_RES = 96            // internal sphere buffer (px); blitted scaled
+const BALL_ROLL_PER_TILE = 1.6     // radians of roll per row travelled
+// How many times the texture wraps around the rolling longitude. 2 = a copy on
+// the FRONT and a copy on the BACK of the sphere (so a motif faces you twice per
+// revolution); 1 = a single image around the whole globe.
+const BALL_TEX_REPEAT = 2
+
+interface BallLut {
+  res: number
+  aBase: Float32Array  // longitude around the (horizontal) roll axis, rad
+  vTex: Float32Array   // latitude → texture v (0..1)
+  shade: Float32Array  // baked ambient+diffuse (0..1)
+  spec: Float32Array   // baked specular white add (0..1)
+  cover: Float32Array  // edge coverage / AA (0..1), 0 outside the disc
+}
+
+// One LUT per (res, roll-axis angle). The iso heading is only ever up-left or
+// up-right, so this caches just a couple of entries for the life of the page.
+const ballLutCache = new Map<string, BallLut>()
+
+const getBallLut = (res: number, rollAngle: number): BallLut => {
+  // Quantise the angle so tiny float drift doesn't spawn extra LUTs.
+  const key = `${res}:${Math.round(rollAngle * 100)}`
+  let lut = ballLutCache.get(key)
+  if (!lut) { lut = buildBallLut(res, rollAngle); ballLutCache.set(key, lut) }
+  return lut
+}
+
+/**
+ * Build the sphere LUT for a given roll-axis tilt. `rollAngle` rotates the axis
+ * the texture spins around so the surface scrolls along the travel direction;
+ * 0 = scroll straight up (roll axis = screen X). The LIGHTING is computed from
+ * the UN-rotated screen normal, so the highlight stays fixed in screen space
+ * while only the texture mapping tilts.
+ */
+const buildBallLut = (res: number, rollAngle = 0): BallLut => {
+  const n = res * res
+  const aBase = new Float32Array(n)
+  const vTex = new Float32Array(n)
+  const shade = new Float32Array(n)
+  const spec = new Float32Array(n)
+  const cover = new Float32Array(n)
+  // Fixed light: top-left, slightly toward the viewer.
+  let Lx = -0.5, Ly = -0.62, Lz = 0.6
+  const ll = Math.hypot(Lx, Ly, Lz); Lx /= ll; Ly /= ll; Lz /= ll
+  const cosA = Math.cos(rollAngle), sinA = Math.sin(rollAngle)
+  const R = res / 2
+  for (let py = 0; py < res; py++) {
+    for (let px = 0; px < res; px++) {
+      const i = py * res + px
+      const nx = (px + 0.5 - R) / R
+      const ny = (py + 0.5 - R) / R
+      const r2 = nx * nx + ny * ny
+      if (r2 > 1) { cover[i] = 0; continue }
+      const nz = Math.sqrt(1 - r2) // surface normal z (toward viewer)
+      // Rotate the screen normal into the roll-axis frame for TEXTURE coords
+      // only. The roll axis lies along (cosA, sinA); the perpendicular drives
+      // the rolling longitude, the along-axis component is the latitude.
+      const rx = nx * cosA + ny * sinA
+      const ry = -nx * sinA + ny * cosA
+      aBase[i] = Math.atan2(ry, nz)
+      vTex[i] = 0.5 - Math.asin(rx < -1 ? -1 : rx > 1 ? 1 : rx) / Math.PI
+      // Lighting uses the untouched screen normal → highlight stays put.
+      const diff = Math.max(0, nx * Lx + ny * Ly + nz * Lz)
+      shade[i] = 0.3 + 0.7 * diff
+      spec[i] = Math.pow(diff, 24) * 0.95
+      const edgePx = (1 - Math.sqrt(r2)) * R
+      cover[i] = edgePx < 1.5 ? Math.max(0, edgePx / 1.5) : 1
+    }
+  }
+  return { res, aBase, vTex, shade, spec, cover }
+}
+
+let ballTex: { w: number; h: number; data: Uint8ClampedArray } | null = null
+// Active ball-skin texture path. Defaults to the historical eye skin; the scene
+// pushes the player's equipped skin via `setBallSkin`, which invalidates the
+// decoded buffer so the next frame re-samples from the new texture.
+let ballSkinSrc = BALL_SKIN_SRC
+
+/** Swap the rolling ball's surface texture. Invalidates the decoded buffer so
+ *  the next `getBallTexture()` re-decodes from `src`. No-op if unchanged. */
+export const setBallSkin = (src: string): void => {
+  if (src === ballSkinSrc) return
+  ballSkinSrc = src
+  ballTex = null
+}
+
+/** Decode the active ball skin to a sampled pixel buffer (cached until the skin
+ *  changes via `setBallSkin`). */
+const getBallTexture = (): { w: number; h: number; data: Uint8ClampedArray } | null => {
+  if (ballTex) return ballTex
+  const img = getImg(ballSkinSrc)
+  if (!ready(img)) return null
+  const tw = 192, th = 192
+  const cv = document.createElement('canvas'); cv.width = tw; cv.height = th
+  const cx = cv.getContext('2d', { willReadFrequently: true })
+  if (!cx) return null
+  cx.drawImage(img, 0, 0, tw, th)
+  try {
+    ballTex = { w: tw, h: th, data: cx.getImageData(0, 0, tw, th).data }
+  } catch { return null } // tainted canvas (won't happen for same-origin assets)
+  return ballTex
+}
+
+let ballOutCanvas: HTMLCanvasElement | null = null
+let ballOutCtx: CanvasRenderingContext2D | null = null
+let ballOutImage: ImageData | null = null
+
+/** Sphere-map + roll the skin into `ctx` at (cx, cy) with display `radius`.
+ *  `phase` is the rolling longitude (rad); `rollAngle` tilts the roll axis so
+ *  the surface scrolls along the travel direction. Returns false (drawing
+ *  nothing) when the skin isn't decoded yet, so the caller can fall back to the
+ *  procedural ball. Treats the sphere as solid (ignores source alpha) so a skin
+ *  with transparent corners still renders a full ball. */
+const drawRollingBall = (ctx: CanvasRenderingContext2D, cx: number, cy: number, radius: number, phase: number, rollAngle = 0): boolean => {
+  const tex = getBallTexture()
+  if (!tex) return false
+  const lut = getBallLut(BALL_LUT_RES, rollAngle)
+  const res = BALL_LUT_RES
+  if (!ballOutCanvas || !ballOutCtx || !ballOutImage) {
+    ballOutCanvas = document.createElement('canvas')
+    ballOutCanvas.width = res; ballOutCanvas.height = res
+    ballOutCtx = ballOutCanvas.getContext('2d')
+    if (!ballOutCtx) return false
+    ballOutImage = ballOutCtx.createImageData(res, res)
+  }
+  const out = ballOutImage.data
+  const { data: src, w: tw, h: th } = tex
+  const inv2pi = 1 / (Math.PI * 2)
+  const n = res * res
+  for (let i = 0; i < n; i++) {
+    const o = i * 4
+    const cov = lut.cover[i]!
+    if (cov <= 0) { out[o + 3] = 0; continue }
+    let u = (lut.aBase[i]! + phase) * inv2pi * BALL_TEX_REPEAT
+    u -= Math.floor(u) // wrap (repeated) longitude 0..1
+    let sx = (u * tw) | 0; if (sx >= tw) sx = tw - 1
+    let sy = (lut.vTex[i]! * th) | 0; if (sy >= th) sy = th - 1
+    const s = (sy * tw + sx) * 4
+    const sh = lut.shade[i]!
+    const sp = lut.spec[i]! * 255
+    out[o] = Math.min(255, src[s]! * sh + sp)
+    out[o + 1] = Math.min(255, src[s + 1]! * sh + sp)
+    out[o + 2] = Math.min(255, src[s + 2]! * sh + sp)
+    out[o + 3] = (cov * 255) | 0
+  }
+  ballOutCtx.putImageData(ballOutImage, 0, 0)
+  ctx.imageSmoothingEnabled = true
+  ctx.drawImage(ballOutCanvas, cx - radius, cy - radius, radius * 2, radius * 2)
+  // Subtle dark rim to seat the silhouette against the floor.
+  ctx.strokeStyle = 'rgba(0,0,0,0.28)'
+  ctx.lineWidth = Math.max(1, radius * 0.06)
+  ctx.beginPath(); ctx.arc(cx, cy, radius - ctx.lineWidth * 0.4, 0, Math.PI * 2); ctx.stroke()
+  return true
 }
 
 const drawBall = (ctx: CanvasRenderingContext2D, x: number, y: number, now: number, dropT = 0): void => {
@@ -374,18 +533,9 @@ const drawBall = (ctx: CanvasRenderingContext2D, x: number, y: number, now: numb
   const pType = activePowerup.value?.type ?? null
   const invuln = pType === 'invuln'
 
-  // Motion trail + aura belong to the rolling ball, not the falling one.
+  // The power-up aura belongs to the rolling ball, not the falling one. (The
+  // green motion-trail ghosts were removed — they clashed with applied skins.)
   if (dropT === 0) {
-    // Motion trail — faint ghosts trailing opposite the heading.
-    const trailDx = -game.dir * geo.halfW * 0.5
-    const trailDy = geo.halfH * 0.5
-    for (let i = 3; i >= 1; i--) {
-      ctx.globalAlpha = 0.10 * i
-      ctx.fillStyle = invuln ? '#fff2a8' : '#7fe6a0'
-      ctx.beginPath(); ctx.arc(x + trailDx * i * 0.6, cy + trailDy * i * 0.3, radius * (1 - i * 0.12), 0, Math.PI * 2); ctx.fill()
-    }
-    ctx.globalAlpha = 1
-
     // Power-up aura ring.
     if (pType) {
       const aura = POWERUP_COLOR[pType] ?? '#ffffff'
@@ -397,9 +547,6 @@ const drawBall = (ctx: CanvasRenderingContext2D, x: number, y: number, now: numb
       ctx.beginPath(); ctx.arc(x, cy, radius * 2 * pulse, 0, Math.PI * 2); ctx.fill()
     }
 
-    // Second Chance held: white angel wings (thick black outline) behind the
-    // ball so the player can see a spare life is banked.
-    if (game.secondChance) drawAngelWings(ctx, x, cy, radius, now)
   }
 
   ctx.save()
@@ -409,20 +556,43 @@ const drawBall = (ctx: CanvasRenderingContext2D, x: number, y: number, now: numb
   ctx.fillStyle = `rgba(0,0,0,${0.28 * (1 - dropT)})`
   ctx.beginPath(); ctx.ellipse(x, y + geo.halfH * 0.15, radius * 0.8, radius * 0.4, 0, 0, Math.PI * 2); ctx.fill()
 
-  // Ball body — radial gradient sphere.
-  const baseHi = invuln ? '#fff6b0' : '#aef5b8'
-  const baseLo = invuln ? '#ffb300' : '#21a84a'
-  const g = ctx.createRadialGradient(x - radius * 0.35, cy - radius * 0.4, radius * 0.15, x, cy, radius)
-  g.addColorStop(0, baseHi)
-  g.addColorStop(1, baseLo)
-  ctx.fillStyle = g
-  ctx.beginPath(); ctx.arc(x, cy, radius, 0, Math.PI * 2); ctx.fill()
-  ctx.lineWidth = 2
-  ctx.strokeStyle = invuln ? '#fff7cf' : '#0d6b2c'
-  ctx.stroke()
-  // Top shine.
-  ctx.fillStyle = 'rgba(255,255,255,0.55)'
-  ctx.beginPath(); ctx.ellipse(x - radius * 0.32, cy - radius * 0.4, radius * 0.28, radius * 0.16, -0.5, 0, Math.PI * 2); ctx.fill()
+  // Ball body — 3D sphere-mapped rolling skin; the roll phase advances with how
+  // far up the field the ball has travelled. Falls back to a procedural gradient
+  // sphere until the skin texture is decoded.
+  const rollPhase = -game.ballR * BALL_ROLL_PER_TILE
+  // Tilt the roll axis so the surface scrolls along the screen-space travel
+  // direction (up-left for dir −1, up-right for dir +1) instead of always north.
+  // The heading projects to a screen delta of (dir·halfW, −halfH).
+  const rollAngle = Math.atan2(game.dir * geo.halfW, geo.halfH)
+  const rolled = drawRollingBall(ctx, x, cy, radius, rollPhase, rollAngle)
+  if (!rolled) {
+    const baseHi = invuln ? '#fff6b0' : '#aef5b8'
+    const baseLo = invuln ? '#ffb300' : '#21a84a'
+    const g = ctx.createRadialGradient(x - radius * 0.35, cy - radius * 0.4, radius * 0.15, x, cy, radius)
+    g.addColorStop(0, baseHi)
+    g.addColorStop(1, baseLo)
+    ctx.fillStyle = g
+    ctx.beginPath(); ctx.arc(x, cy, radius, 0, Math.PI * 2); ctx.fill()
+    ctx.lineWidth = 2
+    ctx.strokeStyle = invuln ? '#fff7cf' : '#0d6b2c'
+    ctx.stroke()
+    // Top shine.
+    ctx.fillStyle = 'rgba(255,255,255,0.55)'
+    ctx.beginPath(); ctx.ellipse(x - radius * 0.32, cy - radius * 0.4, radius * 0.28, radius * 0.16, -0.5, 0, Math.PI * 2); ctx.fill()
+  }
+  // Invuln tint over the rolled skin so the power-up still reads.
+  if (rolled && invuln) {
+    ctx.save()
+    ctx.globalCompositeOperation = 'source-atop'
+    ctx.globalAlpha = 0.35
+    ctx.fillStyle = '#ffd23f'
+    ctx.beginPath(); ctx.arc(x, cy, radius, 0, Math.PI * 2); ctx.fill()
+    ctx.restore()
+  }
+
+  // Second Chance held: angel wings drawn IN FRONT of the ball so a spare life
+  // is clearly visible. (Kept off the drop animation so they don't fall too.)
+  if (game.secondChance && dropT === 0) drawAngelWings(ctx, x, cy, radius, now)
 
   // Invulnerable star sparkles.
   if (invuln && dropT === 0) {
@@ -606,6 +776,176 @@ const drawFx = (ctx: CanvasRenderingContext2D, fx: FxEvent, camOffsetY: number, 
       ctx.globalAlpha = 1
       break
     }
+    case 'shatter': {
+      // Tear the destroyed OBSTACLE sprite into flying pie-wedge shards — the
+      // same per-sprite death language as the ball's death shatter. Fired when an
+      // obstacle is broken by invuln or shoved by the push power-up. Lava is never
+      // destructible, so it never reaches this path.
+      drawObstacleShards(ctx, fx, x, y - geo.tileH * 0.5, now)
+      break
+    }
+  }
+}
+
+// ─── Obstacle shatter (tears a destroyed obstacle sprite into flying wedges) ──
+//
+// Snapshots the obstacle bitmap into an offscreen canvas keyed by kind, then
+// slices it into pie wedges that fly outward, spin, fall and fade — reusing the
+// ball-shatter idea so a smashed box/stone/etc. visibly breaks apart.
+const OBSTACLE_SHARD_COUNT = 9
+const OBSTACLE_SHATTER_MS = 620
+const obstacleSnapshots = new Map<string, HTMLCanvasElement>()
+
+const obstacleSnapshot = (kind: ObstacleKind, size: number): HTMLCanvasElement | null => {
+  // Key by size too so a resize (new tile width) re-renders at the right scale.
+  const key = `${kind}:${size}`
+  const cached = obstacleSnapshots.get(key)
+  if (cached) return cached
+  const cv = document.createElement('canvas')
+  cv.width = size; cv.height = size
+  const cx = cv.getContext('2d')
+  if (!cx) return null
+  // Reuse the live obstacle renderer. `drawObstacle` paints the sprite around a
+  // point `geo.tileH * 0.5` ABOVE the passed (x, y) tile-centre, so offset the
+  // draw origin down by that much to land the sprite at the canvas centre. If
+  // the bitmap isn't decoded yet we skip caching so a later call can retry.
+  if (!ready(getImg(obstacleSrc(kind)))) return null
+  drawObstacle(cx, kind, size / 2, size / 2 + geo.tileH * 0.5)
+  obstacleSnapshots.set(key, cv)
+  return cv
+}
+
+const drawObstacleShards = (ctx: CanvasRenderingContext2D, fx: FxEvent, x: number, y: number, now: number): void => {
+  const kind = fx.obstacle
+  if (!kind) return
+  const t = Math.min(1, (game.clock - fx.bornAt) / OBSTACLE_SHATTER_MS)
+  if (t >= 1) return
+  const size = Math.ceil(geo.tileW) + 6
+  const snap = obstacleSnapshot(kind, size)
+  if (!snap) return
+  const half = size / 2
+  const radius = half
+  const ease = 1 - (1 - t) * (1 - t)
+  // Deterministic per-shard scatter from the fx birth time so it's stable.
+  const seed = fx.bornAt
+  const rnd = (i: number): number => {
+    const v = Math.sin(seed * 0.017 + i * 12.9898) * 43758.5453
+    return v - Math.floor(v)
+  }
+  const N = OBSTACLE_SHARD_COUNT
+  for (let i = 0; i < N; i++) {
+    const a0 = (i / N) * Math.PI * 2
+    const a1 = ((i + 1) / N) * Math.PI * 2
+    const mid = (a0 + a1) / 2
+    const fly = mid + (rnd(i) - 0.5) * 0.5
+    const dist = radius * (1.6 + rnd(i + 9) * 2.2) * ease
+    const px = x + Math.cos(fly) * dist
+    const py = y + Math.sin(fly) * dist * 0.72 + t * t * radius * 1.6 // gravity
+    const scale = 1 - 0.5 * t
+    ctx.save()
+    ctx.globalAlpha = Math.max(0, 1 - t)
+    ctx.translate(px, py)
+    ctx.rotate((rnd(i + 3) - 0.5) * 0.6 + (rnd(i + 5) - 0.5) * 6 * t)
+    ctx.scale(scale, scale)
+    ctx.beginPath()
+    ctx.moveTo(0, 0)
+    ctx.arc(0, 0, radius + 1, a0, a1)
+    ctx.closePath()
+    ctx.clip()
+    ctx.drawImage(snap, -half, -half)
+    ctx.restore()
+  }
+}
+
+// ─── Death shatter (tears the ball image into flying wedges) ────────────────
+//
+// When the ball blows up on an obstacle/lava we snapshot its CURRENT appearance
+// (whatever skin, roll phase + lighting) into an offscreen canvas, then draw it
+// as N pie-wedge shards that fly outward, spin, shrink, and fade — a per-skin
+// death animation with zero spritesheets. Works for any future ball skin.
+const BALL_SHARD_COUNT = 11
+const BALL_SHATTER_MS = 950
+
+interface BallShard { a0: number; a1: number; fly: number; dist: number; rot: number; spin: number }
+interface BallShatter {
+  canvas: HTMLCanvasElement
+  size: number
+  x: number
+  y: number
+  radius: number
+  bornAt: number
+  shards: BallShard[]
+}
+let ballShatter: BallShatter | null = null
+let prevExploded = false
+
+/** Render just the ball body (current skin + roll) centred into an offscreen
+ *  canvas, so it can be sliced into shards. */
+const renderBallSnapshot = (radius: number): HTMLCanvasElement | null => {
+  const size = Math.ceil(radius * 2) + 6
+  const cv = document.createElement('canvas')
+  cv.width = size; cv.height = size
+  const cx = cv.getContext('2d')
+  if (!cx) return null
+  const c = size / 2
+  const rollPhase = -game.ballR * BALL_ROLL_PER_TILE
+  const rollAngle = Math.atan2(game.dir * geo.halfW, geo.halfH)
+  if (!drawRollingBall(cx, c, c, radius, rollPhase, rollAngle)) {
+    // Procedural fallback sphere (skin not decoded yet).
+    const g = cx.createRadialGradient(c - radius * 0.35, c - radius * 0.4, radius * 0.15, c, c, radius)
+    g.addColorStop(0, '#aef5b8'); g.addColorStop(1, '#21a84a')
+    cx.fillStyle = g
+    cx.beginPath(); cx.arc(c, c, radius, 0, Math.PI * 2); cx.fill()
+  }
+  return cv
+}
+
+const spawnBallShatter = (x: number, y: number, radius: number, now: number): void => {
+  const cv = renderBallSnapshot(radius)
+  if (!cv) return
+  const shards: BallShard[] = []
+  const N = BALL_SHARD_COUNT
+  for (let i = 0; i < N; i++) {
+    const a0 = (i / N) * Math.PI * 2
+    const a1 = ((i + 1) / N) * Math.PI * 2
+    const mid = (a0 + a1) / 2
+    shards.push({
+      a0, a1,
+      fly: mid + (Math.random() - 0.5) * 0.5,          // outward, slight jitter
+      dist: radius * (2.2 + Math.random() * 2.6),
+      rot: (Math.random() - 0.5) * 0.6,
+      spin: (Math.random() - 0.5) * 6
+    })
+  }
+  ballShatter = { canvas: cv, size: cv.width, x, y, radius, bornAt: now, shards }
+}
+
+/** Draw the active shatter shards for this frame; clears itself when expired. */
+const drawBallShatter = (ctx: CanvasRenderingContext2D, now: number): void => {
+  if (!ballShatter) return
+  const t = (now - ballShatter.bornAt) / BALL_SHATTER_MS
+  if (t >= 1) { ballShatter = null; return }
+  const ease = 1 - (1 - t) * (1 - t) // easeOut for the outward spread
+  const { canvas, size, x, y, radius, shards } = ballShatter
+  const half = size / 2
+  for (const s of shards) {
+    const dist = s.dist * ease
+    const px = x + Math.cos(s.fly) * dist
+    const py = y + Math.sin(s.fly) * dist * 0.72 + t * t * radius * 1.6 // gravity pull-down
+    const scale = 1 - 0.55 * t                                          // shrink
+    ctx.save()
+    ctx.globalAlpha = Math.max(0, 1 - t)                                // fade
+    ctx.translate(px, py)
+    ctx.rotate(s.rot + s.spin * t)
+    ctx.scale(scale, scale)
+    // Clip to this shard's pie wedge of the original ball disc.
+    ctx.beginPath()
+    ctx.moveTo(0, 0)
+    ctx.arc(0, 0, radius + 1, s.a0, s.a1)
+    ctx.closePath()
+    ctx.clip()
+    ctx.drawImage(canvas, -half, -half)
+    ctx.restore()
   }
 }
 
@@ -659,6 +999,14 @@ export const drawScene = (ctx: CanvasRenderingContext2D, w: number, h: number, n
     }
   }
   const dropT = game.dropping ? Math.min(1, game.dropClock / DROP_MS) : 0
+
+  // The frame the ball blows up on an obstacle/lava: snapshot it and spawn the
+  // tear-apart shards (matches the ball geometry used in `drawBall`).
+  const deathRadius = geo.halfH * 1.05
+  const deathCy = ballPos.y - deathRadius * 0.75
+  if (game.exploded && !prevExploded) spawnBallShatter(ballPos.x, deathCy, deathRadius, now)
+  prevExploded = game.exploded
+
   // Renders the player ball, with the pit-clip applied while it's dropping.
   const paintBall = (): void => {
     if (!game.dropping) { drawBall(ctx, ballPos.x, ballPos.y, now, dropT); return }
@@ -701,6 +1049,9 @@ export const drawScene = (ctx: CanvasRenderingContext2D, w: number, h: number, n
     if (ballIsDrawable) paintBall()
     drawTeleportBlinks(ctx, ballPos.x, ballPos.y - geo.halfH * 1.05 * 0.75, now, slowLeft)
   }
+
+  // Tear-apart shards of the destroyed ball (under the explosion FX).
+  drawBallShatter(ctx, now)
 
   // Pass 3 — FX on top.
   for (const fx of game.fx) drawFx(ctx, fx, camOffsetY, ballPos.x, ballY, now)

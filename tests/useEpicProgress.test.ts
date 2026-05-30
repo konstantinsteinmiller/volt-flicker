@@ -10,11 +10,13 @@ beforeEach(() => {
 })
 
 describe('tilesToClear', () => {
-  it('stage 1 needs 200 tiles, +100 per stage', async () => {
+  it('ramps 20, 40, 55, then +10 per stage', async () => {
     const { tilesToClear } = await import('@/use/useEpicProgress')
-    expect(tilesToClear(1)).toBe(200)
-    expect(tilesToClear(2)).toBe(300)
-    expect(tilesToClear(5)).toBe(600)
+    expect(tilesToClear(1)).toBe(20)
+    expect(tilesToClear(2)).toBe(40)
+    expect(tilesToClear(3)).toBe(55)
+    expect(tilesToClear(4)).toBe(65)
+    expect(tilesToClear(5)).toBe(75)
   })
 })
 
@@ -54,6 +56,8 @@ describe('upgrade economy', () => {
     const { default: useEpicConfig } = await import('@/use/useEpicConfig')
     const api = prog.default()
     useEpicConfig().addCoins(1_000_000)
+    // c0 is the discounted first level (50% off); c1 is full price, so it must
+    // still be greater than the discounted first level.
     const c0 = prog.upgradeCost('magnetRange')
     api.buyUpgrade('magnetRange')
     const c1 = prog.upgradeCost('magnetRange')

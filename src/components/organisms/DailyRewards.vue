@@ -20,7 +20,9 @@ const { t } = useI18n()
 const dailyBtnRef = ref<HTMLElement | null>(null)
 const { playSound } = useSounds()
 
-const DAILY_REWARDS = [50, 100, 150, 250, 400, 700, 1500]
+// Scaled to the new, slower coin economy (~40 coins on a good early run): a
+// daily login is a meaningful boost without trivialising upgrade costs.
+const DAILY_REWARDS = [10, 15, 25, 40, 60, 90, 150]
 const STORAGE_KEY = 'spinner_daily_rewards'
 
 interface DailyState {

@@ -4,6 +4,7 @@ import { useScreenshake } from '@/use/useScreenshake'
 import useEpicProgress, { tilesToClear, upgradedValue } from '@/use/useEpicProgress'
 import useBattlePass from '@/use/useBattlePass'
 import usePowerups, { type PowerupType } from '@/use/usePowerups'
+import { difficultySpeedFactor } from '@/use/useUser'
 
 /**
  * Core game loop for Epicancer.
@@ -24,7 +25,7 @@ export type Phase = 'idle' | 'playing' | 'dead' | 'won'
 export type GameResult = '' | 'win' | 'lose'
 export type LossCause = '' | 'hole' | 'crash'
 
-export type ObstacleKind = 'box' | 'pyramid' | 'stone' | 'wall'
+export type ObstacleKind = 'box' | 'pyramid' | 'stone' | 'wall' | 'libertyCat'
 export type CellKind = 'floor' | 'hole' | 'obstacle' | 'coin' | 'item' | 'portal' | 'lava'
 
 export interface Cell {
@@ -37,11 +38,13 @@ export interface Cell {
 }
 
 export interface FxEvent {
-  kind: 'coin' | 'pop' | 'push' | 'item' | 'sparkle' | 'explode' | 'portal'
+  kind: 'coin' | 'pop' | 'push' | 'item' | 'sparkle' | 'explode' | 'portal' | 'shatter'
   c: number
   r: number
   bornAt: number
   color?: string
+  /** For the 'shatter' kind: which obstacle sprite to tear into shards. */
+  obstacle?: ObstacleKind
 }
 
 // ─── Tunables ───────────────────────────────────────────────────────────────
@@ -51,10 +54,15 @@ export const C_MAX = 10
 const GEN_AHEAD = 22
 const CULL_BEHIND = 6
 
-const BASE_SPEED = 2.7          // diamonds / second at run start
-const SPEED_RAMP = 0.05         // +diamonds/sec per second survived
-const MAX_SPEED = 7.5
-const STAGE_SPEED_BONUS = 0.35  // extra base speed per stage
+const BASE_SPEED = 2.5          // diamonds / second at the START of a stage
+const MAX_SPEED = 8
+const STAGE_SPEED_BONUS = 0.18  // extra starting speed per stage
+
+// Within-stage acceleration: the ball speeds up as the player nears the goal.
+// Stages 1-5 ramp a gentle +30% over the whole stage (beginner-friendly);
+// stage 6+ ramp a steeper +66%.
+const EARLY_STAGE_RAMP = 0.30
+const LATE_STAGE_RAMP = 0.66
 
 const START_RUNWAY = 7          // rows of guaranteed-safe floor at the start
 const SMALL_OBSTACLES: ObstacleKind[] = ['box', 'stone']
@@ -62,6 +70,25 @@ const SMALL_OBSTACLES: ObstacleKind[] = ['box', 'stone']
 /** How long (ms) the ball spends sinking into a hole before death registers.
  *  Read by the renderer to drive the drop visual. */
 export const DROP_MS = 420
+
+// ─── Rubber-band difficulty (session-only) ──────────────────────────────────
+//
+// Strugglers on the first three stages get a gentler goal: each FAILED attempt
+// on a stage shaves 10% off that stage's tile target, down to a 50% floor. So a
+// player who has lost 4 times on stage 1 only needs 12 tiles (20 × 0.6) to clear
+// it. Kept in a module-level Map that is intentionally NOT persisted to
+// localStorage/SDK — it resets on reload, which is acceptable.
+const RUBBER_BAND_STAGES = 3
+const stageFailCounts = new Map<number, number>()
+
+/** Effective tile goal for a stage, applying the first-3-stages rubber band. */
+const rubberBandedTarget = (stage: number): number => {
+  const base = tilesToClear(stage)
+  if (stage > RUBBER_BAND_STAGES) return base
+  const fails = stageFailCounts.get(stage) ?? 0
+  const factor = Math.max(0.5, 1 - 0.1 * fails) // −10%/fail, floor 50%
+  return Math.max(1, Math.round(base * factor))
+}
 
 const cellKey = (c: number, r: number): string => `${c},${r}`
 const isSmall = (o: ObstacleKind | undefined): boolean => !!o && SMALL_OBSTACLES.includes(o)
@@ -104,7 +131,10 @@ export const game = {
   // still kill the player.
   secondChance: false,
   // game-clock ms until which the ball blinks (opacity) after spending a chance.
-  secondChanceBlinkUntil: 0
+  secondChanceBlinkUntil: 0,
+  // Dodge Apprentice cooldown gate: game-clock ms at/after which a dodge is
+  // available again. 0 = ready (each run starts with one charge).
+  dodgeReadyAt: 0
 }
 
 /** Duration (ms) of the post-teleport orientation slow-motion. */
@@ -126,23 +156,63 @@ const stageTarget: Ref<number> = ref(tilesToClear(1))
 const survivalMs: Ref<number> = ref(0)
 
 const useEpicGame = () => {
-  const { playSound } = useSounds()
+  const { playSound, playRandomVariant } = useSounds()
   const { triggerShake } = useScreenshake()
   const progress = useEpicProgress()
   const { awardAttempt } = useBattlePass()
   const powerups = usePowerups()
 
-  const emitFx = (kind: FxEvent['kind'], c: number, r: number, color?: string): void => {
-    game.fx.push({ kind, c, r, bornAt: game.clock, color })
+  const emitFx = (kind: FxEvent['kind'], c: number, r: number, color?: string, obstacle?: ObstacleKind): void => {
+    game.fx.push({ kind, c, r, bornAt: game.clock, color, obstacle })
     // Keep the fx list bounded.
     if (game.fx.length > 80) game.fx.splice(0, game.fx.length - 80)
   }
 
+  // Throttle the coin-pickup SFX so a magnet sweep / dense coin run doesn't
+  // machine-gun overlapping clips. 150ms min spacing between plays.
+  let lastCoinSoundAt = -Infinity
+  const playCoinSound = (): void => {
+    if (game.clock - lastCoinSoundAt < 150) return
+    lastCoinSoundAt = game.clock
+    playSound('coin-pickup', 0.05, 1 + (Math.random() - 0.5) * 0.1)
+  }
+
+  /** Cooldown (ms) of the Dodge Apprentice passive at a given level: 10s at
+   *  level 1, −0.5s per level (max level 10 → 5.5s). */
+  const dodgeCooldownMs = (level: number): number => Math.max(0, 10 - (level - 1) * 0.5) * 1000
+
+  /** An obstacle the ball can barrel through instead of dying on:
+   *  • the Push Force power-up clears small obstacles (box + stone), and
+   *  • the permanent Rolling Boulder upgrade lets it roll through boxes.
+   *  Both award coins and shatter the prop (see the obstacle handling below). */
+  const isPassableObstacle = (o: ObstacleKind | undefined): boolean =>
+    (powerups.isActive('push') && isSmall(o)) ||
+    (progress.levelOf('rollingBoulder') > 0 && o === 'box')
+
   // ─── Procedural generation ────────────────────────────────────────────────
 
+  // Hazard density ramps from very sparse (stage 1, a gentle tutorial) up to the
+  // original "stage 1" density at stage 10 — the difficulty test level reachable
+  // via the CTRL+SHIFT+ALT+T cheat — then keeps creeping up, capped.
   const stageHazardChance = (): number => {
-    const stageBonus = (progress.stage.value - 1) * 0.015
-    return Math.min(0.42, 0.18 + stageBonus + (game.speed - BASE_SPEED) * 0.012)
+    const stage = progress.stage.value
+    if (stage <= 10) return 0.05 + (stage - 1) * ((0.18 - 0.05) / 9)
+    return Math.min(0.42, 0.18 + (stage - 10) * 0.012)
+  }
+
+  /** Hazard types unlocked per stage. Stage 1 introduces only boxes; holes join
+   *  at stage 2; boulders/lava/spikes at stage 3 (all but the portal); the wall
+   *  block at stage 4. The teleport portal is gated separately (stage 4+). */
+  const hazardPool = (stage: number): Array<{ kind: CellKind; obstacle?: ObstacleKind }> => {
+    const pool: Array<{ kind: CellKind; obstacle?: ObstacleKind }> = [{ kind: 'obstacle', obstacle: 'box' }]
+    if (stage >= 2) pool.push({ kind: 'hole' })
+    if (stage >= 3) {
+      pool.push({ kind: 'obstacle', obstacle: 'stone' })
+      pool.push({ kind: 'lava' })
+      pool.push({ kind: 'obstacle', obstacle: 'pyramid' })
+    }
+    if (stage >= 4) pool.push({ kind: 'obstacle', obstacle: 'wall' })
+    return pool
   }
 
   /** Generate one row `r` of diamonds (valid `c` share parity with `r`). The
@@ -150,7 +220,10 @@ const useEpicGame = () => {
    *  has at least one safe up-neighbour, so the run is always solvable. */
   const genRow = (r: number): void => {
     const safeRunway = r > -START_RUNWAY
+    const stage = progress.stage.value
     const pHazard = stageHazardChance()
+    const pool = hazardPool(stage)
+    const portalsAllowed = stage >= 4
     const cols: number[] = []
     for (let c = 0; c <= C_MAX; c++) {
       if (((c + r) & 1) === 0) cols.push(c)
@@ -160,21 +233,16 @@ const useEpicGame = () => {
       let kind: CellKind = 'floor'
       let obstacle: ObstacleKind | undefined
       if (!safeRunway && !prevHazard && Math.random() < pHazard) {
-        // Hazard: hole, lava, or obstacle.
-        const hr = Math.random()
-        if (hr < 0.34) {
-          kind = 'hole'
-        } else if (hr < 0.5) {
-          kind = 'lava'
-        } else {
-          kind = 'obstacle'
-          const roll = Math.random()
-          obstacle = roll < 0.4 ? 'box' : roll < 0.7 ? 'stone' : roll < 0.88 ? 'pyramid' : 'wall'
-        }
+        // Hazard drawn from the stage's unlocked pool.
+        const pick = pool[Math.floor(Math.random() * pool.length)]!
+        kind = pick.kind
+        obstacle = pick.obstacle
+        // Late game (stage 10+): half the spiky-poles become Liberty Cats.
+        if (obstacle === 'pyramid' && stage >= 10 && Math.random() < 0.5) obstacle = 'libertyCat'
         prevHazard = true
       } else {
         prevHazard = false
-        if (!safeRunway && Math.random() < 0.045) {
+        if (!safeRunway && portalsAllowed && Math.random() < 0.045) {
           kind = 'portal'
         } else if (!safeRunway && Math.random() < 0.2) {
           kind = 'coin'
@@ -239,9 +307,14 @@ const useEpicGame = () => {
     }
     const tr = game.cell.r - 1
 
-    // Dodge Master: if the chosen diamond is deadly, swing to the other
-    // neighbour when it's safe (and in-bounds).
-    if (powerups.isActive('dodge')) {
+    // Auto-dodge: if the chosen diamond is deadly, swing to the other neighbour
+    // when it's safe (and in-bounds). Two sources can power a dodge —
+    //   • the timed Dodge-Master power-up (free, always dodges while active), and
+    //   • the permanent Dodge Apprentice upgrade (cooldown-gated; consumes a
+    //     charge per dodge, recharging faster at higher levels).
+    const apprenticeLevel = progress.levelOf('dodgeApprentice')
+    const apprenticeReady = apprenticeLevel > 0 && game.clock >= game.dodgeReadyAt
+    if (powerups.isActive('dodge') || apprenticeReady) {
       const chosen = game.cells.get(cellKey(tc, tr))
       if (isDeadlyKind(chosen)) {
         const altC = game.cell.c - game.dir
@@ -249,6 +322,12 @@ const useEpicGame = () => {
           game.dir = (-game.dir) as 1 | -1
           game.nextDir = game.dir
           tc = altC
+          // Only the apprentice pays a cooldown — the power-up dodge is free.
+          if (!powerups.isActive('dodge')) {
+            game.dodgeReadyAt = game.clock + dodgeCooldownMs(apprenticeLevel)
+          }
+          emitFx('sparkle', altC, tr, '#37e0a0')
+          playSound('dodge', 0.05)
         }
       }
     }
@@ -276,7 +355,7 @@ const useEpicGame = () => {
     // Slow time for a beat so the player can find where they landed.
     game.teleportSlowUntil = game.clock + TELEPORT_SLOW_MS
     emitFx('portal', destC, destR, '#9a6bff')
-    playSound('level-up', 0.05)
+    playSound('gravity', 0.06)
   }
 
   const onEnterCell = (c: number, r: number): void => {
@@ -315,27 +394,29 @@ const useEpicGame = () => {
     if (cell.kind === 'lava') {
       if (invuln) { emitFx('sparkle', c, r, '#ffd23f'); return }
       if (surviveWithSecondChance(c, r)) return
-      emitFx('explode', c, r, '#ff7a1f')
       game.exploded = true
       die('crash')
       return
     }
     if (cell.kind === 'obstacle') {
       if (invuln) {
+        // Tear the obstacle apart (matches the ball's death-shatter language).
+        emitFx('shatter', c, r, undefined, cell.obstacle)
         emitFx('pop', c, r, '#ffd23f')
         game.cells.delete(cellKey(c, r))
         awardInstantCoins(c, r, 3)
+        playSound('shrapnel', 0.06)
         return
       }
-      if (powerups.isActive('push') && isSmall(cell.obstacle)) {
+      if (isPassableObstacle(cell.obstacle)) {
+        emitFx('shatter', c, r, undefined, cell.obstacle)
         emitFx('push', c, r, '#ff7a3f')
         game.cells.delete(cellKey(c, r))
         awardInstantCoins(c, r, 3)
-        playSound('barricade', 0.05)
+        playSound('shrapnel', 0.06)
         return
       }
       if (surviveWithSecondChance(c, r)) return
-      emitFx('explode', c, r, '#ff6a2a')
       game.exploded = true
       die('crash')
     }
@@ -347,6 +428,9 @@ const useEpicGame = () => {
   const surviveWithSecondChance = (c: number, r: number): boolean => {
     if (!game.secondChance) return false
     game.secondChance = false
+    // Clear the sticky pre-bought flag too: the shield is spent, so the player
+    // must purchase another before it arms a future run.
+    progress.consumeStartSecondChance()
     game.secondChanceBlinkUntil = game.clock + SECOND_CHANCE_BLINK_MS
     for (const [dc, dr] of [[0, 0], [-1, -1], [1, -1]] as const) {
       game.cells.delete(cellKey(c + dc, r + dr))
@@ -362,7 +446,7 @@ const useEpicGame = () => {
   const awardInstantCoins = (c: number, r: number, n: number): void => {
     coinsThisRun.value += n
     for (let i = 0; i < n; i++) emitFx('coin', c, r, '#ffd23f')
-    playSound('coin-pickup', 0.05, 1 + (Math.random() - 0.5) * 0.1)
+    playCoinSound()
   }
 
   const collectCoin = (cell: Cell): void => {
@@ -374,7 +458,7 @@ const useEpicGame = () => {
     coinsThisRun.value += value
     emitFx('coin', cell.c, cell.r, '#ffd23f')
     game.cells.delete(cellKey(cell.c, cell.r))
-    playSound('coin-pickup', 0.05, 1 + (Math.random() - 0.5) * 0.1)
+    playCoinSound()
   }
 
   const grantItem = (cell: Cell): void => {
@@ -396,7 +480,7 @@ const useEpicGame = () => {
   /** Coin Magnet: pull in nearby coins each frame. */
   const runMagnet = (): void => {
     if (!powerups.isActive('magnet')) return
-    const range = 2.5 * upgradedValue('magnetRange')
+    const range = upgradedValue('magnetRange') // pickup reach in tiles
     const r2 = range * range
     for (const cell of game.cells.values()) {
       if (cell.kind !== 'coin' || cell.collected) continue
@@ -428,8 +512,11 @@ const useEpicGame = () => {
     game.dropClock = 0
     game.exploded = false
     game.teleportSlowUntil = 0
-    game.secondChance = false
+    // A pre-bought Second Chance arms the run: start with the shield (and its
+    // angel wings) held. It persists across runs until one is actually spent.
+    game.secondChance = progress.startSecondChance.value
     game.secondChanceBlinkUntil = 0
+    game.dodgeReadyAt = 0 // every run starts with one Dodge Apprentice charge ready
     powerups.clear()
     score.value = 0
     coinsThisRun.value = 0
@@ -437,7 +524,7 @@ const useEpicGame = () => {
     gameResult.value = ''
     lossCause.value = ''
     survivalMs.value = 0
-    stageTarget.value = tilesToClear(progress.stage.value)
+    stageTarget.value = rubberBandedTarget(progress.stage.value)
     game.phase = 'idle'
     phase.value = 'idle'
     retarget()
@@ -467,6 +554,8 @@ const useEpicGame = () => {
     game.dropping = true
     game.dropClock = 0
     game.progress = 0
+    // Falling into a hole — the gravity "drop" cue (same as the portal pull).
+    playSound('gravity', 0.06)
   }
 
   const die = (cause: LossCause): void => {
@@ -475,12 +564,20 @@ const useEpicGame = () => {
     phase.value = 'dead'
     gameResult.value = 'lose'
     lossCause.value = cause
+    // Rubber band: record this failed attempt so the next try at an early stage
+    // gets a slightly lower tile goal (struggling-player assist; session-only).
+    if (progress.stage.value <= RUBBER_BAND_STAGES) {
+      const s = progress.stage.value
+      stageFailCounts.set(s, (stageFailCounts.get(s) ?? 0) + 1)
+    }
     survivalMs.value = game.clock - game.runStartClock
-    // Hole death gets a blue splash; crashes are carried by the explosion FX
-    // emitted at the collision site (no more red collision dots).
-    if (cause === 'hole') emitFx('pop', game.cell.c, game.cell.r, '#1b3e95')
+    // No collision FX: a hole death plays the ball's sink animation, a crash
+    // plays the tear-apart (ball-shatter) animation — both stand on their own.
     triggerShake('big')
-    playSound(cause === 'hole' ? 'celebration-1' : 'chainsaw-break', 0.08)
+    // Hole death gets the soft "fell in" chime; an obstacle crash tears the
+    // ball apart — fire a random plastic-torn variant so repeated deaths vary.
+    if (cause === 'hole') playSound('celebration-1', 0.08)
+    else playRandomVariant('plastic-torn', 2, 0.09)
     progress.recordScore(score.value)
   }
 
@@ -497,6 +594,7 @@ const useEpicGame = () => {
     game.exploded = false
     game.teleportSlowUntil = 0
     game.secondChanceBlinkUntil = 0
+    game.dodgeReadyAt = 0 // refresh the dodge charge on revive
     game.phase = 'playing'
     phase.value = 'playing'
     gameResult.value = ''
@@ -547,9 +645,16 @@ const useEpicGame = () => {
 
     powerups.update(game.clock)
 
-    // Speed ramp (+ slow-motion).
-    const elapsed = (game.clock - game.runStartClock) / 1000
-    let speed = Math.min(MAX_SPEED, BASE_SPEED + (progress.stage.value - 1) * STAGE_SPEED_BONUS + elapsed * SPEED_RAMP)
+    // Speed: a per-stage starting speed that accelerates as the player nears the
+    // goal (fraction of the stage's tile target travelled). Stages 1-5 ramp a
+    // gentle +30%; stage 6+ ramp +66%.
+    const stage = progress.stage.value
+    const startSpeed = BASE_SPEED + (stage - 1) * STAGE_SPEED_BONUS
+    const frac = Math.min(1, Math.max(0, score.value / Math.max(1, stageTarget.value)))
+    const rampMax = stage <= 5 ? EARLY_STAGE_RAMP : LATE_STAGE_RAMP
+    let speed = Math.min(MAX_SPEED, startSpeed * (1 + rampMax * frac))
+    // Difficulty: Easy −20% (more reaction time), Medium ×1, Hard +10%.
+    speed *= difficultySpeedFactor()
     if (powerups.isActive('slowmo')) speed *= 0.5
     if (game.clock < game.teleportSlowUntil) speed *= TELEPORT_SLOW_FACTOR
     game.speed = speed
@@ -563,7 +668,7 @@ const useEpicGame = () => {
     const tcell = game.cells.get(cellKey(game.target.c, game.target.r))
     const lethalObstacle = tcell?.kind === 'obstacle'
       && !powerups.isActive('invuln')
-      && !(powerups.isActive('push') && isSmall(tcell.obstacle))
+      && !isPassableObstacle(tcell.obstacle)
     if (lethalObstacle && game.progress >= 0.5) {
       // A held Second Chance clears the obstacle and lets the ball roll on;
       // otherwise it blows up at the midpoint of the hop.
@@ -571,7 +676,6 @@ const useEpicGame = () => {
         game.progress = 0.5
         game.ballC = game.cell.c + (game.target.c - game.cell.c) * 0.5
         game.ballR = game.cell.r + (game.target.r - game.cell.r) * 0.5
-        emitFx('explode', game.ballC, game.ballR, '#ff6a2a')
         game.exploded = true
         die('crash')
         return

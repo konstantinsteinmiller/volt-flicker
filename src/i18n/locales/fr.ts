@@ -44,18 +44,29 @@ export default {
     'subtitle': 'Dépensez des pièces pour vous renforcer définitivement.',
     'level': 'Niv.{n}',
     'maxedOut': 'MAX',
+    'sellBack': 'Vendre +{n}',
     'unlocksAtStage': '🔒 Niveau {n}',
     'names': {
       'powerupDuration': 'Boost de pouvoir',
       'magnetRange': "Portée de l'aimant",
       'coinValue': 'Valeur des pièces',
-      'itemLuck': 'Boîtes chanceuses'
+      'itemLuck': 'Boîtes chanceuses',
+      'dodgeApprentice': 'Apprenti Esquive',
+      'rollingBoulder': 'Rocher Roulant'
     },
     'descriptions': {
       'powerupDuration': 'Tous les bonus durent plus longtemps (+0,75s par niveau).',
       'magnetRange': "L'aimant à pièces a une portée accrue.",
       'coinValue': 'Chaque pièce vaut plus.',
-      'itemLuck': 'Les boîtes apparaissent plus souvent.'
+      'itemLuck': 'Les boîtes apparaissent plus souvent.',
+      'dodgeApprentice': "Esquive auto une case mortelle, puis recharge (10s ; −0,5s par niveau).",
+      'rollingBoulder': 'Traversez les caisses sans dommage.'
+    },
+    'secondChance': {
+      'name': 'Seconde Chance',
+      'description': "Commencez chaque partie avec des ailes d'ange — survivez à un choc ou une chute. Actif jusqu'à utilisation.",
+      'active': 'ACTIF',
+      'watch': 'Gratuit'
     }
   },
   'battlePass': {
@@ -75,12 +86,26 @@ export default {
     'day': 'Jour {n}',
     'dayShort': 'J{n}'
   },
-  'en': 'Anglais',
-  'de': 'Allemand',
-  'fr': 'Français',
-  'es': 'Espagnol',
-  'jp': 'Japonais',
-  'kr': 'Coréen',
-  'zh': 'Chinois',
-  'ru': 'Russe'
+  'skins': {
+    'title': 'Skins de Balle',
+    'subtitle': 'Dépensez des pièces pour débloquer et équiper de nouveaux looks.',
+    'equip': 'Équiper',
+    'equipped': 'Équipé'
+  },
+  'options': {
+    'title': 'Options',
+    'general': 'Général',
+    'audio': 'Audio',
+    'language': 'Langue',
+    'difficulty': 'Difficulté',
+    'soundEffects': 'Effets Sonores',
+    'music': 'Musique',
+    'close': 'Sauvegarder et Fermer',
+    'difficulties': { 'easy': 'Facile', 'medium': 'Moyen', 'hard': 'Difficile' },
+    'difficultyHints': {
+      'easy': 'Vitesse réduite — plus de temps pour réagir.',
+      'medium': 'Le rythme équilibré par défaut.',
+      'hard': 'Vitesse accrue — timing plus précis requis.'
+    }
+  }
 }

@@ -1,21 +1,27 @@
 import { ref, computed, watch, type Ref, type ComputedRef } from 'vue'
 import { saveDataVersion, flushSaveNow } from '@/use/useSaveStatus'
 import { getState, setState, epicancerState } from '@/use/useEpicState'
-import { STAGE_KEY, BEST_SCORE_KEY, UPGRADES_KEY } from '@/keys'
+import { STAGE_KEY, BEST_SCORE_KEY, UPGRADES_KEY, START_SECOND_CHANCE_KEY } from '@/keys'
 import useEpicConfig from '@/use/useEpicConfig'
 
 // ─── Stage / progression model ──────────────────────────────────────────────
 //
-// Stage 1 clears at 200 tiles; each subsequent stage needs +100 more
-// (300, 400, …). Reaching the target = a win; the player advances to the next
+// Stage 1 is a short, gentle tutorial (20 tiles); stage 2 jumps to 40 and
+// stage 3 to 55, after which every subsequent stage adds +10 tiles
+// (65, 75, …). Reaching the target = a win; the player advances to the next
 // stage on their next run. Stage, best score, lifetime games and max-stage all
 // live as fields inside the single `epicancer_state` blob.
 
 const GAMES_PLAYED_KEY = 'epic_games_played'
 const MAX_STAGE_KEY = 'epic_max_stage'
 
-/** Tiles required to clear a given stage. */
-export const tilesToClear = (stage: number): number => 200 + (Math.max(1, stage) - 1) * 100
+/** Tiles required to clear a given stage: 20, 40, 55, 65, 75, … */
+export const tilesToClear = (stage: number): number => {
+  const s = Math.max(1, stage)
+  if (s === 1) return 20
+  if (s === 2) return 40
+  return 55 + (s - 3) * 10
+}
 
 // ─── Upgrade catalogue ────────────────────────────────────────────────────
 //
@@ -33,19 +39,42 @@ export interface UpgradeDef {
   unlockStage: number
 }
 
+// Costs are tuned for the new, slower coin economy (~40 coins on a good early
+// run): modest bases and a gentle growth curve, with the FIRST level of every
+// upgrade discounted 50% (see `upgradeCost`) so a brand-new player can afford a
+// meaningful first boost after a run or two.
 export const UPGRADES: ReadonlyArray<UpgradeDef> = [
   // +0.75s to EVERY power-up's duration per level.
-  { id: 'powerupDuration', maxLevel: 6, base: 0, perLevel: 0.75, costBase: 150, costGrowth: 1.55, unlockStage: 1 },
-  // Coin-magnet pickup radius multiplier (+0.25× per level over the base 1×).
-  { id: 'magnetRange', maxLevel: 5, base: 1, perLevel: 0.25, costBase: 200, costGrowth: 1.6, unlockStage: 1 },
+  { id: 'powerupDuration', maxLevel: 6, base: 0, perLevel: 0.75, costBase: 80, costGrowth: 1.4, unlockStage: 1 },
+  // Coin-magnet pickup reach in TILES (base 2.5 tiles, +1 tile per level).
+  { id: 'magnetRange', maxLevel: 5, base: 2.5, perLevel: 1, costBase: 100, costGrowth: 1.4, unlockStage: 1 },
   // Coins earned per pickup (base 1, +1 per level).
-  { id: 'coinValue', maxLevel: 5, base: 1, perLevel: 1, costBase: 250, costGrowth: 1.7, unlockStage: 2 },
+  { id: 'coinValue', maxLevel: 5, base: 1, perLevel: 1, costBase: 120, costGrowth: 1.45, unlockStage: 2 },
   // Item-box frequency: lower spacing → more boxes. Stored as "boxes-per-100
   // tiles" bonus; consumed by the spawn director. Base 0, +1 per level.
-  { id: 'itemLuck', maxLevel: 5, base: 0, perLevel: 1, costBase: 300, costGrowth: 1.7, unlockStage: 3 }
+  { id: 'itemLuck', maxLevel: 5, base: 0, perLevel: 1, costBase: 150, costGrowth: 1.45, unlockStage: 3 },
+  // Dodge Apprentice: a cooldown-gated auto-dodge. The stored value is the
+  // cooldown in seconds (10s at level 1, −0.5s per level → 5.5s at level 10).
+  // Consumed by useEpicGame's `dodgeCooldownMs`; `base/perLevel` are unused for
+  // gameplay reads but kept so `upgradedValue` stays well-defined. This upgrade
+  // is the only sellable one (see `sellUpgrade`).
+  { id: 'dodgeApprentice', maxLevel: 10, base: 10, perLevel: -0.5, costBase: 140, costGrowth: 1.4, unlockStage: 2 },
+  // Rolling Boulder: a single-level, late-game capstone. Once owned, the ball
+  // rolls straight through BOX obstacles unharmed (like a permanent Push Force,
+  // boxes only). Coin-only — never offered via a rewarded ad. costGrowth is
+  // irrelevant at maxLevel 1.
+  { id: 'rollingBoulder', maxLevel: 1, base: 0, perLevel: 1, costBase: 10000, costGrowth: 1, unlockStage: 8 }
 ] as const
 
+/** Upgrades the player can sell back (downgrade) for a partial coin refund. */
+export const SELLABLE_UPGRADES: ReadonlyArray<string> = ['dodgeApprentice']
+/** Fraction of the paid price returned when selling one level back. */
+export const SELL_REFUND_RATE = 0.75
+
 interface UpgradeState { levels: Record<string, number> }
+
+/** Coin price of one pre-bought Second Chance (alternative to a rewarded ad). */
+export const SECOND_CHANCE_COST = 200
 
 const readNumber = (key: string, fallback: number): number => {
   const v = getState<unknown>(key)
@@ -68,11 +97,18 @@ const loadUpgrades = (): UpgradeState => {
   return { levels }
 }
 
+const readBool = (key: string, fallback: boolean): boolean => {
+  const v = getState<unknown>(key)
+  return typeof v === 'boolean' ? v : fallback
+}
+
 const stage: Ref<number> = ref(Math.max(1, readNumber(STAGE_KEY, 1)))
 const bestScore: Ref<number> = ref(readNumber(BEST_SCORE_KEY, 0))
 const gamesPlayed: Ref<number> = ref(readNumber(GAMES_PLAYED_KEY, 0))
 const maxStage: Ref<number> = ref(Math.max(1, readNumber(MAX_STAGE_KEY, stage.value)))
 const upgrades: Ref<UpgradeState> = ref(loadUpgrades())
+// Sticky pre-bought Second Chance; true once purchased, cleared when consumed.
+const startSecondChance: Ref<boolean> = ref(readBool(START_SECOND_CHANCE_KEY, false))
 
 const refresh = (): void => {
   stage.value = Math.max(1, readNumber(STAGE_KEY, stage.value))
@@ -80,6 +116,7 @@ const refresh = (): void => {
   gamesPlayed.value = readNumber(GAMES_PLAYED_KEY, gamesPlayed.value)
   maxStage.value = Math.max(1, readNumber(MAX_STAGE_KEY, maxStage.value))
   upgrades.value = loadUpgrades()
+  startSecondChance.value = readBool(START_SECOND_CHANCE_KEY, startSecondChance.value)
 }
 watch(saveDataVersion, refresh)
 watch(epicancerState, refresh, { deep: false })
@@ -100,18 +137,36 @@ export const upgradedValue = (id: string): number => {
   return def.base + levelOf(id) * def.perLevel
 }
 
+/** Raw coin price to buy the level `lvl → lvl+1` (before rounding). The first
+ *  level (0 → 1) of a MULTI-level upgrade is half-price (an easy first boost for
+ *  new players); single-level capstones (e.g. Rolling Boulder) pay full price. */
+const rawLevelCost = (def: UpgradeDef, lvl: number): number => {
+  const raw = def.costBase * Math.pow(def.costGrowth, lvl)
+  return lvl === 0 && def.maxLevel > 1 ? raw * 0.5 : raw
+}
+
 export const upgradeCost = (id: string): number => {
   const def = UPGRADES.find((u) => u.id === id)
   if (!def) return Infinity
   const lvl = levelOf(id)
   if (lvl >= def.maxLevel) return Infinity
-  return Math.round(def.costBase * Math.pow(def.costGrowth, lvl))
+  return Math.round(rawLevelCost(def, lvl))
+}
+
+/** Coins refunded for selling the current top level back (75% of what it cost
+ *  to buy). Returns 0 when there's nothing to sell or the upgrade isn't sellable. */
+export const sellRefund = (id: string): number => {
+  const def = UPGRADES.find((u) => u.id === id)
+  if (!def || !SELLABLE_UPGRADES.includes(id)) return 0
+  const lvl = levelOf(id)
+  if (lvl <= 0) return 0
+  return Math.round(rawLevelCost(def, lvl - 1) * SELL_REFUND_RATE)
 }
 
 const persistUpgrades = (): void => setState(UPGRADES_KEY, upgrades.value)
 
 export default function useEpicProgress() {
-  const { coins, spendCoins } = useEpicConfig()
+  const { coins, spendCoins, addCoins } = useEpicConfig()
 
   const isUnlocked = (id: string): boolean => {
     const def = UPGRADES.find((u) => u.id === id)
@@ -136,6 +191,47 @@ export default function useEpicProgress() {
     persistUpgrades()
     void flushSaveNow()
     return true
+  }
+
+  /** Whether one level of `id` can be sold back right now. */
+  const canSell = (id: string): boolean =>
+    SELLABLE_UPGRADES.includes(id) && levelOf(id) > 0
+
+  /** Sell one level of a sellable upgrade back for a partial refund. */
+  const sellUpgrade = (id: string): boolean => {
+    if (!canSell(id)) return false
+    const refund = sellRefund(id)
+    const next: UpgradeState = { levels: { ...upgrades.value.levels } }
+    next.levels[id] = levelOf(id) - 1
+    upgrades.value = next
+    persistUpgrades()
+    addCoins(refund)
+    void flushSaveNow()
+    return true
+  }
+
+  /** Arm the sticky pre-bought Second Chance (idempotent). Persists at once. */
+  const armStartSecondChance = (): void => {
+    if (startSecondChance.value) return
+    startSecondChance.value = true
+    setState(START_SECOND_CHANCE_KEY, true)
+    void flushSaveNow()
+  }
+
+  /** Buy one Second Chance for coins. Fails if already armed or short on coins. */
+  const buyStartSecondChance = (): boolean => {
+    if (startSecondChance.value) return false
+    if (!spendCoins(SECOND_CHANCE_COST)) return false
+    armStartSecondChance()
+    return true
+  }
+
+  /** Spend the armed Second Chance (called when the run's shield is consumed). */
+  const consumeStartSecondChance = (): void => {
+    if (!startSecondChance.value) return
+    startSecondChance.value = false
+    setState(START_SECOND_CHANCE_KEY, false)
+    void flushSaveNow()
   }
 
   /** Advance to the next stage (on a win). Persists immediately. */
@@ -171,10 +267,17 @@ export default function useEpicProgress() {
     maxStage,
     upgrades,
     coins,
+    startSecondChance,
     tilesToClear,
     isUnlocked,
     canBuy,
     buyUpgrade,
+    canSell,
+    sellUpgrade,
+    sellRefund,
+    armStartSecondChance,
+    buyStartSecondChance,
+    consumeStartSecondChance,
     advanceStage,
     recordGamePlayed,
     recordScore,

@@ -4,9 +4,11 @@ import { useI18n } from 'vue-i18n'
 
 import useEpicGame from '@/use/useEpicGame'
 import useEpicConfig from '@/use/useEpicConfig'
-import { drawScene, configureGeometry } from '@/use/useEpicArt'
+import { drawScene, configureGeometry, setBallSkin } from '@/use/useEpicArt'
 import { powerupFraction } from '@/use/usePowerups'
 import useEpicProgress from '@/use/useEpicProgress'
+import { selectedSkinSrc } from '@/use/useEpicSkins'
+import { prependBaseUrl } from '@/utils/function'
 import useBattlePass from '@/use/useBattlePass'
 import { useMusic } from '@/use/useSound'
 import useSounds from '@/use/useSound'
@@ -32,6 +34,7 @@ import AdRewardButton from '@/components/organisms/AdRewardButton.vue'
 import BattlePass from '@/components/organisms/BattlePass.vue'
 import OptionsModal from '@/components/organisms/OptionsModal.vue'
 import EpicUpgradesModal from '@/components/organisms/EpicUpgradesModal.vue'
+import SkinModal from '@/components/organisms/SkinModal.vue'
 import IconCoin from '@/components/icons/IconCoin.vue'
 import IconMovie from '@/components/icons/IconMovie.vue'
 
@@ -100,6 +103,7 @@ const onKey = (e: KeyboardEvent): void => {
 // ─── HUD state ──────────────────────────────────────────────────────────────
 const showOptions = ref(false)
 const showUpgrades = ref(false)
+const showSkins = ref(false)
 const showResult = ref(false)
 const showSecondChance = ref(false)
 const isAdInFlight = ref(false)
@@ -167,12 +171,15 @@ const presentLoseScreen = async (): Promise<void> => {
   twoXUsed.value = false
   showResult.value = true
   void grantRunCoins()
-  // 500ms after the lose screen shows: mute + request interstitial, then resume.
+  // Game-Over sting as the lose screen appears (distinct from the crash SFX).
+  playSound('lose', 0.08)
+  // Keep the bg music silent for the whole result screen — it resumes only when
+  // the player continues (onResultContinue). 500ms in, request the interstitial.
+  stopBattleMusic()
   await wait(500)
   if (isInterstitialReady.value) {
     await showMidgameAd()
   }
-  startBattleMusic()
 }
 
 const onWin = async (): Promise<void> => {
@@ -180,6 +187,9 @@ const onWin = async (): Promise<void> => {
   twoXUsed.value = false
   showResult.value = true
   void grantRunCoins()
+  // Silence the bg music while the win screen is up (celebration SFX still play).
+  stopBattleMusic()
+  playSound('happy', 0.08)
   playSound('celebration-3', 0.08)
 }
 
@@ -235,6 +245,11 @@ watch(phase, (p, prev) => {
   if (p === 'dead' && prev === 'playing') void onDeath()
   if (p === 'won' && prev === 'playing') void onWin()
 })
+
+// Push the equipped ball skin to the renderer now and whenever it changes
+// (buying/equipping in the SkinModal). `setBallSkin` invalidates the decoded
+// texture so the next frame re-samples from the new skin.
+watch(selectedSkinSrc, (src) => setBallSkin(prependBaseUrl(src)), { immediate: true })
 
 // ─── Lifecycle ──────────────────────────────────────────────────────────────
 onMounted(() => {
@@ -359,6 +374,19 @@ onUnmounted(() => {
             )
               svg(viewBox="0 0 24 24" class="w-7 h-7 text-white" fill="currentColor")
                 path(d="M4 14 L12 6 L20 14 H15 V20 H9 V14 Z" stroke="black" stroke-width="0.8")
+        //- Skins shop
+        button.cursor-pointer.transition-transform(
+          class="hover:scale-[103%] active:scale-90"
+          @click="showSkins = true"
+        )
+          div.relative
+            div.absolute.inset-0.translate-y-1.rounded-lg(class="bg-[#102e7a]")
+            div.relative.rounded-lg.border-2.flex.items-center.justify-center.p-2(
+              class="bg-gradient-to-b from-[#50aaff] to-[#2266ff] border-[#0f1a30]"
+            )
+              //- T-shirt / wardrobe glyph for the cosmetics shop.
+              svg(viewBox="0 0 24 24" class="w-7 h-7 text-white" fill="currentColor")
+                path(d="M8 3 L5 6 L3 9 L6 11 L7 10 V20 H17 V10 L18 11 L21 9 L19 6 L16 3 L14 5 a2.2 2.2 0 0 1 -4 0 Z" stroke="black" stroke-width="0.8")
 
     //- Second-chance overlay (watch ad & continue / skip)
     Transition(name="fade")
@@ -427,6 +455,7 @@ onUnmounted(() => {
 
     OptionsModal(:is-open="showOptions" @close="showOptions = false")
     EpicUpgradesModal(v-model="showUpgrades")
+    SkinModal(v-model="showSkins")
 </template>
 
 <style scoped lang="sass">

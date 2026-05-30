@@ -15,10 +15,20 @@ const isCheat = ref<boolean>(JSON.parse(storedCheat))
 //
 // Sits OUTSIDE the `useCheats` factory so it works even when the regular
 // cheat module is gated off — flipping `isDebug` is itself the entry point
-// to dev tooling (editor button, perf meter, etc.). Module-level effect:
-// runs once when this file is first imported by the gameplay tree.
-const installDebugUnlock = () => {
-  if (typeof window === 'undefined') return
+// to dev tooling (editor button, perf meter, etc.).
+//
+// Exported + idempotent so a boot-time caller (App.vue setup) can guarantee
+// it installs at app start. The old module-level `installDebugUnlock()` call
+// only ran when this file's side-effects were retained — but App.vue's bare
+// `import useCheats` is tree-shaken in production (the default export is never
+// called there), and the only other importer is the LAZY game scene, so on a
+// built bundle the sequence listener wasn't attached until the player was
+// already in-game (and never at all if they typed it on the menu). Calling
+// the exported initialiser from executed setup code can't be tree-shaken.
+let debugUnlockInstalled = false
+export const installDebugUnlock = (): void => {
+  if (typeof window === 'undefined' || debugUnlockInstalled) return
+  debugUnlockInstalled = true
   const target = 'cmarc'
   let buf = ''
   const isTypingTarget = (el: EventTarget | null): boolean => {
@@ -41,6 +51,9 @@ const installDebugUnlock = () => {
     }
   })
 }
+// Best-effort module-level install for dev (vite serve keeps side-effects);
+// App.vue also calls installDebugUnlock() in setup so production builds — where
+// this bare side-effect can be tree-shaken — still attach the listener at boot.
 installDebugUnlock()
 
 const useCheats = () => {
@@ -77,10 +90,8 @@ const useCheats = () => {
     'ctrl+shift+alt+3': () => setStage(13),
     'ctrl+shift+alt+4': () => setStage(14),
     'ctrl+shift+alt+k': () => addCoins(3000),
-    'ctrl+shift+alt+t': () => {
-      setState('spinner_chest_last_collected_at', 0)
-      console.warn('[CHEAT] Chest cooldown reset.')
-    }
+    // Jump to the stage-10 difficulty test level (the old, dense "stage 1").
+    'ctrl+shift+alt+t': () => setStage(10)
   }
 
   const heldKeys = new Set<string>()

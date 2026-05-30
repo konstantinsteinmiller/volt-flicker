@@ -1,45 +1,57 @@
-# Sound Design TODO
+# Sound TODO — Epicancer
 
-Goal: add tactile, satisfying juice. Soft, layered, never disturbing — every sound under -12 dB by default, short attack & decay so they don't overlap into noise during grass-mowing bursts.
+Audit of in-game moments vs. the SFX actually triggered in code
+(`grep playSound|playRandomVariant` across `src/`). The project already ships a
+large `.ogg` library, so most gaps can be filled by *wiring an existing file*
+rather than recording a new one.
 
-## Gameplay
+> Note: this file previously held the legacy *spin&mow* sound design notes
+> (chain-loop / grass-cut / mow-a-hero). Those were obsolete for Epicancer and
+> were replaced by this audit — recover them from git history if still needed.
 
-- **chain-loop** — low whirring saw-chain idle, loops while `phase === 'playing'`. -24 dB.
-- **grass-cut** — quick high-pitched swish/pluck (≈ 80 ms). Pitch-randomised ±2 semitones per call so a 20-blade burst feels organic, not machinegun.
-- **stump-cut** — wet wood crack (≈ 220 ms).
-- **boulder-cut** — sharp stone shatter with a low rumble tail (≈ 350 ms).
-- **crystal-cut** — bright glass-chime shatter (≈ 400 ms).
-- **obstacle-hit-blocked** — metallic clank when the chain bounces off without cutting; signals "no cut yet, buy the upgrade".
-- **anchor-swap** — short mechanical kachunk on every gear swap (≈ 90 ms).
-- **coin-pickup** — clean coin ding on `addCoins` (distinct from the existing `reward-continue` jingle). Pitch-laddered upward when 5+ coins arrive in quick succession (escalation).
-- **splash-death** — water plop when the anchor lands over water.
-- **break-down-death** — descending metallic thud when life hits 0.
-- **pole-reqs-met** — subtle one-shot chime the first frame `reqsMet` flips true so the player notices the win is available.
-- **pole-touch-win** — short triumphant flourish on stage-clear.
-- **moving-island-creak** — very faint timber creak loop on visible moving platforms, pitched to the platform's motion period.
+## ✅ Already covered (for reference)
 
-## UI
+| Moment | File |
+| --- | --- |
+| Flip roll direction | `anchor-swap` |
+| Coin pickup (throttled 150ms) | `coin-pickup` |
+| Item-box pickup | `level-up` |
+| Enter vortex / portal | `gravity` |
+| Push-destroy a small obstacle | `barricade` |
+| Spend Second Chance | `barricade` |
+| Crash death | `plastic-torn-1/2` (random) |
+| Hole death | `celebration-1` |
+| Stage clear / win | `celebration-2` + `happy` + `celebration-3` |
+| Upgrade buy | `level-up` |
+| Upgrade sell-back | `coin-pickup` |
+| Modal open | `modal-open` |
 
-- **button-tap** — confirmation pop on every HUD button (`upgrade`, `+1`/`-1` chain, achievements, etc.).
-- **modal-open** / **modal-close** — short whoosh in / out.
-- **upgrade-buy** — ascending power-up arpeggio.
-- **watch-ad-success** — same as `upgrade-buy` with a small reverb tail to differentiate.
-- **hint-pop** — soft chime when the click-to-move or scroll hint fades in.
-- **spotlight-stinger** — brief dramatic chord on first show of the Sharper-Saw spotlight.
+## 🔧 Wired this pass (files existed, events were silent)
 
-## Achievements & Meta
+| Moment | File now used |
+| --- | --- |
+| Auto-dodge (Dodge Apprentice / Dodge power-up swing) | `dodge` *(the file you just added)* |
+| Destroy an obstacle while **Invincible** | `barricade` |
+| Roll through a box with **Rolling Boulder** | `barricade` |
+| Game-Over / lose result screen | `lose` |
 
-- **achievement-unlock** — triumphant chime when a goal hits 100 %.
-- **achievement-claim** — coin-shower glittery sweep on `claimAchievement`.
-- **daily-claim** — same family as `achievement-claim`, slightly shorter.
-- **battle-pass-tier** — escalating fanfare on tier-up.
+## ❗ Still essential — recommend a NEW recording
 
-## End-of-campaign
+| # | Moment | Trigger point | Why it matters | Suggested character |
+| --- | --- | --- | --- | --- |
+| 1 | **Run start** | `begin()` (tap / space / enter from idle) | The very first interaction has no audio feedback — feels dead on launch. | Short upbeat "whoosh / go" (~250ms) |
+| 2 | **Power-up pickups are generic** | `grantItem()` → every timed power-up reuses `level-up` | Invincible / Magnet / Dodge / Slow-mo / Push are indistinguishable by ear. | One distinct sting per power-up type (5 short clips) |
+| 3 | **Liberty Cat hazard** | enter / pre-collide a `libertyCat` cell (stage 10+) | The signature late-game obstacle dies with the same `plastic-torn` as any crash. | A unique "cat" death sting for flavour |
+| 4 | **Rolling Boulder roll-through** | box passed via the Rolling Boulder upgrade | Reuses `barricade`; a heavy stone *rumble* would sell the fantasy better. | Low rolling-rumble (~400ms) |
+| 5 | **Coins banked on result screen** | `grantRunCoins()` coin-explosion fly-in | Only `happy` from the explosion; a dedicated cash-register/tally would punch harder. | Rising coin-tally shimmer |
 
-- **mow-a-hero** — full celebration sting (5-7 s) on the final Hall-of-Fame reward screen; layer over the existing `triggerHappytime` CG SDK call.
+## 🎚️ Polish / optional
 
-## Tuning notes
+- **Speed-up cue**: the within-stage acceleration ramp is silent — a subtle
+  rising tone as the ball nears the goal would telegraph the danger.
+- **Near-miss / dodge "whiff"**: a faint whoosh when the ball squeaks past a
+  hazard without the dodge upgrade.
+- **Second Chance armed at run start**: a one-time "ready" chime when a
+  pre-bought Second Chance spawns the angel wings.
 
-- Every gameplay-loop sound (grass / coin / cut) needs a hard "max concurrent voices" cap (≈ 6) plus a 20-ms minimum re-trigger interval — without it, mowing 30 blades in a swing pass becomes a wall of clicks.
-- Master ducking: while `chain-loop` plays, drop battle music to -6 dB so cuts read.
-- All sounds should fade-out on tab visibility-hidden so backgrounded tabs stay silent.
+Priorities 1–2 are the most noticeable to a new player; everything below is flavour.

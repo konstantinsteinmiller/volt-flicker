@@ -82,8 +82,11 @@ const saveState = () => {
 }
 
 export const bpCoinReward = (stage: number): number => {
+  // Coins are scarce in the new economy (~40 on a good early run), so a
+  // battle-pass level pays a gentle ramp (10 → 120 across 30 levels) instead of
+  // the old 30 → 600 that would dwarf in-run earnings.
   const clamped = Math.max(1, Math.min(BP_TOTAL_STAGES, stage))
-  const raw = 30 + ((clamped - 1) * 570) / (BP_TOTAL_STAGES - 1)
+  const raw = 10 + ((clamped - 1) * 110) / (BP_TOTAL_STAGES - 1)
   return Math.round(raw / 5) * 5
 }
 

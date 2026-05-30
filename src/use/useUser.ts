@@ -1,6 +1,7 @@
 import { computed, ref, watch } from 'vue'
 import type { Ref } from 'vue'
 import { mobileCheck } from '@/utils/function'
+import { DIFFICULTY, type Difficulties } from '@/utils/enums'
 import { isDbInitialized, isSplashScreenVisible } from '@/use/useMatch'
 import { saveDataVersion } from '@/use/useSaveStatus'
 import { getState, setState, hasState } from '@/use/useEpicState'
@@ -52,6 +53,7 @@ export const version: string = APP_VERSION
 export const SOUND_KEY = 'spinner_user_sound_volume'
 export const MUSIC_KEY = 'spinner_user_music_volume'
 export const LANGUAGE_KEY = 'spinner_user_language'
+export const DIFFICULTY_KEY = 'spinner_user_difficulty'
 
 const readNumber = (key: string, fallback: number): number => {
   const v = getState<unknown>(key)
@@ -74,6 +76,9 @@ export const DEFAULT_MUSIC_VOLUME = 0.6
 const userSoundVolume: Ref<number> = ref(readNumber(SOUND_KEY, DEFAULT_SOUND_VOLUME))
 const userMusicVolume: Ref<number> = ref(readNumber(MUSIC_KEY, DEFAULT_MUSIC_VOLUME))
 const userLanguage: Ref<string> = ref(readString(LANGUAGE_KEY, 'en'))
+// Difficulty defaults to MEDIUM; Easy slows travel speed −20%, Hard +10%
+// (applied in useEpicGame's per-frame speed calc via `difficultySpeedFactor`).
+const userDifficulty: Ref<Difficulties> = ref(readString<Difficulties>(DIFFICULTY_KEY, DIFFICULTY.MEDIUM))
 
 // Re-read on hydrate-success bump. Module init reads these synchronously
 // from localStorage, but on cloud-only builds (CrazyGames) the blob is
@@ -99,10 +104,20 @@ watch(saveDataVersion, () => {
   userSoundVolume.value = readNumber(SOUND_KEY, userSoundVolume.value)
   userMusicVolume.value = readNumber(MUSIC_KEY, userMusicVolume.value)
   userLanguage.value = readString(LANGUAGE_KEY, userLanguage.value)
+  userDifficulty.value = readString<Difficulties>(DIFFICULTY_KEY, userDifficulty.value)
 
   if (!hasState(SOUND_KEY)) setState(SOUND_KEY, userSoundVolume.value)
   if (!hasState(MUSIC_KEY)) setState(MUSIC_KEY, userMusicVolume.value)
+  if (!hasState(DIFFICULTY_KEY)) setState(DIFFICULTY_KEY, userDifficulty.value)
 })
+
+/** Travel-speed multiplier for the active difficulty: Easy −20% (more reaction
+ *  time), Medium ×1, Hard +10% (tighter timing). Read each frame by the game. */
+export const difficultySpeedFactor = (): number => {
+  if (userDifficulty.value === DIFFICULTY.EASY) return 0.8
+  if (userDifficulty.value === DIFFICULTY.HARD) return 1.1
+  return 1
+}
 
 // Boot signal that several composables (`main.ts`, `useCrazyMuteSync`,
 // the i18n loader) wait on. Previously the IDB hydrate flipped this; with
@@ -168,6 +183,10 @@ const useUser = () => {
         userLanguage.value = value as string
         setState(LANGUAGE_KEY, userLanguage.value)
         break
+      case 'difficulty':
+        userDifficulty.value = value as Difficulties
+        setState(DIFFICULTY_KEY, userDifficulty.value)
+        break
     }
   }
 
@@ -175,6 +194,7 @@ const useUser = () => {
     userSoundVolume,
     userMusicVolume,
     userLanguage,
+    userDifficulty,
     setSettingValue
   }
 }
