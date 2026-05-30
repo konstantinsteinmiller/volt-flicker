@@ -4,18 +4,18 @@ import { useI18n } from 'vue-i18n'
 import FModal from '@/components/molecules/FModal.vue'
 import FIconButton from '@/components/atoms/FIconButton.vue'
 import IconCoin from '@/components/icons/IconCoin.vue'
-import useMawConfig from '@/use/useMawConfig'
+import useEpicConfig from '@/use/useEpicConfig'
 import useSounds from '@/use/useSound.ts'
 import { stopGameplay } from '@/use/useCrazyGames'
 import { spawnCoinExplosion } from '@/use/useCoinExplosion'
-import { getState, setState } from '@/use/useMawState'
+import { getState, setState } from '@/use/useEpicState'
 import { flushSaveNow } from '@/use/useSaveStatus'
 
 const emit = defineEmits<{
   (e: 'coins-awarded', sourceEl: HTMLElement): void
 }>()
 
-const { addCoins } = useMawConfig()
+const { addCoins } = useEpicConfig()
 const { t } = useI18n()
 const dailyBtnRef = ref<HTMLElement | null>(null)
 const { playSound } = useSounds()

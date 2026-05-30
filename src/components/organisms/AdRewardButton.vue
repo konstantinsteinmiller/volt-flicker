@@ -3,8 +3,8 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import IconCoin from '@/components/icons/IconCoin.vue'
 import IconMovie from '@/components/icons/IconMovie.vue'
 import { isRewardedReady, showRewardedAd } from '@/use/useAds'
-import useMawConfig from '@/use/useMawConfig'
-import { getState, setState } from '@/use/useMawState'
+import useEpicConfig from '@/use/useEpicConfig'
+import { getState, setState } from '@/use/useEpicState'
 
 interface Props {
   coins?: number
@@ -18,7 +18,7 @@ const emit = defineEmits<{
   (e: 'coins-awarded', sourceEl: HTMLElement): void
 }>()
 
-const { addCoins } = useMawConfig()
+const { addCoins } = useEpicConfig()
 const rootEl = ref<HTMLElement | null>(null)
 
 const COOLDOWN_MS = 30_000

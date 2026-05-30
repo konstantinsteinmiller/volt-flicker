@@ -23,7 +23,7 @@
 //     gets bonus coins = winner.maxStage × 50 to soften the loss
 
 import { STAGE_KEY, COINS_KEY, UPGRADES_KEY } from '@/keys'
-import { STATE_KEY } from '@/use/useMawState'
+import { STATE_KEY } from '@/use/useEpicState'
 
 /** Where the meta blob is stored in localStorage / on the remote backend.
  *  NOT prefixed with `__save_internal__` — this key needs to round-trip
@@ -259,21 +259,20 @@ export const readCoinTotal = (read: SnapshotReader): number => {
  */
 /**
  * Single-blob model: every persisted gameplay value lives inside the
- * `maw_state` localStorage entry (see `useMawState.ts`). The cloud now
+ * `epicancer_state` localStorage entry (see `useEpicState.ts`). The cloud
  * mirrors exactly two keys — the state blob and the meta blob.
  *
- * Legacy `spinner_*` / `ca_*` keys are still accepted as payload so a
- * mid-migration snapshot from an older client (cloud blob written before
- * the consolidation rolled out) round-trips safely. The migration in
- * `useMawState.buildInitial()` folds those keys into `maw_state` on the
- * next boot.
+ * Individual `epic_*` game keys plus the reused-platform `spinner_*` / `ca_*`
+ * keys are also accepted as payload so any stray per-key write (defensive, or
+ * a mid-migration snapshot from an older client) round-trips safely instead of
+ * being silently dropped.
  */
-const LEGACY_PAYLOAD_PREFIXES = ['spinner_', 'ca_'] as const
+const PAYLOAD_PREFIXES = ['epic_', 'spinner_', 'ca_'] as const
 
 export const isPayloadKey = (key: string): boolean => {
   if (key === META_KEY) return true
   if (key === STATE_KEY) return true
-  for (const prefix of LEGACY_PAYLOAD_PREFIXES) {
+  for (const prefix of PAYLOAD_PREFIXES) {
     if (key.startsWith(prefix)) return true
   }
   return false

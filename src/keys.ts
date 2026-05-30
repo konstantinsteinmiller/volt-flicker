@@ -1,14 +1,12 @@
-// ─── localStorage key catalogue ─────────────────────────────────────────────
+// ─── Game-progress field catalogue ──────────────────────────────────────────
 //
-// Single source of truth for every player-progress key the game persists in
-// localStorage. These literal strings are a contract with the player base —
-// renaming any of them strands existing players' saves on the old key. Treat
-// them as load-bearing constants.
-//
-// All keys carry the `spinner_` prefix that the SaveManager / BlobStorage
-// payload allow-list recognises. Adding a new persisted key? Add it here AND
-// keep the prefix.
+// Field names INSIDE the single `epicancer_state` blob (see `useEpicState.ts`).
+// These are not separate localStorage keys — they're properties of the one
+// persisted object — but they're still a contract with the player base:
+// renaming any of them strands existing players' progress on the old field.
+// Treat them as load-bearing constants.
 
-export const STAGE_KEY = 'spinner_campaign_stage'
-export const COINS_KEY = 'spinner_coins'
-export const UPGRADES_KEY = 'spinner_upgrades'
+export const STAGE_KEY = 'epic_stage'
+export const COINS_KEY = 'epic_coins'
+export const UPGRADES_KEY = 'epic_upgrades'
+export const BEST_SCORE_KEY = 'epic_best_score'

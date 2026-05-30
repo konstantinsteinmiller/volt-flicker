@@ -76,19 +76,24 @@ describe('useRewardedThrottle', () => {
     expect(mod.isRewardedThrottled.value).toBe(false)
   })
 
-  it('persists history inside the maw_state blob under the internal-key field', async () => {
+  it('persists history inside the epicancer_state blob under the internal-key field', async () => {
     const mod = await importThrottle()
     mod.recordRewardedGranted(123_456)
+    // The blob write is debounced (it rides the single-blob persist debounce),
+    // so advance past it before asserting the on-disk contents.
+    vi.advanceTimersByTime(300)
     // Single-blob storage: nothing lives at the bare key any more — the
-    // history is a sub-field of `maw_state`.
+    // history is a sub-field of `epicancer_state`.
     expect(window.localStorage.getItem(STORAGE_KEY)).toBeNull()
-    const blob = JSON.parse(window.localStorage.getItem('maw_state') || '{}')
+    const blob = JSON.parse(window.localStorage.getItem('epicancer_state') || '{}')
     expect(blob[STORAGE_KEY]).toEqual([123_456])
   })
 
   it('restores history from localStorage on module load', async () => {
     const seed = [Date.now() - 1000, Date.now() - 500, Date.now() - 100]
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(seed))
+    // Single-blob model: the throttle reads its history as a field of the
+    // consolidated blob, so seed it there (not at the bare key).
+    window.localStorage.setItem('epicancer_state', JSON.stringify({ [STORAGE_KEY]: seed }))
     const mod = await importThrottle()
     // 3 entries < MAX (5), so still un-throttled, but the next 2 must throttle.
     expect(mod.isRewardedThrottled.value).toBe(false)

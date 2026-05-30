@@ -1,152 +1,66 @@
-// English source bundle. Treat this file as the single source of truth
-// for translation keys — every new player-facing string in the codebase
-// gets a key here first; the per-language files in this folder mirror
-// the shape. Vite's `import.meta.glob` in `src/i18n/index.ts` ships each
-// non-English locale as its own dynamic-import chunk so they only ride
-// onto the page when the player actually switches in the OptionsModal.
+// English source bundle. Single source of truth for translation keys — every
+// new player-facing string gets a key here first; the per-language files in
+// this folder mirror the shape. Vite ships each non-English locale as its own
+// lazy chunk (see `src/i18n/index.ts`).
 export default {
-  'gameName': 'spin & mow',
+  'gameName': 'Epicancer',
   'cancel': 'Cancel',
   'close': 'Close',
-  'understood': 'Understood',
   'ok': 'Ok',
-  'tap': 'tap',
-  'click': 'click',
-  'back': 'back',
-  'options': 'Options',
-  'general': 'General',
-  'audio': 'Audio',
-  'language': 'Language',
-  'soundEffects': 'Sound Effects',
-  'music': 'Music',
   'continue': 'Continue',
   'tapToContinue': 'Tap to continue',
   'clickToContinue': 'Click to continue',
   'stage': 'Stage',
-  'bossStage': 'Boss Stage',
   'rewards': 'REWARDS',
-  'crazyGamesOnly': 'This game is only available on',
   'tip': 'Tip',
-  'editorOpen': '✎ Editor',
-  'editorBack': '◀ Back to Editor',
-  'maw': {
-    'youWin': 'STAGE CLEAR!',
-    'youLose': 'YOU BROKE DOWN!',
-    'tapAnchor': 'Click/Tap to move',
-    'tapToStart': 'Tap to Start',
-    'startHint': 'Time your taps to swing across islands',
-    'targetClears': 'Maw {n} blades',
-    'remaining': '{n} left',
-    'lifeLabel': 'Life',
-    'gameOver': 'Game Over',
-    'tryAgain': 'Try Again',
-    'continue': 'Continue',
-    'splashed': 'You splashed into the water!',
-    'broke': 'Your robot fell apart!',
-    'continueOfferTitle': 'Keep going?',
-    'continueOfferBody': 'Watch a short ad to repair your robot and continue this run.',
-    'watchAdAndContinue': 'Watch ad & continue',
-    'skipNoThanks': 'Skip',
-    'adPlaying': 'Advertisement…',
-    'clickToMoveTouch': 'Tap to move',
-    'clickToMoveDesktop': 'Click / Space to move',
-    'continueCoins': 'Continue · {n}',
-    'mowAHero': 'MOW-A-HERO',
-    'heroCongrats': 'Congratulations!',
-    'heroSubtitle1': 'You have completed every course and are a true',
-    'heroSubtitle2': 'Your name will enter the Hall of Fame.'
-  },
+  'crazyGamesOnly': 'This game is only available on',
+  'startTouch': 'Tap to Start',
+  'startDesktop': 'Click to Start',
+  'startSubhint': 'Roll upward — change direction to dodge the gaps and obstacles!',
   'hints': {
-    'sawLv1': 'Upgrade Sharper Saw to Lv 1 to cut tree stumps',
-    'sawLv3': 'Upgrade Sharper Saws to Lv 3 to break through stones',
-    'sawLv6': 'Tired of crashing into crystals? Upgrade your saw to Lv 6 and pulverize them',
-    'longerChain': 'You can make your chains larger by upgrading Longer Chains',
-    'scrollChain': 'Scroll to increase / decrease chain length',
-    'sawSpotlightArrow': 'Upgrade now! →',
-    'chainLiveSpotlight': 'Increase or decrease your chain length during the game to tackle the challenges before you. →',
-    'rapidDeathLifeOffer': '▶ Watch ad · +1 Reinforced Frame'
+    'tapToTurn': 'Tap to change direction',
+    'clickToTurn': 'Click / Space to change direction'
   },
-  'speedrun': {
-    'time': 'Time',
-    'best': 'Best',
-    'newRecord': '🎉 New record! (was {prev})',
-    'firstClear': '🎉 First clear — set the bar!'
+  'powerups': {
+    'invuln': 'Invincible',
+    'magnet': 'Coin Magnet',
+    'dodge': 'Dodge Master',
+    'slowmo': 'Slow Motion',
+    'push': 'Push Force'
   },
-  'achievements': {
-    'title': 'Achievements',
-    'subtitle': 'Hit milestones for permanent rewards.',
-    'claim': 'Claim',
-    'claimed': 'Claimed',
-    'progress': '{current} / {goal}',
-    'names': {
-      'firstCut': 'First Cut',
-      'greenThumb': 'Green Thumb',
-      'lawnTycoon': 'Lawn Tycoon',
-      'lumberjack': 'Lumberjack',
-      'stoneCrusher': 'Stone Crusher',
-      'crystalPulverizer': 'Crystal Pulverizer',
-      'pawbertyWrecker': 'Paw-berty Wrecker',
-      'coinHoarder': 'Coin Hoarder',
-      'tycoon': 'Tycoon',
-      'survivor': 'Survivor',
-      'territorial': 'Territorial',
-      'persistent': 'Persistent',
-      'champion': 'Champion',
-      'speedDemon': 'Speed Demon',
-      'timeTrialPro': 'Time Trial Pro',
-      'subTenHero': 'Sub-Ten Hero',
-      'lightningMawer': 'Lightning Mawer'
-    },
-    'descriptions': {
-      'firstCut': 'Maw your first 10 grass blades.',
-      'greenThumb': 'Maw 250 grass blades total.',
-      'lawnTycoon': 'Maw 2,500 grass blades total.',
-      'lumberjack': 'Cut 5 tree stumps.',
-      'stoneCrusher': 'Crush 50 stones.',
-      'crystalPulverizer': 'Pulverize 100 crystals.',
-      'pawbertyWrecker': 'Topple 20 Liberty-cat statues.',
-      'coinHoarder': 'Earn 1,000 coins lifetime.',
-      'tycoon': 'Earn 10,000 coins lifetime.',
-      'survivor': 'Reach stage 5.',
-      'territorial': 'Reach stage 10.',
-      'persistent': 'Play 25 games.',
-      'champion': 'Win 10 stages.',
-      'speedDemon': 'Set a new best time on 5 stages.',
-      'timeTrialPro': 'Set 15 new best times across your runs.',
-      'subTenHero': 'Clear any stage in under 10 seconds.',
-      'lightningMawer': 'Clear a stage in under 6 seconds.'
-    }
+  'secondChance': {
+    'title': 'Keep rolling?',
+    'body': 'Watch a short ad to revive and continue your run.',
+    'watch': 'Watch & Continue',
+    'skip': 'Skip'
+  },
+  'result': {
+    'win': 'STAGE CLEAR!',
+    'lose': 'GAME OVER',
+    'fell': 'You fell into a gap!',
+    'crashed': 'You crashed into an obstacle!',
+    'tiles': 'Tiles',
+    'winReward': 'incl. +{n} stage bonus',
+    'double': 'Double coins'
   },
   'upgrades': {
     'title': 'Upgrades',
-    'subtitle': 'Spend coins to permanently empower your robot.',
+    'subtitle': 'Spend coins to power up permanently.',
     'level': 'Lv.{n}',
     'maxedOut': 'MAXED',
-    'cost': '{n}',
-    'buy': 'Buy',
-    'cantAfford': 'Need more coins',
     'unlocksAtStage': '🔒 Stage {n}',
-    'watchAd': '▶ Watch ad',
     'names': {
-      'sawDamage': 'Sharper Saws',
-      'maxLife': 'Reinforced Frame',
-      'chainLength': 'Longer Chain',
-      'coinMagnetMs': 'Coin Magnet',
-      'rotationSpeed': 'Tuned Gearbox'
+      'powerupDuration': 'Power Boost',
+      'magnetRange': 'Magnet Range',
+      'coinValue': 'Coin Value',
+      'itemLuck': 'Lucky Boxes'
     },
     'descriptions': {
-      'sawDamage': 'Cut trees from Lv. 1, stones from Lv. 3, crystals from Lv. 6, Liberty statues from Lv. 8.',
-      'maxLife': 'Survive more bumps before breaking down.',
-      'chainLength': 'Increase reach so harder islands are within leap distance. Levels 9 and 10 are end-game goals.',
-      'coinMagnetMs': 'Coins auto-collect faster after they drop. Unlocks at Stage 7.',
-      'rotationSpeed': 'Spin faster — cover ground sooner. Levels past 6 are speedrun-only. Unlocks at Stage 7.'
+      'powerupDuration': 'All power-ups last longer (+0.75s per level).',
+      'magnetRange': 'The Coin Magnet reaches further.',
+      'coinValue': 'Each coin you grab is worth more.',
+      'itemLuck': 'Item boxes appear more often.'
     }
-  },
-  'dailyRewards': {
-    'title': 'Daily Rewards',
-    'subtitle': 'Sign in every day to keep your streak.',
-    'day': 'Day {n}',
-    'dayShort': 'D{n}'
   },
   'battlePass': {
     'title': 'Battle Pass',
@@ -155,31 +69,15 @@ export default {
     'maxed': 'BATTLE PASS COMPLETE',
     'xpProgress': '{current} / {total} XP',
     'howToEarn': 'How to earn XP',
-    'perAttempt': 'per attempt',
-    'perStageFinish': 'per stage finish',
+    'perAttempt': 'per run',
+    'perStageFinish': 'per stage clear',
     'unlockHint': 'Reach {n} XP to unlock the next reward — unclaimed rewards stay until you tap them.'
   },
-  'stages': {
-    's1': 'First Cuts',
-    's2': 'Easy Meadow',
-    's3': 'Lone Stump',
-    's4': 'Stump Field',
-    's5': 'Forest Edge',
-    's6': 'First Boulders',
-    's7': 'Stone Trail',
-    's8': 'Wheat Drift',
-    's9': 'Golden Path',
-    's10': 'Threshing Titan',
-    's11': 'Shifting Furrows',
-    's12': 'Crystal Harvest',
-    's13': 'Triple Bloom',
-    's14': 'Wandering Petals',
-    's15': 'Cluster Bloom',
-    's16': 'Prism Drift',
-    's17': 'Four-in-Bloom',
-    's18': 'Crystal Garden',
-    's19': 'Garden Tide',
-    's20': 'Maw of the Garden'
+  'dailyRewards': {
+    'title': 'Daily Rewards',
+    'subtitle': 'Sign in every day to keep your streak.',
+    'day': 'Day {n}',
+    'dayShort': 'D{n}'
   },
   'en': 'English',
   'de': 'German',

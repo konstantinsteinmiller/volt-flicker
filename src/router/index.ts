@@ -1,8 +1,7 @@
 import { createRouter, createWebHashHistory, type RouteRecordRaw } from 'vue-router'
 
 const routes: RouteRecordRaw[] = [
-  { path: '/', name: 'main', component: () => import('@/views/MawScene.vue') },
-  { path: '/editor', name: 'editor', component: () => import('@/views/LevelEditor.vue') },
+  { path: '/', name: 'main', component: () => import('@/views/EpicancerScene.vue') },
   { path: '/:pathMatch(.*)*', redirect: '/' }
 ]
 

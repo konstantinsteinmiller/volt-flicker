@@ -35,7 +35,7 @@
 
 import type { HydrateState, LocalStorageAccessor, SaveStrategy } from './types'
 import { isInternalKey } from './types'
-import { STATE_KEY } from '@/use/useMawState'
+import { STATE_KEY } from '@/use/useEpicState'
 import { META_KEY } from './SaveMergePolicy'
 import { isDebug } from '@/use/useMatch'
 

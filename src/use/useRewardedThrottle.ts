@@ -19,7 +19,7 @@
 // matches the resolution players actually perceive.
 
 import { computed, ref } from 'vue'
-import { getState, setState, removeState } from '@/use/useMawState'
+import { getState, setState, removeState } from '@/use/useEpicState'
 
 const STORAGE_KEY = '__save_internal__rewarded_history'
 

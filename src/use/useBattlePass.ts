@@ -1,10 +1,10 @@
 import { ref, computed, watch, type Ref } from 'vue'
-import useMawConfig from '@/use/useMawConfig'
+import useEpicConfig from '@/use/useEpicConfig'
 import { saveDataVersion, flushSaveNow } from '@/use/useSaveStatus'
-import { getState, setState } from '@/use/useMawState'
+import { getState, setState } from '@/use/useEpicState'
 
 /**
- * Lightweight battle pass for Spin&Mow. 30 stages, 100 xp per stage.
+ * Lightweight battle pass for Epicancer. 30 stages, 100 xp per stage.
  *   - start an attempt → +12 xp (participation)
  *   - finish a stage   → +50 xp (additional, on win)
  * Each level grants a coin payout on a linear ramp 30 → 600 across the
@@ -87,7 +87,7 @@ export const bpCoinReward = (stage: number): number => {
   return Math.round(raw / 5) * 5
 }
 
-const { addCoins } = useMawConfig()
+const { addCoins } = useEpicConfig()
 
 const addXp = (amount: number) => {
   if (amount <= 0) return

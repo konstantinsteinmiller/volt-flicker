@@ -14,7 +14,7 @@ import { initAds } from '@/use/useAds'
 import { installGamePauseAudio } from '@/use/useGamePauseAudio'
 import useUser, { isCrazyWeb, isWaveDash, isItch, isGlitch, isGameDistribution, isPlaygama, isGamepix, isGameMonetize, isYandex } from '@/use/useUser'
 import { isDebug } from '@/use/useMatch.ts'
-import { hasState, reloadMawState } from '@/use/useMawState'
+import { hasState, reloadEpicState } from '@/use/useEpicState'
 import { SaveManager } from '@/utils/save/SaveManager'
 import { resolveSaveStrategy } from '@/platforms/resolveSaveStrategy'
 import { installSaveStatus } from '@/use/useSaveStatus'
@@ -48,7 +48,7 @@ const bootstrap = async () => {
   // `setVConsoleMounter` so vConsole stays out of the main chunk
   // and off the hot path.
   //
-  // Why this matters: chaos-arena's main bundle ballooned by ~250KB
+  // Why this matters: epicancer's main bundle ballooned by ~250KB
   // gzipped when vConsole was statically imported. CrazyGames flagged
   // the regression. Putting the dynamic-import here fixes it without
   // breaking the trigger paths.
@@ -68,7 +68,7 @@ const bootstrap = async () => {
     import.meta.env.VITE_APP_NATIVE === 'true'
     || import.meta.env.VITE_APP_INCLUDE_VCONSOLE === 'true'
   ) {
-    // vConsole removed from this project (was a chaos-arena native-build
+    // vConsole removed from this project (was a epicancer native-build
     // dependency). To restore on-device debugging, reintroduce the
     // `vconsole` package and wire it back to `setVConsoleMounter`.
     bootstrapVConsoleFromUrl()
@@ -171,7 +171,7 @@ const bootstrap = async () => {
   // unit-testable in isolation. Adding a platform = add an arm there,
   // not edit this file.
   const strategy = await resolveSaveStrategy({
-    isCrazyWeb, isWaveDash, isItch, isGlitch, isGameDistribution, isPlaygama, isGamepix, isGameMonetize
+    isCrazyWeb, isWaveDash, isItch, isGlitch, isGameDistribution, isPlaygama, isGamepix, isGameMonetize, isYandex
   })
 
   // CrazyGames cloud-only mode: gameplay state and our save bookkeeping
@@ -233,7 +233,7 @@ const bootstrap = async () => {
   // watcher (further down) reloads and switches. The watcher also calls
   // `reloadMawState()` defensively, so this is the early-flush companion, not
   // a replacement.
-  reloadMawState()
+  reloadEpicState()
 
   // ─── Background / close flush — critical for mobile webviews ───────────
   //
@@ -375,7 +375,7 @@ const bootstrap = async () => {
         // hydrated blob. This second call covers the case where hydrate
         // resolves a cloud value AFTER the early reload (Glitch's HTTP
         // strategy resolves out-of-band in some flows, etc.). Idempotent.
-        reloadMawState()
+        reloadEpicState()
         const hasStoredLanguage = hasState('spinner_user_language')
         const portalSeed = cgLocale ?? yaLocale
         if (!hasStoredLanguage && portalSeed && LANGUAGES.includes(portalSeed)) {

@@ -8,13 +8,13 @@ import { describe, expect, it } from 'vitest'
 import { SAVE_KEYS } from '@/utils/save/SaveMergePolicy'
 
 describe('SAVE_KEYS values are stable', () => {
-  it('STAGE key is the literal "spinner_campaign_stage"', () => {
-    expect(SAVE_KEYS.STAGE).toBe('spinner_campaign_stage')
+  it('STAGE key is the literal "epic_stage"', () => {
+    expect(SAVE_KEYS.STAGE).toBe('epic_stage')
   })
-  it('COINS key is the literal "spinner_coins"', () => {
-    expect(SAVE_KEYS.COINS).toBe('spinner_coins')
+  it('COINS key is the literal "epic_coins"', () => {
+    expect(SAVE_KEYS.COINS).toBe('epic_coins')
   })
-  it('UPGRADES key is the literal "spinner_upgrades"', () => {
-    expect(SAVE_KEYS.UPGRADES).toBe('spinner_upgrades')
+  it('UPGRADES key is the literal "epic_upgrades"', () => {
+    expect(SAVE_KEYS.UPGRADES).toBe('epic_upgrades')
   })
 })

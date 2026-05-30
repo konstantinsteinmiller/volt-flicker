@@ -1,6 +1,6 @@
 {
-  "name": "spin & mow",
-  "short_name": "spin & mow",
+  "name": "Epicancer",
+  "short_name": "Epicancer",
   "display": "standalone",
   "display_override": ["fullscreen", "standalone"],
   "orientation": "portrait",

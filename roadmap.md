@@ -1,4 +1,4 @@
-# Spin&Mow — Retention & Conversion Roadmap
+# Epicancer — Retention & Conversion Roadmap
 
 Ordered by expected lift on the four core metrics: Day-1 retention,
 average playtime, easy-to-pickup-hard-to-put-down feel, and conversion.
@@ -107,7 +107,7 @@ Every item lists what to ship and where to start in the codebase.
 
 15. **Seasonal cosmetics — chain skins + gear skins.**
     The robot is three art layers (anchor gear, swing gear, chain).
-    Ship a SkinChestTimer (already-deleted from chaos-arena, easy to
+    Ship a SkinChestTimer (already-deleted from epicancer, easy to
     reintroduce) that grants new visual variants. Lots of perceived
     value at near-zero gameplay risk because the silhouette is
     unchanged.

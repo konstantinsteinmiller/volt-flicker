@@ -161,7 +161,7 @@ const plattformText = computed(() => getPlattformText())
 
 <style lang="sass">
 *
-  font-family: 'Angry', "Lato", "Helvetica Neue", Arial, sans-serif
+  font-family: 'Angry', sans-serif
   user-select: none
   // Standard
   -webkit-user-select: none

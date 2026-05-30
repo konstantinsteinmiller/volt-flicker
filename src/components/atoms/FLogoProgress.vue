@@ -16,7 +16,7 @@
         div(:style="sizeStyle")
           img(
             :src="logoSrc"
-            alt="spin & mow"
+            alt="epicancer"
             class="w-full h-full object-contain"
             draggable="false"
           )

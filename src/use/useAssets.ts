@@ -1,7 +1,7 @@
 import { ref } from 'vue'
 import { prependBaseUrl } from '@/utils/function'
 
-// Spin&Mow draws all gameplay art programmatically (via Canvas 2D)
+// Epicancer draws all gameplay art programmatically (via Canvas 2D)
 // and uses inline SVG for HUD icons, so the asset preloader is intentionally
 // empty. SFX are decoded on first play (see `useSound.ts`); the splash
 // screen exits as soon as the JS bundle is parsed.
@@ -217,9 +217,12 @@ export const loadAudioBuffer = async (src: string): Promise<AudioBuffer | null> 
 // them mid-round, the chain bitmap that wasn't loaded yet causes that
 // flash. Preloading both eliminates the swap pop.
 const CRITICAL_IMAGE_SRCS: ReadonlyArray<string> = [
-  '/images/props/chain_256x256.webp',
-  '/images/props/chain_450x256.webp',
-  '/images/props/gear_256x256.webp',
+  // Grid tiles drawn every frame in the iso renderer's hot path — decode
+  // before first paint so the floor never flashes its procedural fallback.
+  '/images/props/grid-tile-1.webp',
+  '/images/props/grid-tile-2.webp',
+  '/images/props/grid-tile-3.webp',
+  '/images/props/coin_128x128.webp',
   // Splash logo — decoded before the splash mounts so the FLogoProgress
   // <img> never paints a blank box on first frame.
   '/images/logo/logo_256x256.webp'
@@ -261,9 +264,10 @@ export default () => {
     // chunk (dynamic-imported by `useMawCampaign.ensureStage`) so the
     // procedural build code is its own ~10 kB chunk.
     const stageTask = (async () => {
-      const campaign = await import('@/use/useMawCampaign')
-      const { currentStageId } = campaign.default()
-      await campaign.ensureStage(currentStageId.value)
+      try {
+        const art = await import('@/use/useEpicArt')
+        await art.warmTileImages?.()
+      } catch { /* non-critical: renderer falls back to procedural tiles */ }
     })()
     // Kick decoding in parallel; resolve when every critical sprite is
     // ready. `Promise.allSettled` swallows individual asset errors so a

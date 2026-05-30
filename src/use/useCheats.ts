@@ -1,8 +1,8 @@
 import { onMounted, onUnmounted, ref } from 'vue'
-import useMawConfig from '@/use/useMawConfig'
-import useMawCampaign, { STAGE_COUNT, STAGE_NAMES } from '@/use/useMawCampaign'
-import { setState } from '@/use/useMawState'
+import useEpicConfig from '@/use/useEpicConfig'
+import { setState } from '@/use/useEpicState'
 import { toggleDebug } from '@/use/useMatch'
+import { STAGE_KEY } from '@/keys'
 
 // `cheat` stays a top-level localStorage flag — it's an explicit dev toggle
 // that gates the whole keyboard-shortcut module, so we don't want it living
@@ -46,21 +46,19 @@ installDebugUnlock()
 const useCheats = () => {
   if (!isCheat.value) return {}
 
-  const { addCoins } = useMawConfig()
+  const { addCoins } = useEpicConfig()
 
+  // Epicancer has open-ended stages (tilesToClear scales with stage), so there
+  // is no fixed STAGE_COUNT/STAGE_NAMES — just write the stage into the save
+  // blob. `useEpicProgress` watches the blob and refreshes its `stage` ref; the
+  // new stage takes effect on the next `resetForStage()` (next run / continue).
   const setStage = (stageId: number) => {
-    if (stageId < 1 || stageId > STAGE_COUNT) {
-      console.warn(`[CHEAT] Invalid stage ${stageId}. Must be 1-${STAGE_COUNT}.`)
+    if (stageId < 1) {
+      console.warn(`[CHEAT] Invalid stage ${stageId}. Must be >= 1.`)
       return
     }
-    // Route through `setStageId` so both the persisted save AND the
-    // active gameplay re-init off the new stage. Direct assignment to
-    // `currentStageId.value` would only update the badge — the player
-    // would still be playing the old stage's islands until the next
-    // stage transition.
-    const { setStageId } = useMawCampaign()
-    setStageId(stageId)
-    console.warn(`[CHEAT] Stage set to ${stageId} (${STAGE_NAMES[stageId - 1]}).`)
+    setState(STAGE_KEY, stageId)
+    console.warn(`[CHEAT] Stage set to ${stageId} (applies on next run).`)
   }
 
   const cheatsMap: Record<string, () => void> = {

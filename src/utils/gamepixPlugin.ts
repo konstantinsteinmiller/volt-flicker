@@ -35,7 +35,7 @@ import { isGamepix } from '@/use/useUser'
 import { isDebug } from '@/use/useMatch'
 import { isPlatformPaused, isVisibilityHidden, pauseGame, resumeGame } from '@/use/useGamePause'
 import { setPlatformAudioMuted } from '@/use/useGamePauseAudio'
-import { gamesPlayedTotal, maxStageReached } from '@/use/useMawProgress'
+import { gamesPlayedTotal, maxStageReached } from '@/use/useEpicProgress'
 
 declare global {
   interface Window {

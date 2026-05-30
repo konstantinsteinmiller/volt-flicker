@@ -9,7 +9,7 @@ import { ref, computed } from 'vue'
 import type { Ref } from 'vue'
 import type { SaveManager } from '@/utils/save/SaveManager'
 import type { HydrateNotice, HydrateState } from '@/utils/save/types'
-import { reloadMawState, flushPersist } from '@/use/useMawState'
+import { reloadEpicState, flushPersist } from '@/use/useEpicState'
 
 const hydrateState: Ref<HydrateState> = ref('pending')
 const lastNotice: Ref<HydrateNotice | null> = ref(null)
@@ -41,7 +41,7 @@ let manager: SaveManager | null = null
  * makes that workaround unnecessary by fixing the root cause for every key.)
  */
 const bumpSaveDataVersion = (): void => {
-  reloadMawState()
+  reloadEpicState()
   saveDataVersion.value++
 }
 

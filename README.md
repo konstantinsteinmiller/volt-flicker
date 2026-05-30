@@ -1,9 +1,9 @@
-# spin & mow
+# epicancer
 
 A 2D top-down platformer where the player drives a two-gear robot connected
 by a spike chain. Anchor one gear, swing the other, and time taps to leap
 between islands while mawing grass, wheat, and flowers for coins. Built on
-the same Vue 3 + Vite + Pug + Tailwind + SASS stack as `chaos-arena` and
+the same Vue 3 + Vite + Pug + Tailwind + SASS stack as `epicancer` and
 ships with the same multi-platform integrations (CrazyGames, GameDistribution,
 Glitch, itch, Wavedash) plus a portable `SaveManager` cloud-save layer.
 
@@ -38,7 +38,7 @@ ids, etc.).
 - `src/use/useBattlePass.ts` — 30-stage battle pass (coin rewards only).
 - `src/components/organisms/AchievementsModal.vue`
   + `UpgradesModal.vue` — bottom-right UI.
-- `src/utils/save/` — the chaos-arena `SaveManager` ported wholesale.
+- `src/utils/save/` — the epicancer `SaveManager` ported wholesale.
 
 ## Mechanics in one paragraph
 

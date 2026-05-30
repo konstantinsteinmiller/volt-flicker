@@ -15,7 +15,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 // reaches the (fake) backend right after `flushSaveNow()` WITHOUT advancing any
 // timers — i.e. it does not wait for either debounce.
 
-const STATE_KEY = 'maw_state'
+const STATE_KEY = 'epicancer_state'
 
 const makeFakeData = (seed: Record<string, string> = {}) => {
   const store = new Map<string, string>(Object.entries(seed))
@@ -51,7 +51,7 @@ describe('flushSaveNow — immediate flush on a hard checkpoint', () => {
     const data = makeFakeData()
     await bootCloudOnly(data)
 
-    const { setState } = await import('@/use/useMawState')
+    const { setState } = await import('@/use/useEpicState')
     const { flushSaveNow } = await import('@/use/useSaveStatus')
 
     // A level change writes the new stage into maw_state (still on the debounce
@@ -70,7 +70,7 @@ describe('flushSaveNow — immediate flush on a hard checkpoint', () => {
     const data = makeFakeData()
     await bootCloudOnly(data)
 
-    const { setState } = await import('@/use/useMawState')
+    const { setState } = await import('@/use/useEpicState')
     const { flushSaveNow } = await import('@/use/useSaveStatus')
 
     setState('spinner_coins', 250)
@@ -93,36 +93,37 @@ describe('discrete progression events flush to the backend immediately', () => {
   it('buying an upgrade flushes without waiting for the debounce', async () => {
     const data = makeFakeData()
     await bootCloudOnly(data)
-    const { default: useMawProgress } = await import('@/use/useMawProgress')
-    const prog = useMawProgress()
+    const { default: useEpicProgress } = await import('@/use/useEpicProgress')
+    const { default: useEpicConfig } = await import('@/use/useEpicConfig')
+    const prog = useEpicProgress()
+    useEpicConfig().addCoins(10_000)
 
-    expect(prog.buyUpgrade('sawDamage')).toBe(true)
+    expect(prog.buyUpgrade('powerupDuration')).toBe(true)
     await settle()
 
     const blob = JSON.parse(data.store.get(STATE_KEY) || '{}')
-    expect(blob.spinner_upgrades?.levels?.sawDamage).toBe(1)
+    expect(blob.epic_upgrades?.levels?.powerupDuration).toBe(1)
   })
 
-  it('claiming an achievement flushes immediately', async () => {
+  it('advancing a stage flushes immediately', async () => {
     const data = makeFakeData()
     await bootCloudOnly(data)
-    const { default: useMawProgress } = await import('@/use/useMawProgress')
-    const prog = useMawProgress()
+    const { default: useEpicProgress } = await import('@/use/useEpicProgress')
+    const prog = useEpicProgress()
 
-    prog.recordMetric('totalGrass', 10) // unlock 'first-cut' (goal 10)
-    expect(prog.claimAchievement('first-cut')).toBe(25)
+    prog.advanceStage()
     await settle()
 
     const blob = JSON.parse(data.store.get(STATE_KEY) || '{}')
-    expect(blob.spinner_achievements?.claimed).toContain('first-cut')
+    expect(blob.epic_stage).toBe(2)
   })
 
   it('a coin change does NOT flush immediately — it stays throttled', async () => {
     const data = makeFakeData()
     await bootCloudOnly(data)
-    const { default: useMawConfig } = await import('@/use/useMawConfig')
+    const { default: useEpicConfig } = await import('@/use/useEpicConfig')
     const { flushSaveNow } = await import('@/use/useSaveStatus')
-    const cfg = useMawConfig()
+    const cfg = useEpicConfig()
 
     cfg.addCoins(123)
     await settle()
@@ -132,7 +133,7 @@ describe('discrete progression events flush to the backend immediately', () => {
     // …but a later checkpoint (or the next discrete event) carries it.
     await flushSaveNow()
     const blob = JSON.parse(data.store.get(STATE_KEY) || '{}')
-    expect(blob.spinner_coins).toBe(123)
+    expect(blob.epic_coins).toBe(123)
   })
 })
 
@@ -140,7 +141,7 @@ describe('coin persist throttle — 2.5s max-wait', () => {
   it('forces a localStorage write within ~2.5s of a continuous change stream', async () => {
     vi.useFakeTimers()
     try {
-      const { setState } = await import('@/use/useMawState')
+      const { setState } = await import('@/use/useEpicState')
       // Coins tick every 100ms — faster than the 200ms trailing debounce, so a
       // pure debounce would never fire. The max-wait must force a write by 2.5s.
       for (let t = 100; t <= 2000; t += 100) {

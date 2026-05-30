@@ -3,7 +3,7 @@ import type { Ref } from 'vue'
 import { mobileCheck } from '@/utils/function'
 import { isDbInitialized, isSplashScreenVisible } from '@/use/useMatch'
 import { saveDataVersion } from '@/use/useSaveStatus'
-import { getState, setState, hasState } from '@/use/useMawState'
+import { getState, setState, hasState } from '@/use/useEpicState'
 
 export const windowWidth = ref(window.innerWidth)
 export const windowHeight = ref(window.innerHeight)
@@ -38,9 +38,9 @@ export const version: string = APP_VERSION
 // Replaces the old `useUserDb` IndexedDB layer. CG QA flagged the
 // `user_db` / `user_os` store as "data saved locally" — and it was
 // holding a pile of CardQuest relics (userHand, userCollection,
-// userCampaign, userQuestCards, etc.) that chaos-arena never reads.
+// userCampaign, userQuestCards, etc.) that epicancer never reads.
 //
-// chaos-arena only persists FOUR user settings:
+// epicancer only persists FOUR user settings:
 //   • difficulty / sound volume / music volume / locale
 //
 // They live in localStorage under the keys below. On a CrazyGames build

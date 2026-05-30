@@ -11,6 +11,11 @@
   "compilerOptions": {
     // Extra safety for array and object lookups, but may have false positives.
     "noUncheckedIndexedAccess": true,
+    // Disable emitting output during `vue-tsc --build` (type-check only).
+    // Without this, vue-tsc writes compiled `.js` next to every source and
+    // Vite's resolver (`.js` before `.ts`) picks those stale artifacts over the
+    // real sources, breaking the build with phantom "X is not exported" errors.
+    "noEmit": true,
     // Path mapping for cleaner imports.
     "paths": {
       "@/*": [

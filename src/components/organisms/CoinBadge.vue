@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import IconCoin from '@/components/icons/IconCoin.vue'
-import useMawConfig from '@/use/useMawConfig'
+import useEpicConfig from '@/use/useEpicConfig'
 
-const { coins } = useMawConfig()
+const { coins } = useEpicConfig()
 
 // Exposed so siblings (e.g. TreasureChest) can target the badge for fly-to VFX.
 const rootEl = ref<HTMLElement | null>(null)
