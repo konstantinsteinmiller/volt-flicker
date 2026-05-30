@@ -12,7 +12,7 @@ import {
 import { LANGUAGES } from '@/utils/enums'
 import { initAds } from '@/use/useAds'
 import { installGamePauseAudio } from '@/use/useGamePauseAudio'
-import useUser, { isCrazyWeb, isWaveDash, isItch, isGlitch, isGameDistribution, isPlaygama, isGamepix, isGameMonetize } from '@/use/useUser'
+import useUser, { isCrazyWeb, isWaveDash, isItch, isGlitch, isGameDistribution, isPlaygama, isGamepix, isGameMonetize, isYandex } from '@/use/useUser'
 import { isDebug } from '@/use/useMatch.ts'
 import { hasState, reloadMawState } from '@/use/useMawState'
 import { SaveManager } from '@/utils/save/SaveManager'
@@ -20,29 +20,13 @@ import { resolveSaveStrategy } from '@/platforms/resolveSaveStrategy'
 import { installSaveStatus } from '@/use/useSaveStatus'
 import { bootstrapVConsoleFromUrl } from '@/use/useVConsole'
 
-// ─── Build-config self-check ──────────────────────────────────────────────
-//
-// CG QA reported "saves only land locally". Root cause was a build that
-// shipped without `VITE_APP_CRAZY_WEB=true`, so `resolveSaveStrategy`
-// silently picked `LocalStorageStrategy` (a no-op `onLocalSet`) instead of
-// `CrazyGamesStrategy`. Detect the mismatch at boot and surface it loudly
-// in DevTools so it can be spotted before QA has to chase it again.
-//
-// The heuristic is intentionally conservative — referrer-based and
-// portal-domain-suffix-only — to avoid false positives on dev / preview.
-const looksLikeCrazyGamesPortal = (): boolean => {
-  try {
-    const ref = document.referrer
-    if (!ref) return false
-    const host = new URL(ref).hostname
-    return host === 'crazygames.com'
-      || host.endsWith('.crazygames.com')
-      || host === '1001juegos.com'
-      || host.endsWith('.1001juegos.com')
-  } catch {
-    return false
-  }
-}
+// Build-config self-check moved inline below — the previous top-level
+// `looksLikeCrazyGamesPortal` helper baked `crazygames.com` /
+// `1001juegos.com` hostname strings into every build's bundle. Yandex's
+// moderator flags non-Yandex hostnames as "Service storage URL detected",
+// so the check is now an IIFE behind an `import.meta.env.VITE_APP_YANDEX`
+// gate (see bootstrap()), letting Rollup DCE the CG strings on Yandex
+// builds while keeping the diagnostic alive on every other build.
 
 const bootstrap = async () => {
   // Wire the universal pause gate → audio mute before anything can show an
@@ -90,14 +74,33 @@ const bootstrap = async () => {
     bootstrapVConsoleFromUrl()
   }
 
-  // Build-config self-check (see `looksLikeCrazyGamesPortal` comment above).
-  if (looksLikeCrazyGamesPortal() && !isCrazyWeb) {
-    console.error(
-      '[save] BUILD MISCONFIGURED: page is hosted under a CrazyGames portal ' +
-      '(referrer=' + document.referrer + ') but VITE_APP_CRAZY_WEB is not "true". ' +
-      'CrazyGamesStrategy will NOT run and saves will only land in localStorage. ' +
-      'Rebuild with `pnpm build:crazy-web` and ensure .env.crazy-web(.local) sets the flag.'
-    )
+  // Build-config self-check. Wrapped in an env-literal gate so the CG
+  // hostname strings (`crazygames.com`, `1001juegos.com`) DCE on Yandex
+  // builds — Yandex's moderator rejects any non-Yandex hostname as
+  // "Service storage URL detected". On every other build the IIFE runs
+  // normally and the diagnostic fires if a CG portal hosts a non-CG build.
+  if (import.meta.env.VITE_APP_YANDEX !== 'true') {
+    const looksLikeCrazyGamesPortal = (): boolean => {
+      try {
+        const ref = document.referrer
+        if (!ref) return false
+        const host = new URL(ref).hostname
+        return host === 'crazygames.com'
+          || host.endsWith('.crazygames.com')
+          || host === '1001juegos.com'
+          || host.endsWith('.1001juegos.com')
+      } catch {
+        return false
+      }
+    }
+    if (looksLikeCrazyGamesPortal() && !isCrazyWeb) {
+      console.error(
+        '[save] BUILD MISCONFIGURED: page is hosted under a CrazyGames portal ' +
+        '(referrer=' + document.referrer + ') but VITE_APP_CRAZY_WEB is not "true". ' +
+        'CrazyGamesStrategy will NOT run and saves will only land in localStorage. ' +
+        'Rebuild with `pnpm build:crazy-web` and ensure .env.crazy-web(.local) sets the flag.'
+      )
+    }
   }
 
   // Platform SDK init — must happen before App loads. Each branch runs
@@ -106,6 +109,7 @@ const bootstrap = async () => {
   // CG arm so the locale-seeding code further down doesn't have to
   // re-import useCrazyGames.
   let cgLocale: string | null = null
+  let yaLocale: string | null = null
   if (isCrazyWeb) {
     const cg = await import('@/use/useCrazyGames')
     await cg.initCrazyGames()
@@ -141,6 +145,20 @@ const bootstrap = async () => {
     const { gamepixPlugin, gamePixGameLoadingStart } = await import('@/utils/gamepixPlugin')
     await gamepixPlugin()
     gamePixGameLoadingStart()
+  } else if (isYandex) {
+    // **Awaited** init — must finish BEFORE `saveManager.init()` runs hydrate.
+    // YandexStrategy's `hydrate()` reads `player.getData()` for the
+    // authoritative cloud snapshot; without the await, hydrate races SDK init
+    // and reads as empty, fresh-defaults overwrite the real cloud save on the
+    // next flush, and the cross-device requirement (mandated by Yandex's
+    // submission rules) breaks. Same reasoning as GamePix / CrazyGames.
+    //
+    // Locale is captured from `ysdk.environment.i18n.lang` and routed into
+    // `portalLocale` further down so first-time players land on the locale
+    // their Yandex Games UI is using (matches the CG / Playgama pattern).
+    const { yandexPlugin, yandexLocale } = await import('@/utils/yandexPlugin')
+    await yandexPlugin()
+    yaLocale = yandexLocale.value
   }
 
   // Pick the save strategy by build flag. `SaveManager.init()` hydrates
@@ -205,6 +223,17 @@ const bootstrap = async () => {
   // emit notices via background retries during init.
   installSaveStatus(saveManager)
   await saveManager.init()
+
+  // Refresh the in-memory `mawState` blob from the hydrated localStorage so
+  // synchronous reads further down this file (notably `resolveInitialLocale`'s
+  // `getState('spinner_user_language')` probe) see the cloud-stored values
+  // immediately, NOT the stale pre-hydrate blob. Without this, a returning
+  // player whose saved language is 'es' would still get a brief flash of the
+  // Yandex / CG portal locale on first paint before the post-hydrate language
+  // watcher (further down) reloads and switches. The watcher also calls
+  // `reloadMawState()` defensively, so this is the early-flush companion, not
+  // a replacement.
+  reloadMawState()
 
   // ─── Background / close flush — critical for mobile webviews ───────────
   //
@@ -295,8 +324,11 @@ const bootstrap = async () => {
   // CrazyGames-reported locale into sessionStorage. The portal locale is
   // passed straight into resolveInitialLocale below so it influences the
   // first-paint i18n bundle without touching any storage surface.
-  // `cgLocale` was captured up in the CG init arm; null on non-CG builds.
-  const portalLocale = cgLocale && LANGUAGES.includes(cgLocale) ? cgLocale : null
+  // `cgLocale` / `yaLocale` were captured up in their init arms; null on
+  // other builds. Yandex returns ISO-639-1 (`en`, `ru`, `tr`, etc.);
+  // anything we don't ship maps to the resolver's fallback chain.
+  const portalLocaleHint = cgLocale ?? yaLocale
+  const portalLocale = portalLocaleHint && LANGUAGES.includes(portalLocaleHint) ? portalLocaleHint : null
 
   const { default: App } = await import('@/App.vue')
 
@@ -321,10 +353,10 @@ const bootstrap = async () => {
     fallbackWarn: false
   })
 
-  // Apply the player's saved language once hydrate finishes. The CG
-  // portal locale (`cgLocale`) is used ONLY to seed first-time players —
-  // it never overrides an explicit OptionsModal choice. After hydrate
-  // has populated localStorage from sdk.data, a null value at
+  // Apply the player's saved language once hydrate finishes. The portal
+  // locale (CG / Yandex) is used ONLY to seed first-time players — it
+  // never overrides an explicit OptionsModal choice. After hydrate has
+  // populated localStorage from cloud, a null value at
   // `spinner_user_language` means "this player has never picked a
   // language on any device" and we can safely seed the portal locale.
   // useUser.ts deliberately does NOT seed a language default, so the
@@ -338,16 +370,19 @@ const bootstrap = async () => {
       (ready) => {
         if (!ready) return
         stopLangSync?.()
-        // Refresh the in-memory blob first — the cloud strategy populated
-        // localStorage's `maw_state` synchronously above, but our refs only
-        // see the new contents after a reload.
+        // Defensive reload — `main.ts` already calls `reloadMawState()`
+        // right after `saveManager.init()` so first-paint reads see the
+        // hydrated blob. This second call covers the case where hydrate
+        // resolves a cloud value AFTER the early reload (Glitch's HTTP
+        // strategy resolves out-of-band in some flows, etc.). Idempotent.
         reloadMawState()
         const hasStoredLanguage = hasState('spinner_user_language')
-        if (!hasStoredLanguage && cgLocale && LANGUAGES.includes(cgLocale)) {
-          setSettingValue('language', cgLocale)
+        const portalSeed = cgLocale ?? yaLocale
+        if (!hasStoredLanguage && portalSeed && LANGUAGES.includes(portalSeed)) {
+          setSettingValue('language', portalSeed)
         }
         // Apply whichever language is now authoritative — the stored
-        // value (cloud-hydrated or just-seeded). Never `cgLocale`
+        // value (cloud-hydrated or just-seeded). Never the portal locale
         // unconditionally, because that's what was overwriting an
         // explicit Spanish choice on every English-portal refresh.
         if (isSupportedLocale(storedLang.value)) {

@@ -20,6 +20,7 @@ export interface PlatformFlags {
   isPlaygama: boolean
   isGamepix: boolean
   isGameMonetize: boolean
+  isYandex: boolean
 }
 
 export type GlitchLicenseStatus = 'pending' | 'ok' | 'denied'
@@ -60,15 +61,45 @@ export interface ResolvedCapabilities {
    *  embedded across many partner domains, so a hostname gate would block
    *  legitimate embeds. Flag-only, like Playgama. */
   allowedToShowOnGameMonetize: boolean
+  /** Always true on Yandex builds — Yandex Games' technical requirements
+   *  explicitly forbid URL-based gating ("no technical ways of restricting
+   *  gameplay based on the URL"). Flag-only, like Playgama / GameMonetize. */
+  allowedToShowOnYandex: boolean
   /** True when Glitch was selected but their license API rejected the player. */
   isGlitchDenied: boolean
   /** True when the build targets a platform AND the license check has settled.
    *  Used by the "this game is currently only available on …" gate so the
    *  copy doesn't flash up before we know whether Glitch will let us in. */
   showOnlyAvailableText: boolean
-  /** Domain string for the "available on <platform>" copy. Empty on dev. */
-  plattformText: string
 }
+
+// NOTE: `plattformText` (the "available on <hostname>" display string) used
+// to live here as a `flags.isXxx` ternary, which baked EVERY platform's
+// hostname into every bundle as string literals — Rollup can't tree-shake
+// runtime-flag branches. Yandex's moderator flags any non-Yandex hostname
+// string in the submitted bundle as "Service storage URL detected", so the
+// ternary now lives directly in `App.vue` keyed on `import.meta.env.VITE_APP_*`
+// literals. Vite folds those at build time, and Rollup eliminates the dead
+// arms (and their hostname strings) per build. See `App.vue` for the new
+// site of truth.
+
+// ─── Build-time platform constants ──────────────────────────────────────────
+// Module-top-level constants. Vite replaces `import.meta.env.VITE_APP_X` with
+// the literal env value at parse time, so each `IS_X_BUILD` becomes a concrete
+// `true` or `false` at the binding site. Rollup constant-folds top-level
+// constants across modules far more aggressively than inline conditions
+// inside function bodies (the latter has the obfuscator's stringArray phase
+// running before esbuild has a chance to fold mid-function ternaries / IFs).
+// Use these constants — not `flags.isXxx` or inline `import.meta.env...===` —
+// to gate URL-helper calls so dead branches DCE and their hostname strings
+// don't end up in the bundle (the "Service storage URL detected" rejection
+// trigger on Yandex moderation).
+const IS_CRAZY_BUILD = import.meta.env.VITE_APP_CRAZY_WEB === 'true'
+const IS_WAVEDASH_BUILD = import.meta.env.VITE_APP_WAVEDASH === 'true'
+const IS_ITCH_BUILD = import.meta.env.VITE_APP_ITCH === 'true'
+const IS_GLITCH_BUILD = import.meta.env.VITE_APP_GLITCH === 'true'
+const IS_GD_BUILD = import.meta.env.VITE_APP_GAME_DISTRIBUTION === 'true'
+const IS_GAMEPIX_BUILD = import.meta.env.VITE_APP_GAMEPIX === 'true'
 
 // ─── Hostname matchers ──────────────────────────────────────────────────────
 // Kept separate so each platform's URL detection lives next to the other
@@ -104,56 +135,69 @@ export const resolveCapabilities = (input: CapabilitiesInput): ResolvedCapabilit
   const parentOrigin = input.parentOrigin ?? ''
 
   const isNotPlatformBuild =
-    !flags.isCrazyWeb && !flags.isWaveDash && !flags.isItch && !flags.isGlitch && !flags.isGameDistribution && !flags.isPlaygama && !flags.isGamepix && !flags.isGameMonetize
+    !flags.isCrazyWeb && !flags.isWaveDash && !flags.isItch && !flags.isGlitch && !flags.isGameDistribution && !flags.isPlaygama && !flags.isGamepix && !flags.isGameMonetize && !flags.isYandex
 
-  const allowedToShowOnCrazyGames =
-    (flags.isCrazyWeb && isCrazyGamesUrl(hostname)) || isNotPlatformBuild
+  // Each `allowedToShowOnX` gate is wrapped in an `import.meta.env.VITE_APP_X`
+  // env-literal `if`-block (NOT a ternary — empirically esbuild folds
+  // if-statement constant conditions but leaves ternaries' false-equality
+  // chains alone when the obfuscator runs after). This makes the URL-helper
+  // call (and its embedded hostname string like `'crazygames'`, `'wavedash'`,
+  // `'glitch.fun'`, ...) reachable ONLY from a build that actually targets
+  // that platform; on every other build the `if` body is dead code and the
+  // helper tree-shakes if no other build path references it. Yandex's
+  // moderator rejects any non-Yandex hostname string in the submitted bundle
+  // ("Service storage URL detected"), so this gating is what keeps the
+  // Yandex build clean. Same posture as `resolveAdProvider`.
+  let allowedToShowOnCrazyGames = isNotPlatformBuild
+  if (IS_CRAZY_BUILD) {
+    allowedToShowOnCrazyGames = (flags.isCrazyWeb && isCrazyGamesUrl(hostname)) || isNotPlatformBuild
+  }
 
-  const allowedToShowOnWaveDash =
-    (flags.isWaveDash && isWaveDashUrl(hostname)) || isNotPlatformBuild
+  let allowedToShowOnWaveDash = isNotPlatformBuild
+  if (IS_WAVEDASH_BUILD) {
+    allowedToShowOnWaveDash = (flags.isWaveDash && isWaveDashUrl(hostname)) || isNotPlatformBuild
+  }
 
-  const allowedToShowOnItch =
-    (flags.isItch && isItchUrl(hostname)) || isNotPlatformBuild
+  let allowedToShowOnItch = isNotPlatformBuild
+  if (IS_ITCH_BUILD) {
+    allowedToShowOnItch = (flags.isItch && isItchUrl(hostname)) || isNotPlatformBuild
+  }
 
-  const allowedToShowOnGlitch =
-    (flags.isGlitch && isGlitchUrl(hostname, parentOrigin) && glitchLicenseStatus === 'ok') || isNotPlatformBuild
+  let allowedToShowOnGlitch = isNotPlatformBuild
+  let isGlitchDenied = false
+  if (IS_GLITCH_BUILD) {
+    allowedToShowOnGlitch = (flags.isGlitch && isGlitchUrl(hostname, parentOrigin) && glitchLicenseStatus === 'ok') || isNotPlatformBuild
+    isGlitchDenied = flags.isGlitch && glitchLicenseStatus === 'denied'
+  }
 
-  const isGlitchDenied = flags.isGlitch && glitchLicenseStatus === 'denied'
-
-  const allowedToShowOnGameDistribution =
-    (flags.isGameDistribution && isGameDistUrl(hostname)) || isNotPlatformBuild
+  let allowedToShowOnGameDistribution = isNotPlatformBuild
+  if (IS_GD_BUILD) {
+    allowedToShowOnGameDistribution = (flags.isGameDistribution && isGameDistUrl(hostname)) || isNotPlatformBuild
+  }
 
   // Playgama's Technical Requirements forbid runtime URL gating — flag-only.
   const allowedToShowOnPlaygama = flags.isPlaygama || isNotPlatformBuild
 
-  const allowedToShowOnGamepix =
-    (flags.isGamepix && isGamepixUrl(hostname)) || isNotPlatformBuild
+  let allowedToShowOnGamepix = isNotPlatformBuild
+  if (IS_GAMEPIX_BUILD) {
+    allowedToShowOnGamepix = (flags.isGamepix && isGamepixUrl(hostname)) || isNotPlatformBuild
+  }
 
   // GameMonetize: NO hostname check (ad distribution network embedded across
   // many partner domains). Flag only, like Playgama.
   const allowedToShowOnGameMonetize = flags.isGameMonetize || isNotPlatformBuild
 
+  // Yandex: NO hostname check — Yandex's technical requirements explicitly
+  // forbid runtime URL gating. Flag only, like Playgama / GameMonetize.
+  const allowedToShowOnYandex = flags.isYandex || isNotPlatformBuild
+
   const anyPlatform =
-    flags.isCrazyWeb || flags.isWaveDash || flags.isItch || flags.isGlitch || flags.isGameDistribution || flags.isPlaygama || flags.isGamepix || flags.isGameMonetize
+    flags.isCrazyWeb || flags.isWaveDash || flags.isItch || flags.isGlitch || flags.isGameDistribution || flags.isPlaygama || flags.isGamepix || flags.isGameMonetize || flags.isYandex
   const showOnlyAvailableText = anyPlatform && glitchLicenseStatus !== 'pending'
 
-  const plattformText = flags.isWaveDash
-    ? 'wavedash.com'
-    : flags.isCrazyWeb
-      ? 'crazygames.com'
-      : flags.isItch
-        ? 'itch.io'
-        : flags.isGlitch
-          ? 'glitch.fun'
-          : flags.isGameDistribution
-            ? 'gamedistribution.com'
-            : flags.isPlaygama
-              ? 'playgama.com'
-              : flags.isGamepix
-                ? 'gamepix.com'
-                : flags.isGameMonetize
-                  ? 'gamemonetize.com'
-                  : ''
+  // `plattformText` moved to App.vue (env-literal ladder) so per-platform
+  // hostname strings tree-shake per build. See the comment above the
+  // `ResolvedCapabilities` interface for context.
 
   return {
     isNotPlatformBuild,
@@ -165,8 +209,8 @@ export const resolveCapabilities = (input: CapabilitiesInput): ResolvedCapabilit
     allowedToShowOnPlaygama,
     allowedToShowOnGamepix,
     allowedToShowOnGameMonetize,
+    allowedToShowOnYandex,
     isGlitchDenied,
-    showOnlyAvailableText,
-    plattformText
+    showOnlyAvailableText
   }
 }

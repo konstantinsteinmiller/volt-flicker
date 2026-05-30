@@ -220,7 +220,25 @@ export default defineConfig(({ mode, command }) => {
           // so the gameplay shared-chunk loads in parallel with the
           // splash render instead of blocking the entry parse. Same
           // obfuscator-vs-dynamic-import constraint as above.
-          /use[\\/]useAssets\.ts$/
+          /use[\\/]useAssets\.ts$/,
+          // capabilities.ts has per-platform URL-detector helpers (with
+          // hostname literals like `'crazygames'`, `'wavedash'`, `'glitch.fun'`,
+          // ...) gated by env-literal IFs so Rollup can tree-shake the dead
+          // branches per build. The obfuscator's `stringArray` transform runs
+          // BEFORE esbuild's constant folding can fold `import.meta.env.X === 'true'`,
+          // baking every hostname into the indirection table regardless of
+          // which build is active. Excluding capabilities.ts keeps the
+          // constant-fold + tree-shake path intact so on a Yandex build the
+          // bundle contains no non-Yandex hostnames — required by Yandex's
+          // moderator ("Service storage URL detected").
+          /platforms[\\/]capabilities\.ts$/,
+          // plattformText.ts is the per-build "available on <hostname>" string
+          // mapping. Same obfuscator-vs-stringArray issue as capabilities.ts —
+          // the ladder needs env-literal DCE to keep non-active hostnames out
+          // of the bundle. The file is intentionally tiny so excluding it
+          // doesn't meaningfully reduce obfuscation coverage of App.vue (which
+          // still gets obfuscated normally and just imports from this helper).
+          /platforms[\\/]plattformText\.ts$/
         ],
         // ─── Obfuscation profile (tuned 2026-04-30) ─────────────────────
         // The previous profile enabled every aggressive transform the
@@ -272,6 +290,20 @@ export default defineConfig(({ mode, command }) => {
   // The whole per-platform CSP shape lives in `src/platforms/csp.ts`
   // — extracted so it's unit-testable. Adding a new platform's CSP
   // contribution = edit that file, not this one.
+  //
+  // YANDEX EXCEPTION: do NOT inject a CSP meta tag on Yandex builds. The
+  // game runs inside Yandex's own iframe wrapper, which injects its own
+  // production CSP (that's exactly what `@yandex-games/sdk-dev-proxy --csp`
+  // fetches + applies during local testing). Our own meta tag is therefore
+  // redundant — AND it's the last place in the bundle that names Yandex
+  // service hostnames like `yastatic.net` (Yandex's static-storage CDN),
+  // `an.yandex.ru`, `yandexadexchange.net`. Yandex's moderation auto-check
+  // flags those as "Service storage URL detected" (requirement: no absolute
+  // URLs to Yandex service storage in the game's own code). Omitting the
+  // meta tag entirely leaves index.html with ZERO Yandex-service URLs and
+  // lets Yandex's wrapper own the security policy. The placeholder comment
+  // is simply removed so it doesn't ship either.
+  const isYandexBuild = env.VITE_APP_YANDEX === 'true'
   const cspValue = buildCsp(env)
 
   plugins.push({
@@ -279,7 +311,9 @@ export default defineConfig(({ mode, command }) => {
     transformIndexHtml(html: string) {
       return html.replace(
         '<!-- CSP meta tag injected by vite.config.ts at build time -->',
-        `<meta http-equiv="Content-Security-Policy" content="${cspValue}" />`
+        isYandexBuild
+          ? ''
+          : `<meta http-equiv="Content-Security-Policy" content="${cspValue}" />`
       )
     }
   })
@@ -356,6 +390,19 @@ export default defineConfig(({ mode, command }) => {
     })
   }
 
+  // Foreign-platform code is kept out of the Yandex bundle via `resolve.alias`
+  // stubs (see the resolve.alias block below), NOT by deleting emitted chunks.
+  //
+  // The previous approach — a `generateBundle` hook that DELETED chunks like
+  // `gamepixPlugin-*.js` — was fundamentally unsafe: `MawScene.vue` STATICALLY
+  // imports `gamePixHappyMoment` from `@/utils/gamepixPlugin`, so Rollup emits
+  // gamepixPlugin as a shared chunk that MawScene depends on. Deleting that
+  // chunk left MawScene's import dangling → 404 at runtime → "Failed to fetch
+  // dynamically imported module: MawScene" → the whole game failed to load on
+  // Yandex. Stub-aliasing instead swaps the real module (with its SDK URL) for
+  // a tiny no-op module BEFORE bundling, so the URL never enters the build AND
+  // the import resolves to a valid chunk. No chunk deletion, no 404.
+
   return {
     base: '/',
     server: {
@@ -381,6 +428,51 @@ export default defineConfig(({ mode, command }) => {
     ],
     resolve: {
       alias: {
+        // On non-CrazyGames builds, redirect `@/use/useCrazyGames` to a
+        // no-op stub. The real module contains the literal SDK environment
+        // identifier 'crazygames' + `[crazygames]` console log prefixes;
+        // many components statically import from it, so its strings end up
+        // in the bundle of every build even when the functions are no-ops
+        // at runtime. Yandex's moderator flags those non-Yandex identifier
+        // strings as "Service storage URL detected", so the alias forces
+        // the bundle to use the stub on non-CG builds and the strings stay
+        // out entirely. MUST appear BEFORE the `@` / `@/` catch-alls so the
+        // more-specific path wins resolution.
+        // The other-portal Ad/Save providers are STATICALLY imported by
+        // `resolveAdProvider` / `resolveSaveStrategy`. Even on a Yandex build
+        // where every `createXxxProvider()` function is dead code (the
+        // env-gated arm never executes), the function BODIES — including
+        // their `name: 'crazygames'` / `name: 'gamemonetize'` / etc. string
+        // literals — live in the chunk. Yandex's moderator flags non-Yandex
+        // identifier strings as "Service storage URL detected". Aliasing each
+        // foreign-portal provider to a no-op stub on non-active builds keeps
+        // the strings out of the bundle entirely. Same pattern for the heavy
+        // `useCrazyGames` module which is statically imported by many Vue
+        // components for `stopGameplay` / `triggerHappytime` etc.
+        ...(env.VITE_APP_CRAZY_WEB === 'true' ? {} : {
+          '@/use/useCrazyGames': fileURLToPath(new URL('./src/use/useCrazyGames.stub.ts', import.meta.url)),
+          '@/use/ads/CrazyGamesProvider': fileURLToPath(new URL('./src/use/ads/CrazyGamesProvider.stub.ts', import.meta.url))
+        }),
+        ...(env.VITE_APP_GAME_DISTRIBUTION === 'true' ? {} : {
+          '@/use/ads/GameDistributionProvider': fileURLToPath(new URL('./src/use/ads/GameDistributionProvider.stub.ts', import.meta.url))
+        }),
+        ...(env.VITE_APP_PLAYGAMA === 'true' ? {} : {
+          '@/use/ads/PlaygamaProvider': fileURLToPath(new URL('./src/use/ads/PlaygamaProvider.stub.ts', import.meta.url))
+        }),
+        ...(env.VITE_APP_GAMEPIX === 'true' ? {} : {
+          '@/use/ads/GamepixProvider': fileURLToPath(new URL('./src/use/ads/GamepixProvider.stub.ts', import.meta.url)),
+          // gamepixPlugin is STATICALLY imported by MawScene.vue (for
+          // gamePixHappyMoment), so Rollup emits it as a shared chunk MawScene
+          // depends on. The real module hardcodes the GamePix SDK URL
+          // (integration.gamepix.com) which Yandex moderation flags. Alias to
+          // the stub so the URL never enters the bundle AND MawScene's import
+          // resolves to a valid no-op chunk (no 404 — the bug that broke game
+          // loading when we tried deleting the chunk instead).
+          '@/utils/gamepixPlugin': fileURLToPath(new URL('./src/utils/gamepixPlugin.stub.ts', import.meta.url))
+        }),
+        ...(env.VITE_APP_GAME_MONETIZE === 'true' ? {} : {
+          '@/use/ads/GameMonetizeProvider': fileURLToPath(new URL('./src/use/ads/GameMonetizeProvider.stub.ts', import.meta.url))
+        }),
         '@': fileURLToPath(new URL('./src', import.meta.url)),
         '@/': fileURLToPath(new URL('./src/', import.meta.url)),
         '#': fileURLToPath(new URL('./src/assets', import.meta.url))

@@ -16,42 +16,65 @@
 // `AdsBlockedModal` (only CrazyGames owns its own ad-block popup). Combined with
 // `isGmAdsBlocked`, a failed rewarded tap surfaces that modal.
 
-import { computed } from 'vue'
-import {
-  gameMonetizePlugin,
-  isGmAdCoolingDown,
-  isGmAdsBlocked,
-  isGmRewardedFilled,
-  isGmSdkActive,
-  showMidgameAdGM,
-  showRewardedAdGM
-} from '@/utils/gameMonetizePlugin'
+import { computed, ref } from 'vue'
 import type { AdProvider } from './types'
 
+// Dynamic import — keeps the heavy `gameMonetizePlugin` module (which
+// contains the literal ad-block probe URL `https://s0.2mdn.net/instream/
+// video/client.js`) off non-GameMonetize builds. On a Yandex build the
+// `createGameMonetizeProvider` factory is never called (the env-gated arm
+// in `resolveAdProvider` is dead), so Rollup emits no chunk for the
+// plugin and the `2mdn.net` URL stays out of the bundle — required by
+// Yandex's moderation ("Service storage URL detected").
+//
+// This file is in `vite-plugin-javascript-obfuscator`'s exclude list so
+// the dynamic-import literal survives Vite's transform pipeline.
+
+type GameMonetizeModule = typeof import('@/utils/gameMonetizePlugin')
+let gmModule: GameMonetizeModule | null = null
+const loadGameMonetize = async (): Promise<GameMonetizeModule> => {
+  if (!gmModule) gmModule = await import('@/utils/gameMonetizePlugin')
+  return gmModule
+}
+
+const isReadyFallback = ref(false)
+const isAdsBlockedFallback = ref(false)
+
 export const createGameMonetizeProvider = (): AdProvider => {
-  const isReady = computed(() => isGmSdkActive.value)
+  const isReady = computed(() => gmModule?.isGmSdkActive.value ?? isReadyFallback.value)
+  const isAdsBlocked = computed(() => gmModule?.isGmAdsBlocked.value ?? isAdsBlockedFallback.value)
   return {
     name: 'gamemonetize',
     isReady,
-    // Per-format readiness is now driven by a REAL fill signal, not the coarse
-    // SDK-active gate. `isGmRewardedFilled` is a resolved `preloadAd('rewarded')`
-    // (preload-supported builds) or the cooldown predictor (preload-absent), so
-    // the watch-ad button only shows when an ad will actually play — fixing the
-    // "tap → silent no-fill, nothing happens" the player saw when requesting
-    // ads too fast.
-    isRewardedReady: computed(() => isGmSdkActive.value && isGmRewardedFilled.value && !isGmAdCoolingDown.value),
-    // Interstitials are auto-shown, but still gate them off during the post-ad
-    // min-gap so we never pause gameplay only to fall back to a no-fill.
-    isInterstitialReady: computed(() => isGmSdkActive.value && !isGmAdCoolingDown.value),
-    isAdsBlocked: isGmAdsBlocked,
+    // Per-format readiness is driven by a REAL fill signal (resolved
+    // `preloadAd('rewarded')` on preload-supported builds, or the cooldown
+    // predictor on preload-absent). Until the plugin loads, fall back to
+    // false so the watch-ad button stays hidden on Yandex.
+    isRewardedReady: computed(() =>
+      (gmModule?.isGmSdkActive.value ?? false)
+      && (gmModule?.isGmRewardedFilled.value ?? false)
+      && !(gmModule?.isGmAdCoolingDown.value ?? false)
+    ),
+    isInterstitialReady: computed(() =>
+      (gmModule?.isGmSdkActive.value ?? false)
+      && !(gmModule?.isGmAdCoolingDown.value ?? false)
+    ),
+    isAdsBlocked,
     init: async () => {
       try {
-        await gameMonetizePlugin()
+        const m = await loadGameMonetize()
+        await m.gameMonetizePlugin()
       } catch (e) {
         console.warn('[ads/gamemonetize] plugin init failed', e)
       }
     },
-    showRewardedAd: () => showRewardedAdGM(),
-    showMidgameAd: () => showMidgameAdGM()
+    showRewardedAd: async () => {
+      const m = await loadGameMonetize()
+      return m.showRewardedAdGM()
+    },
+    showMidgameAd: async () => {
+      const m = await loadGameMonetize()
+      return m.showMidgameAdGM()
+    }
   }
 }

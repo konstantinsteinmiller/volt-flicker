@@ -38,6 +38,22 @@ const BASE_HOSTS: ReadonlyArray<string> = [
   'https://*.gamemonetize.com',
   'https://api.gamemonetize.com',
   'https://html5.gamemonetize.com',
+  // Yandex Games — telemetry / ads beacon through *.yandex.ru / .com / .net,
+  // and the iframe wrapper itself is on yandex.com/games (yandex.ru/games /
+  // .com.tr for regional TLDs). The SDK is loaded via the RELATIVE `/sdk.js`
+  // path which Yandex's wrapper auto-routes to their backing CDN — we MUST NOT
+  // list explicit `*.s3.yandex.*` hosts here. Yandex's moderation scanner
+  // greps the submitted bundle for hardcoded S3 URLs and rejects the draft
+  // with "Service storage URL detected" if it finds any. The wildcard
+  // `https://*.yandex.net` already covers multi-level subdomains like
+  // `sdk.games.s3.yandex.net` at request time, so connectivity isn't impacted.
+  'https://yandex.ru',
+  'https://*.yandex.ru',
+  'https://yandex.com',
+  'https://*.yandex.com',
+  'https://yandex.net',
+  'https://*.yandex.net',
+  'https://an.yandex.ru',
   'https://www.clarity.ms',
   'https://api.jsonbin.io'
 ]
@@ -116,6 +132,25 @@ const CG_PARTNER_HOSTS: ReadonlyArray<string> = [
   'https://*.rubiconproject.com'
 ]
 
+/** Yandex Direct / AdFox / Yandex Ad Exchange hosts. Lifted verbatim from
+ *  Yandex's official ad-platform CSP example (yandex.com/support/partner/
+ *  en/web/adplatform/csp-configuration). The first four are SEPARATE root
+ *  domains from yandex.{ru,com,net} (already in BASE_HOSTS), so the existing
+ *  yandex.* wildcards do NOT cover them. Without these hosts the rewarded /
+ *  fullscreen ad chain breaks at the IMA-equivalent layer with no SDK error
+ *  surfaced — the ad slot just stays empty.
+ *  - yastatic.net           : static assets (creative templates, fonts, JS)
+ *  - *.adfox.ru             : adfox ad server
+ *  - *.yandexadexchange.net : Yandex's RTB ad exchange + nested ad frames
+ *  - yandexadexchange.net   : root, hit directly by frame-src
+ *  - verify.yandex.ru is already covered by `*.yandex.ru` in BASE_HOSTS. */
+const YANDEX_PARTNER_HOSTS: ReadonlyArray<string> = [
+  'https://yastatic.net',
+  'https://*.adfox.ru',
+  'https://yandexadexchange.net',
+  'https://*.yandexadexchange.net'
+]
+
 const CONNECT_BASE_EXTRA: ReadonlyArray<string> = [
   'https://*.sentry.io',
   'wss://*.wavedash.com',
@@ -142,17 +177,37 @@ export const buildCsp = (env: Record<string, string>): string => {
   const isPlaygama = env.VITE_APP_PLAYGAMA === 'true'
   const isGamepix = env.VITE_APP_GAMEPIX === 'true'
   const isGameMonetize = env.VITE_APP_GAME_MONETIZE === 'true'
+  const isYandex = env.VITE_APP_YANDEX === 'true'
 
-  // Playgama / GamePix / GameMonetize run an ad-waterfall like GD — open the
-  // same directives so partner creatives / bidders (the Google-IMA bidder
-  // chain) aren't refused.
-  const adWaterfallBuild = isGameDistribution || isPlaygama || isGamepix || isGameMonetize
+  // Playgama / GamePix / GameMonetize / Yandex run an ad-waterfall like GD —
+  // open the same directives so partner creatives / bidders (the Google-IMA
+  // bidder chain on most, Yandex Direct on Yandex) aren't refused.
+  const adWaterfallBuild = isGameDistribution || isPlaygama || isGamepix || isGameMonetize || isYandex
 
-  const hosts: string[] = [
-    ...BASE_HOSTS,
-    ...(isGameDistribution ? GD_PARTNER_HOSTS : []),
-    ...(isCrazyWeb ? CG_PARTNER_HOSTS : [])
-  ]
+  // Yandex's moderator rejects any third-party "service storage" URL it finds
+  // anywhere in the bundle — including the CSP meta tag. `BASE_HOSTS` contains
+  // a number of legacy storage-service entries (api.jsonbin.io, getpantry.cloud,
+  // peerjs, ...) that other portals' integrations once whitelisted but that no
+  // runtime code on this project actually uses. We can't safely delete them
+  // from BASE_HOSTS without auditing every other platform, so on Yandex builds
+  // we substitute a MINIMAL host list of just Yandex-related origins. Other
+  // builds keep the legacy whitelist untouched.
+  const hosts: string[] = isYandex
+    ? [
+      'https://yandex.ru',
+      'https://*.yandex.ru',
+      'https://yandex.com',
+      'https://*.yandex.com',
+      'https://yandex.net',
+      'https://*.yandex.net',
+      'https://an.yandex.ru',
+      ...YANDEX_PARTNER_HOSTS
+    ]
+    : [
+      ...BASE_HOSTS,
+      ...(isGameDistribution ? GD_PARTNER_HOSTS : []),
+      ...(isCrazyWeb ? CG_PARTNER_HOSTS : [])
+    ]
 
   // Per-directive extras — mode-driven openings beyond `'self'` + hosts.
   const scriptSrcExtra: string[] = []
@@ -170,7 +225,12 @@ export const buildCsp = (env: Record<string, string>): string => {
     // list above plus `data:` for inline beacons.
     'img-src': adWaterfallBuild ? ['data:', 'https:', 'blob:'] : ['data:'],
     'connect-src': [
-      ...CONNECT_BASE_EXTRA,
+      // CONNECT_BASE_EXTRA includes getpantry.cloud / peerjs / sentry — all
+      // third-party services. Yandex's moderator flags every "service storage"
+      // URL it finds, so omit the extras entirely on Yandex builds (the
+      // open `https:` / `wss:` added below for ad-waterfall builds still
+      // covers what's actually needed at runtime).
+      ...(isYandex ? [] : CONNECT_BASE_EXTRA),
       // GD / Playgama partner analytics / ad telemetry beacons.
       ...(adWaterfallBuild ? ['https:', 'wss:'] : [])
     ],

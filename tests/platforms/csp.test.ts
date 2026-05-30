@@ -193,6 +193,84 @@ describe('buildCsp', () => {
     })
   })
 
+  describe('Yandex build (VITE_APP_YANDEX=true)', () => {
+    const env = (): Record<string, string> => ({ VITE_APP_YANDEX: 'true' })
+
+    it('includes the Yandex telemetry / iframe-wrapper hosts via wildcards', () => {
+      const csp = buildCsp(env())
+      expect(csp).toContain('https://*.yandex.ru')
+      expect(csp).toContain('https://*.yandex.com')
+      expect(csp).toContain('https://*.yandex.net')
+      expect(csp).toContain('https://an.yandex.ru')
+    })
+
+    it('does NOT hardcode any *.s3.yandex.* host (moderation rejects "Service storage URL detected")', () => {
+      const csp = buildCsp(env())
+      // The wildcard `https://*.yandex.net` covers `sdk.games.s3.yandex.net` at
+      // request time via multi-level subdomain matching, so connectivity is
+      // unaffected. But Yandex's static scanner greps the BUNDLE for any
+      // hardcoded `s3.yandex.*` string and rejects the draft if found.
+      expect(csp).not.toMatch(/s3\.yandex\./)
+    })
+
+    it('includes the Yandex Direct / AdFox / Ad Exchange hosts (per official ad-platform CSP)', () => {
+      const csp = buildCsp(env())
+      // These root domains are NOT subdomains of yandex.{ru,com,net} —
+      // they need to be listed explicitly or the ad chain breaks silently.
+      expect(csp).toContain('https://yastatic.net')
+      expect(csp).toContain('https://*.adfox.ru')
+      expect(csp).toContain('https://yandexadexchange.net')
+      expect(csp).toContain('https://*.yandexadexchange.net')
+    })
+
+    it('opens script-src / img-src / frame-src to https: for the Yandex ad-tech surface', () => {
+      const csp = buildCsp(env())
+      const scriptSrc = csp.match(/script-src ([^;]+)/)![1]!
+      expect(scriptSrc.split(/\s+/)).toContain('https:')
+      const imgSrc = csp.match(/img-src ([^;]+)/)![1]!
+      expect(imgSrc.split(/\s+/)).toContain('https:')
+      const frameSrc = csp.match(/frame-src ([^;]+)/)![1]!
+      expect(frameSrc.split(/\s+/)).toContain('https:')
+    })
+
+    it('does NOT ship the Yandex ad-tech hosts on non-Yandex builds', () => {
+      const csp = buildCsp({})
+      expect(csp).not.toContain('https://yastatic.net')
+      expect(csp).not.toContain('https://*.adfox.ru')
+      expect(csp).not.toContain('yandexadexchange')
+    })
+
+    it('does NOT leak third-party storage / service URLs (moderation rule)', () => {
+      const csp = buildCsp(env())
+      // Yandex's moderator flags ANY third-party "service storage" URL it
+      // finds in the bundle (including the CSP meta tag). These were legacy
+      // allowlist remnants from other-platform integrations that no runtime
+      // code on this project actually uses — they must NOT be in the Yandex
+      // build's CSP.
+      expect(csp).not.toContain('jsonbin')
+      expect(csp).not.toContain('getpantry')
+      expect(csp).not.toContain('pantry.cloud')
+      expect(csp).not.toContain('peerjs')
+      expect(csp).not.toContain('sentry')
+    })
+
+    it('does NOT leak other-portal hosts (the build is for Yandex only)', () => {
+      const csp = buildCsp(env())
+      // Same moderation rule — other portals' own hosts shouldn't show up
+      // on a Yandex submission. (Most aren't "storage" URLs per se, but
+      // they're irrelevant noise and risk extra moderator scrutiny.)
+      expect(csp).not.toContain('crazygames')
+      expect(csp).not.toContain('wavedash')
+      expect(csp).not.toContain('itch.io')
+      expect(csp).not.toContain('glitch.fun')
+      expect(csp).not.toContain('gamedistribution')
+      expect(csp).not.toContain('playgama')
+      expect(csp).not.toContain('gamepix')
+      expect(csp).not.toContain('gamemonetize')
+      expect(csp).not.toContain('clarity.ms')
+    })
+  })
+
   describe('directive ordering and shape', () => {
     it('emits all 8 standard directives separated by "; "', () => {
       const csp = buildCsp(baseEnv())

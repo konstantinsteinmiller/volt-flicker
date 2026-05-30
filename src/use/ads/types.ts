@@ -60,7 +60,27 @@ export interface AdProvider {
    * honest path — explain, don't reward.
    */
   readonly isAdsBlocked: Ref<boolean>
+  /**
+   * Opt-in: the provider mutes the game's audio + flips the pause gate
+   * ITSELF, only once the interstitial genuinely opens — by invoking the
+   * `onImpression` callback passed to `showMidgameAd`. Left falsy (the
+   * default) means `useAds` kills audio up front, before the SDK call.
+   *
+   * Why it exists: some SDKs (Yandex) report a no-fill by flashing the ad
+   * container open and closing it immediately — if we'd already killed the
+   * audio up front we'd have cut the win/lose result stinger for an ad the
+   * player never actually saw. Deferring the mute to the real `onOpen` means
+   * a no-fill leaves the sound untouched. GamePix-style SDKs that resolve
+   * before the ad closes MUST keep the up-front kill, so this stays opt-in.
+   */
+  readonly managesMidgameAudio?: boolean
   init: () => Promise<void>
   showRewardedAd: () => Promise<boolean>
-  showMidgameAd: () => Promise<void>
+  /**
+   * Show a midgame interstitial. Resolves when it finished / errored; never
+   * rejects. `onImpression` is invoked the moment the ad actually opens —
+   * providers that set `managesMidgameAudio` call it to mute audio at that
+   * point; others ignore it (audio is already killed up front).
+   */
+  showMidgameAd: (onImpression?: () => void) => Promise<void>
 }

@@ -44,18 +44,16 @@ const progress = computed(() => loadingProgress.value)
 
 void preloadAssets()
 
-// First-load interstitial — portal-mandated on GameDistribution +
-// GameMonetize + GamePix ("show ads the first time after the game loads").
-// Arm the orchestrator at setup so the SDK-ready watcher is in place before
-// the splash even fades; `notifySplashGone()` below trips the actual fire.
+// First-load interstitial — kept ON for GamePix only. GameDistribution and
+// GameMonetize were intentionally removed: the post-splash ad placement on
+// those networks was producing borderline-incidental-click impressions (the
+// player taps "play" expecting the game and lands on an ad), so we keep the
+// midgame between-rounds interstitial as the sole placement on those builds.
+// GamePix portal QA still requires the post-load ad, so its arm stays.
 // Every env read is a static literal so Rollup DCEs the entire branch (helper
 // module included) on other platform builds — same pattern as the Playgama /
 // GamePix loading signals further down.
-if (
-  import.meta.env.VITE_APP_GAME_DISTRIBUTION === 'true'
-  || import.meta.env.VITE_APP_GAME_MONETIZE === 'true'
-  || import.meta.env.VITE_APP_GAMEPIX === 'true'
-) {
+if (import.meta.env.VITE_APP_GAMEPIX === 'true') {
   armFirstLoadInterstitial()
 }
 
@@ -160,6 +158,24 @@ const signalGameReadyToGamepix = () => {
   })
 }
 
+// Yandex's `LoadingAPI.ready()` is certification-mandatory — fire it on the
+// same splash-resolved edge as CG / Playgama / GamePix. Cert text: "At the
+// moment when the user can start playing the game, the LoadingAPI.ready()
+// method from Game Ready must be called." The plugin guards the call
+// internally so re-triggering is harmless. Same `import.meta.env` literal
+// pattern as the platform branches above so non-Yandex builds DCE the
+// dynamic-import entirely.
+let yandexLoadSignaled = false
+const signalGameReadyToYandex = () => {
+  if (yandexLoadSignaled) return
+  if (import.meta.env.VITE_APP_YANDEX !== 'true') return
+  yandexLoadSignaled = true
+  void import('@/utils/yandexPlugin').then(({ yandexLoadingReady }) => {
+    try { yandexLoadingReady() }
+    catch (e) { console.warn('[FLogoProgress] Yandex LoadingAPI.ready failed', e) }
+  })
+}
+
 watch(done, (isDone) => {
   if (isDone) {
     setTimeout(() => {
@@ -167,8 +183,11 @@ watch(done, (isDone) => {
       signalGameReadyToCG()
       signalGameReadyToPlaygama()
       signalGameReadyToGamepix()
-      // Triggers the GD / GameMonetize first-load interstitial (no-op on
-      // other builds — the orchestrator was never armed). Runs alongside
+      signalGameReadyToYandex()
+      // Triggers the GamePix first-load interstitial (no-op on other builds
+      // — the orchestrator was never armed). GD / GameMonetize used to share
+      // this fire but were removed above; their first-load ad is gone, the
+      // midgame placement is the only ad on those builds now. Runs alongside
       // the platform `game_ready` / `gameLoaded` signals so the ad lands
       // immediately once the splash is gone and the SDK is fillable.
       notifySplashGone()

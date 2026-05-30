@@ -14,9 +14,10 @@ import SaveStatusBanner from '@/components/atoms/SaveStatusBanner.vue'
 import AdsBlockedModal from '@/components/atoms/AdsBlockedModal.vue'
 import VConsoleHideButton from '@/components/atoms/VConsoleHideButton.vue'
 import { useCrazyMuteSync } from '@/use/useCrazyMuteSync'
-import { isCrazyWeb, isWaveDash, isItch, isGlitch, isGameDistribution, isPlaygama, isGamepix, isGameMonetize, isNative, orientation } from '@/use/useUser'
+import { isCrazyWeb, isWaveDash, isItch, isGlitch, isGameDistribution, isPlaygama, isGamepix, isGameMonetize, isYandex, isNative, orientation } from '@/use/useUser'
 import { glitchLicenseStatus } from '@/use/useGlitchLicense'
 import { resolveCapabilities } from '@/platforms/capabilities'
+import { getPlattformText } from '@/platforms/plattformText'
 
 const { t } = useI18n()
 const { initMusic, pauseMusic, continueMusic } = useMusic()
@@ -110,7 +111,7 @@ onUnmounted(() => {
 const hostname = window.location.hostname
 const parentOrigin = window.location.ancestorOrigins?.[0] ?? document.referrer ?? ''
 const platformFlags = {
-  isCrazyWeb, isWaveDash, isItch, isGlitch, isGameDistribution, isPlaygama, isGamepix, isGameMonetize
+  isCrazyWeb, isWaveDash, isItch, isGlitch, isGameDistribution, isPlaygama, isGamepix, isGameMonetize, isYandex
 }
 const capabilities = computed(() => resolveCapabilities({
   flags: platformFlags,
@@ -128,11 +129,16 @@ const isGameShowAllowed = computed(() =>
   capabilities.value.allowedToShowOnPlaygama ||
   capabilities.value.allowedToShowOnGamepix ||
   capabilities.value.allowedToShowOnGameMonetize ||
+  capabilities.value.allowedToShowOnYandex ||
   location.hostname.includes('localhost')
 )
 const isGlitchDenied = computed(() => capabilities.value.isGlitchDenied)
 const showOnlyAvailableText = computed(() => capabilities.value.showOnlyAvailableText)
-const plattformText = computed(() => capabilities.value.plattformText)
+// Sourced from `@/platforms/plattformText` — that file is in the obfuscator's
+// exclude list so its env-literal ladder DCEs cleanly per build and only the
+// active build's hostname survives in the bundle. See the comment in
+// `plattformText.ts` for why a separate file (and why exclusion is required).
+const plattformText = computed(() => getPlattformText())
 </script>
 
 <template lang="pug">
@@ -155,7 +161,7 @@ const plattformText = computed(() => capabilities.value.plattformText)
 
 <style lang="sass">
 *
-  font-family: 'Angry', cursive
+  font-family: 'Angry', "Lato", "Helvetica Neue", Arial, sans-serif
   user-select: none
   // Standard
   -webkit-user-select: none

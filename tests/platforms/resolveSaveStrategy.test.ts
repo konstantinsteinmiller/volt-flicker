@@ -26,6 +26,7 @@ const ALL_PLATFORM_ENVS = [
   'VITE_APP_CRAZY_WEB',
   'VITE_APP_GAME_DISTRIBUTION',
   'VITE_APP_GAME_MONETIZE',
+  'VITE_APP_YANDEX',
   'VITE_APP_GLITCH'
 ] as const
 
@@ -82,6 +83,13 @@ describe('resolveSaveStrategy', () => {
     const resolveSaveStrategy = await loadResolver()
     const strategy = await resolveSaveStrategy({ ...allOff, isGameMonetize: true })
     expect(strategy.name).toBe('gamemonetize')
+  })
+
+  it('returns YandexStrategy when isYandex env is set', async () => {
+    vi.stubEnv('VITE_APP_YANDEX', 'true')
+    const resolveSaveStrategy = await loadResolver()
+    const strategy = await resolveSaveStrategy({ ...allOff, isYandex: true } as any)
+    expect(strategy.name).toBe('yandex')
   })
 
   it('returns GlitchStrategy or LocalStorageStrategy fallback when isGlitch env is set', async () => {

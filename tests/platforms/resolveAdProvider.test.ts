@@ -17,7 +17,7 @@ const allOff: PlatformFlags = {
   isGameMonetize: false
 }
 
-const ALL_ENVS = ['VITE_APP_CRAZY_WEB', 'VITE_APP_GAME_DISTRIBUTION', 'VITE_APP_GAME_MONETIZE', 'VITE_APP_NATIVE'] as const
+const ALL_ENVS = ['VITE_APP_CRAZY_WEB', 'VITE_APP_GAME_DISTRIBUTION', 'VITE_APP_GAME_MONETIZE', 'VITE_APP_YANDEX', 'VITE_APP_NATIVE'] as const
 
 const clearEnv = () => {
   for (const k of ALL_ENVS) vi.stubEnv(k, '')
@@ -74,6 +74,17 @@ describe('resolveAdProvider', () => {
       isNative: false
     })
     expect(provider.name).toBe('gamemonetize')
+  })
+
+  it('returns Yandex when VITE_APP_YANDEX env is set', async () => {
+    vi.stubEnv('VITE_APP_YANDEX', 'true')
+    const resolveAdProvider = await loadResolver()
+    const provider = resolveAdProvider({
+      flags: { ...allOff, isYandex: true } as any,
+      showMediatorAds: false,
+      isNative: false
+    })
+    expect(provider.name).toBe('yandex')
   })
 
   it('returns Noop when showMediatorAds is true but isNative is false (web build)', async () => {

@@ -142,6 +142,7 @@ const onWatchAdForUpgrade = async (id: string) => {
 
 <template lang="pug">
   FModal(
+    class="z-[101]"
     :model-value="modelValue"
     :title="t('upgrades.title')"
     @update:model-value="emit('update:modelValue', $event)"

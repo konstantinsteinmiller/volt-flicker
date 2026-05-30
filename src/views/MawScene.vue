@@ -36,11 +36,22 @@ import {schedulePreloadOnIdle} from '@/use/useSoundPreload'
 import {useScreenshake} from '@/use/useScreenshake'
 import useUser from '@/use/useUser'
 import useBottomSafe from '@/use/useBottomSafe'
-import {isMobilePortrait, isMobileLandscape, isGameDistribution, isGameMonetize, isGamepix} from '@/use/useUser'
+import {isMobilePortrait, isMobileLandscape, isGameDistribution, isGameMonetize, isGamepix, isYandex} from '@/use/useUser'
 import useCheats from '@/use/useCheats'
 import {spawnCoinExplosion} from '@/use/useCoinExplosion'
 import {stopGameplay, startGameplay, triggerHappytime} from '@/use/useCrazyGames'
-import {gamePixHappyMoment} from '@/utils/gamepixPlugin'
+import {gamePixHappyMoment as gamePixHappyMomentImpl} from '@/utils/gamepixPlugin'
+// Wrap the static import in an env-literal gate. On non-GamePix builds the
+// `'false' === 'true'` constant folds → the call site is dead → Rollup
+// tree-shakes `gamePixHappyMomentImpl` (and the rest of gamepixPlugin reached
+// only through it) out of the bundle. This keeps the GamePix SDK URL string
+// (`gamepix.com/sdk/...`) out of the Yandex bundle, which Yandex's moderator
+// flags as "Service storage URL detected". Static-import path avoids the
+// obfuscator's stringArray transform mangling a dynamic import literal.
+const gamePixHappyMoment = (): void => {
+  if (import.meta.env.VITE_APP_GAMEPIX !== 'true') return
+  gamePixHappyMomentImpl()
+}
 import {isInterstitialReady, showMidgameAd, isRewardedReady, showRewardedAd, isAdsBlocked} from '@/use/useAds'
 import {isGamePaused} from '@/use/useGamePause'
 import {isAnyModalOpen} from '@/use/useModalState'
@@ -444,6 +455,11 @@ const showContinueOffer: Ref<boolean> = ref(false)
 const isAdInFlight: Ref<boolean> = ref(false)
 const CONTINUE_AD_COOLDOWN_MS = 15_000
 let lastContinueOfferAt = 0
+// Win/lose-ad builds only: locks the FReward "continue" CTA for a short grace
+// window after the result screen opens, so the result stinger (win/lose) gets
+// to play and the player can't tap straight through before the scheduled
+// interstitial lands. Always false on non-reward-screen-ad builds.
+const rewardContinueLocked: Ref<boolean> = ref(false)
 
 // ─── Combined pause / music gate ─────────────────────────────────────────
 // Any spotlight OR any modal (Upgrades / Achievements / Options / Reward
@@ -588,7 +604,7 @@ const startMeteorIntro = () => {
 // tap on the reward modal is intentionally ad-free — portal QA rejected the
 // older "ad on continue" placement because the ad should land on the result
 // screen, not the transition out of it.
-const isWinLoseScreenAdBuild = isGameDistribution || isGameMonetize || isGamepix
+const isWinLoseScreenAdBuild = isGameDistribution || isGameMonetize || isGamepix || isYandex
 
 const beginPlay = async (_fromReward = false) => {
   // Re-entrancy guard. `beginPlay` can be triggered by the idle-screen
@@ -734,18 +750,27 @@ watch(showReward, (open) => {
 // skip the schedule entirely (their ads run via the attempt-start cadence
 // in `beginPlay`).
 if (isWinLoseScreenAdBuild) {
-  const REWARD_AD_DELAY_MS = 500
-  const scheduleRewardInterstitial = () => {
+  const REWARD_AD_DELAY_MS = 600
+  const scheduleRewardInterstitial = (stillOpen: () => boolean) => {
+    // Lock "continue" for the whole grace window so the player can't tap
+    // past the result screen before its win/lose stinger has played AND so
+    // the interstitial isn't requested against a screen the player already
+    // dismissed. Unlocks when the grace ends (the same moment the ad fires).
+    rewardContinueLocked.value = true
     setTimeout(() => {
+      rewardContinueLocked.value = false
+      if (!stillOpen()) return
       if (!isInterstitialReady.value) return
       void showMidgameAd()
     }, REWARD_AD_DELAY_MS)
   }
   watch(showReward, (open) => {
-    if (open) scheduleRewardInterstitial()
+    if (open) scheduleRewardInterstitial(() => showReward.value)
+    else rewardContinueLocked.value = false
   })
   watch(showHeroReward, (open) => {
-    if (open) scheduleRewardInterstitial()
+    if (open) scheduleRewardInterstitial(() => showHeroReward.value)
+    else rewardContinueLocked.value = false
   })
 }
 
@@ -1594,7 +1619,7 @@ const showStartHint = computed(() =>
     //- Reward / loss overlay
     FReward(
       v-model="showReward"
-      :show-continue="true"
+      :show-continue="!rewardContinueLocked"
       @continue="onContinue"
     )
       template(#ribbon)
@@ -1706,7 +1731,7 @@ const showStartHint = computed(() =>
     //- and coins are untouched).
     FReward(
       v-model="showHeroReward"
-      :show-continue="true"
+      :show-continue="!rewardContinueLocked"
       @continue="onRestartCampaign"
     )
       template(#ribbon)

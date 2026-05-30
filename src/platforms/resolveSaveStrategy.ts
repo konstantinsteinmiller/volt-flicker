@@ -72,6 +72,15 @@ export const resolveSaveStrategy = async (_flags: PlatformFlags): Promise<SaveSt
     const { GameMonetizeStrategy } = await import('@/utils/save/GameMonetizeStrategy')
     return new GameMonetizeStrategy()
   }
+  if (import.meta.env.VITE_APP_YANDEX === 'true') {
+    // Yandex has `player.setData / getData` (200 KB per player, 100 req /
+    // 5 min). `yandexPlugin()` is AWAITED from main.ts BEFORE this resolver
+    // runs, so by the time `hydrate()` is called both ysdk + player are
+    // settled — the strategy reads them via `getYandexPlayer()` and
+    // performs an authoritative cloud-read before SaveManager continues.
+    const { YandexStrategy } = await import('@/utils/save/YandexStrategy')
+    return new YandexStrategy()
+  }
   const { LocalStorageStrategy } = await import('@/utils/save/LocalStorageStrategy')
   return new LocalStorageStrategy()
 }

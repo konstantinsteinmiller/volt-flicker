@@ -43,7 +43,13 @@ const host = computed(() => {
       enter-from-class="opacity-0"
       leave-to-class="opacity-0"
     )
-      div.fixed.inset-0.z-50.flex.items-center.justify-center.p-4(
+      //- z-[150]: must sit ABOVE every win/lose reward overlay (FReward
+      //- z-[100]) and in-game menu (UpgradesModal z-[101], FSpeechBubble
+      //- z-[100]) so the ad-blocker explainer is never buried under the
+      //- screen that triggered the rewarded tap. Stays below the boot
+      //- loader (FLogoProgress z-[200]), which never coexists with it.
+      div.fixed.inset-0.flex.items-center.justify-center.p-4(
+        class="z-[150]"
         v-if="isAdsBlockedModalShown"
         @click="dismissAdsBlockedModal"
       )
