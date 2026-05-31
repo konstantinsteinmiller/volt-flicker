@@ -2,7 +2,6 @@
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import FModal from '@/components/molecules/FModal.vue'
-import FButton from '@/components/atoms/FButton.vue'
 import IconCoin from '@/components/icons/IconCoin.vue'
 import IconMovie from '@/components/icons/IconMovie.vue'
 import useEpicProgress, { UPGRADES, levelOf, upgradeCost, sellRefund, SELLABLE_UPGRADES, SECOND_CHANCE_COST } from '@/use/useEpicProgress'
@@ -181,15 +180,14 @@ const watchForSecondChance = async (): Promise<void> => {
               )
                 IconCoin(class="w-4 h-4 text-yellow-100")
                 span.font-black.game-text.text-white(class="text-sm") {{ card.cost }}
-              //- Downgrade / sell-back (red FButton) — only for sellable upgrades.
-              FButton(
+              //- Downgrade / sell-back — a red button matching the buy button's
+              //- size so the two align in the right-hand action column.
+              button.cursor-pointer.transition-transform.flex.items-center.justify-center.gap-1.rounded-lg.border-2.px-3(
                 v-if="card.sellable && card.canSell"
-                size="sm"
-                color-from="#ff5a5a"
-                color-to="#c01f1f"
-                shadow-color="#5e0d0d"
+                class="py-1.5 active:scale-95 hover:scale-[103%] bg-gradient-to-b from-[#ff5a5a] to-[#c01f1f] border-[#5e0d0d]"
                 @click="sell(card.id)"
-              ) {{ t('upgrades.sellBack', { n: card.refund }) }}
+              )
+                span.font-black.game-text.text-white(class="text-xs") {{ t('upgrades.sellBack', { n: card.refund }) }}
 </template>
 
 <style scoped lang="sass">

@@ -41,7 +41,39 @@ export default {
     'crashed': 'You crashed into an obstacle!',
     'tiles': 'Tiles',
     'winReward': 'incl. +{n} stage bonus',
-    'double': 'Double coins'
+    'double': 'Double coins',
+    'firstRunDouble': '2× — first run today!'
+  },
+  'missions': {
+    'title': 'Daily Missions',
+    'subtitle': 'Complete goals each day for coins.',
+    'claim': 'Claim',
+    'done': 'Claimed',
+    'types': {
+      'coins': 'Collect {n} coins today',
+      'tiles': 'Travel {n} tiles in one run',
+      'items': 'Grab {n} item boxes today',
+      'clears': 'Clear {n} stages today'
+    }
+  },
+  'endless': {
+    'badge': 'Endless',
+    'toEndless': 'Endless Mode',
+    'toCampaign': 'Campaign',
+    'best': 'Best: {n}'
+  },
+  'boon': {
+    'title': 'Choose a boon',
+    'names': {
+      'secondChance': 'Second Chance',
+      'startPowerup': 'Head Start',
+      'coinBoost': 'Coin Rush'
+    },
+    'descriptions': {
+      'secondChance': 'Begin the next stage with a Second Chance shield.',
+      'startPowerup': 'Begin the next stage with a random power-up.',
+      'coinBoost': '1.2× coins for the whole next stage.'
+    }
   },
   'upgrades': {
     'title': 'Upgrades',
@@ -49,6 +81,7 @@ export default {
     'level': 'Lv.{n}',
     'maxedOut': 'MAXED',
     'sellBack': 'Sell +{n}',
+    'spotlight': 'Spend!',
     'unlocksAtStage': '🔒 Stage {n}',
     'names': {
       'powerupDuration': 'Power Boost',
@@ -56,6 +89,8 @@ export default {
       'coinValue': 'Coin Value',
       'itemLuck': 'Lucky Boxes',
       'dodgeApprentice': 'Dodge Apprentice',
+      'deathMagnet': 'Death Magnet',
+      'autoCollect': 'Auto-Collect',
       'rollingBoulder': 'Rolling Boulder'
     },
     'descriptions': {
@@ -64,6 +99,8 @@ export default {
       'coinValue': 'Each coin you grab is worth more.',
       'itemLuck': 'Item boxes appear more often.',
       'dodgeApprentice': 'Auto-dodge one deadly tile, then recharge (10s; −0.5s per level).',
+      'deathMagnet': 'On death, grab every coin within 4 tiles — bank what you would have lost.',
+      'autoCollect': 'Always collect coins from nearby tiles — a permanent 1-tile magnet.',
       'rollingBoulder': 'Roll straight through box obstacles, unharmed.'
     },
     'secondChance': {
@@ -104,6 +141,11 @@ export default {
     'difficulty': 'Difficulty',
     'soundEffects': 'Sound Effects',
     'music': 'Music',
+    'musicTrack': 'Music Track',
+    'musicTracks': {
+      'cozy': 'Cozy Harmony',
+      'trance': 'Trance Tunnel'
+    },
     'close': 'Save & Close',
     'difficulties': {
       'easy': 'Easy',

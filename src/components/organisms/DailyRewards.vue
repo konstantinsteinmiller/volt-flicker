@@ -22,7 +22,8 @@ const { playSound } = useSounds()
 
 // Scaled to the new, slower coin economy (~40 coins on a good early run): a
 // daily login is a meaningful boost without trivialising upgrade costs.
-const DAILY_REWARDS = [10, 15, 25, 40, 60, 90, 150]
+// Each streak level pays 3× its prior baseline (was [10,15,25,40,60,90,150]).
+const DAILY_REWARDS = [30, 45, 75, 120, 180, 270, 450]
 const STORAGE_KEY = 'spinner_daily_rewards'
 
 interface DailyState {

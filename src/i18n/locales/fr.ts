@@ -37,7 +37,8 @@ export default {
     'crashed': 'Vous avez percuté un obstacle !',
     'tiles': 'Cases',
     'winReward': 'dont +{n} bonus de niveau',
-    'double': 'Doubler les pièces'
+    'double': 'Doubler les pièces',
+    'firstRunDouble': '2× — première partie du jour !'
   },
   'upgrades': {
     'title': 'Améliorations',
@@ -45,6 +46,7 @@ export default {
     'level': 'Niv.{n}',
     'maxedOut': 'MAX',
     'sellBack': 'Vendre +{n}',
+    'spotlight': 'Dépenser !',
     'unlocksAtStage': '🔒 Niveau {n}',
     'names': {
       'powerupDuration': 'Boost de pouvoir',
@@ -52,6 +54,8 @@ export default {
       'coinValue': 'Valeur des pièces',
       'itemLuck': 'Boîtes chanceuses',
       'dodgeApprentice': 'Apprenti Esquive',
+      'deathMagnet': 'Aimant Mortel',
+      'autoCollect': 'Collecte Auto',
       'rollingBoulder': 'Rocher Roulant'
     },
     'descriptions': {
@@ -60,6 +64,8 @@ export default {
       'coinValue': 'Chaque pièce vaut plus.',
       'itemLuck': 'Les boîtes apparaissent plus souvent.',
       'dodgeApprentice': "Esquive auto une case mortelle, puis recharge (10s ; −0,5s par niveau).",
+      'deathMagnet': "À la mort, récupère toutes les pièces dans un rayon de 4 cases — encaisse ce que tu aurais perdu.",
+      'autoCollect': "Collecte toujours les pièces des cases adjacentes — un aimant à pièces permanent d'une case.",
       'rollingBoulder': 'Traversez les caisses sans dommage.'
     },
     'secondChance': {
@@ -92,6 +98,37 @@ export default {
     'equip': 'Équiper',
     'equipped': 'Équipé'
   },
+  'missions': {
+    'title': 'Missions quotidiennes',
+    'subtitle': 'Accomplissez des objectifs chaque jour pour des pièces.',
+    'claim': 'Réclamer',
+    'done': 'Réclamé',
+    'types': {
+      'coins': 'Collectez {n} pièces aujourd\'hui',
+      'tiles': 'Parcourez {n} cases en une partie',
+      'items': 'Attrapez {n} boîtes d\'objets aujourd\'hui',
+      'clears': 'Terminez {n} niveaux aujourd\'hui'
+    }
+  },
+  'endless': {
+    'badge': 'Infini',
+    'toEndless': 'Mode Infini',
+    'toCampaign': 'Campagne',
+    'best': 'Record : {n}'
+  },
+  'boon': {
+    'title': 'Choisissez un bonus',
+    'names': {
+      'secondChance': 'Seconde Chance',
+      'startPowerup': 'Avance',
+      'coinBoost': 'Ruée vers les pièces'
+    },
+    'descriptions': {
+      'secondChance': 'Commencez le niveau suivant avec un bouclier Seconde Chance.',
+      'startPowerup': 'Commencez le niveau suivant avec un bonus aléatoire.',
+      'coinBoost': '1,2× pièces pour tout le niveau suivant.'
+    }
+  },
   'options': {
     'title': 'Options',
     'general': 'Général',
@@ -100,6 +137,11 @@ export default {
     'difficulty': 'Difficulté',
     'soundEffects': 'Effets Sonores',
     'music': 'Musique',
+    'musicTrack': 'Piste musicale',
+    'musicTracks': {
+      'cozy': 'Harmonie Cosy',
+      'trance': 'Tunnel Trance'
+    },
     'close': 'Sauvegarder et Fermer',
     'difficulties': { 'easy': 'Facile', 'medium': 'Moyen', 'hard': 'Difficile' },
     'difficultyHints': {

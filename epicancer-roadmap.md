@@ -61,7 +61,7 @@ few runs. Keeps new players in flow without making experts bored. Extend
 Besides the staged campaign, an endless mode with a global leaderboard score
 and gentler ramp. Adds a second pillar of session time for players who like
 flow over goals. Mostly a config branch in `useEpicGame` (no stage target,
-softer `SPEED_RAMP`).
+softer `SPEED_RAMP`). the player can toggle between modes(Endless shown with an infinity symbol. Staged with a staircase symbol)
 
 ### 10. Leaderboards (platform + friends) — *hard‑to‑put‑down, conversion* (M)
 Post `bestScore`/`maxStage` to the portal leaderboard (GamePix already wired
@@ -83,7 +83,7 @@ distinct sparkle. Anticipation of a rare drop pulls players forward. Hook in
 
 ### 13. Stage‑clear "choose your boon" fork — *playtime, conversion* (M)
 On each stage clear, offer a pick‑1‑of‑3 temporary boon for the next stage
-(e.g. "+1 free revive", "start with a powerup", "2× coins this stage"). Run‑
+(e.g. "+1 second chance"(overwrite second chance buyable perk), "start with a powerup", "1.2× coins this stage"(Stacks multiplicatively with 2xRewardButton)). Run‑
 based meta‑choices add depth and a natural rewarded‑ad reroll. New modal +
 transient flags consumed by `useEpicGame`.
 
@@ -93,15 +93,10 @@ velocity, subtle chromatic pulse on powerup pickup, haptics
 (`navigator.vibrate`) on hit/clear for mobile, dynamic music intensity tied to
 `game.speed`. All in `useEpicArt` + `useSound`; cheap, high felt‑quality.
 
-### 15. Push‑style re‑engagement hooks (where supported) — *retention* (M)
-On platforms that allow it (PWA / native), schedule "your daily chest is
-ready" and "your battle‑pass season ends in 2 days" nudges. Web‑only fallback:
-an in‑app "come back tomorrow for +N" teaser on exit. Wire to existing
-`DailyRewards`/`useBattlePass` season timers.
-
 ### 16. Tutorialised upgrade spotlight — *conversion, playtime* (S)
 First time the player can afford an upgrade, spotlight the Upgrades button
-(dim + arrow, like the reused HUD patterns). Teaches the coin→power loop that
+(dim + arrow, like the reused HUD patterns), but only after the player has entered the Menu Screen.
+Teaches the coin→power loop that
 converts a one‑session player into a progression‑driven returner. Gate on a
 `epic_upgrade_spotlight_seen` flag.
 
@@ -110,12 +105,6 @@ On death, briefly auto‑magnet any coins still on screen into the run total
 (visible sweep), then offer the 2× rewarded. Makes the reward feel earned and
 larger, lifting rewarded‑ad opt‑in. Small addition to the death sequence +
 `useEpicArt` sweep VFX.
-
-### 18. Weekly event stages with modifiers — *retention, playtime* (L)
-Time‑boxed stages with a twist (mirror controls, fog, gravity‑coins) and a
-dedicated reward track. Creates appointment play and fresh content without new
-core code — modifiers are flags consumed by `useEpicGame`/`useEpicArt`.
-
 ---
 
 ## Suggested sequencing

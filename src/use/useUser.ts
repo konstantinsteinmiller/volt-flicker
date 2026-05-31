@@ -54,6 +54,16 @@ export const SOUND_KEY = 'spinner_user_sound_volume'
 export const MUSIC_KEY = 'spinner_user_music_volume'
 export const LANGUAGE_KEY = 'spinner_user_language'
 export const DIFFICULTY_KEY = 'spinner_user_difficulty'
+// Which background-music track plays during a run. 'trance' (Trance Tunnel)
+// is the default; 'cozy' maps to the original bg-cozy.ogg (Cozy Harmony).
+export const MUSIC_TRACK_KEY = 'spinner_user_music_track'
+
+// Background-music track id → audio filename (under public/audio/music/).
+export type MusicTrack = 'trance' | 'cozy'
+export const MUSIC_TRACK_FILES: Record<MusicTrack, string> = {
+  trance: 'trance.ogg',
+  cozy: 'bg-cozy.ogg'
+}
 
 const readNumber = (key: string, fallback: number): number => {
   const v = getState<unknown>(key)
@@ -79,6 +89,8 @@ const userLanguage: Ref<string> = ref(readString(LANGUAGE_KEY, 'en'))
 // Difficulty defaults to MEDIUM; Easy slows travel speed −20%, Hard +10%
 // (applied in useEpicGame's per-frame speed calc via `difficultySpeedFactor`).
 const userDifficulty: Ref<Difficulties> = ref(readString<Difficulties>(DIFFICULTY_KEY, DIFFICULTY.MEDIUM))
+// Background-music track — defaults to 'trance' (Trance Tunnel).
+const userMusicTrack: Ref<MusicTrack> = ref(readString<MusicTrack>(MUSIC_TRACK_KEY, 'trance'))
 
 // Re-read on hydrate-success bump. Module init reads these synchronously
 // from localStorage, but on cloud-only builds (CrazyGames) the blob is
@@ -105,10 +117,12 @@ watch(saveDataVersion, () => {
   userMusicVolume.value = readNumber(MUSIC_KEY, userMusicVolume.value)
   userLanguage.value = readString(LANGUAGE_KEY, userLanguage.value)
   userDifficulty.value = readString<Difficulties>(DIFFICULTY_KEY, userDifficulty.value)
+  userMusicTrack.value = readString<MusicTrack>(MUSIC_TRACK_KEY, userMusicTrack.value)
 
   if (!hasState(SOUND_KEY)) setState(SOUND_KEY, userSoundVolume.value)
   if (!hasState(MUSIC_KEY)) setState(MUSIC_KEY, userMusicVolume.value)
   if (!hasState(DIFFICULTY_KEY)) setState(DIFFICULTY_KEY, userDifficulty.value)
+  if (!hasState(MUSIC_TRACK_KEY)) setState(MUSIC_TRACK_KEY, userMusicTrack.value)
 })
 
 /** Travel-speed multiplier for the active difficulty: Easy −20% (more reaction
@@ -187,6 +201,10 @@ const useUser = () => {
         userDifficulty.value = value as Difficulties
         setState(DIFFICULTY_KEY, userDifficulty.value)
         break
+      case 'musicTrack':
+        userMusicTrack.value = value as MusicTrack
+        setState(MUSIC_TRACK_KEY, userMusicTrack.value)
+        break
     }
   }
 
@@ -195,6 +213,7 @@ const useUser = () => {
     userMusicVolume,
     userLanguage,
     userDifficulty,
+    userMusicTrack,
     setSettingValue
   }
 }

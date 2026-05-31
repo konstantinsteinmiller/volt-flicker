@@ -37,7 +37,8 @@ export default {
     'crashed': '你撞到了障碍物！',
     'tiles': '格子',
     'winReward': '含 +{n} 关卡奖励',
-    'double': '双倍金币'
+    'double': '双倍金币',
+    'firstRunDouble': '2倍 — 今日首局！'
   },
   'upgrades': {
     'title': '升级',
@@ -45,6 +46,7 @@ export default {
     'level': '等级{n}',
     'maxedOut': '满级',
     'sellBack': '出售 +{n}',
+    'spotlight': '消费！',
     'unlocksAtStage': '🔒 关卡 {n}',
     'names': {
       'powerupDuration': '能量增强',
@@ -52,6 +54,8 @@ export default {
       'coinValue': '金币价值',
       'itemLuck': '幸运箱',
       'dodgeApprentice': '闪避学徒',
+      'deathMagnet': '死亡磁铁',
+      'autoCollect': '自动收集',
       'rollingBoulder': '滚动巨石'
     },
     'descriptions': {
@@ -60,6 +64,8 @@ export default {
       'coinValue': '每枚金币更值钱。',
       'itemLuck': '道具箱出现更频繁。',
       'dodgeApprentice': '自动闪避一个致命格子，然后充能（10秒，每级−0.5秒）。',
+      'deathMagnet': '死亡时，吸取 4 格以内的所有金币 — 把本会失去的金币收入囊中。',
+      'autoCollect': '始终收集附近格子的金币 — 永久的 1 格金币磁铁。',
       'rollingBoulder': '直接碾过木箱障碍，毫发无伤。'
     },
     'secondChance': {
@@ -92,6 +98,37 @@ export default {
     'equip': '装备',
     'equipped': '已装备'
   },
+  'missions': {
+    'title': '每日任务',
+    'subtitle': '每天完成目标以获得金币。',
+    'claim': '领取',
+    'done': '已领取',
+    'types': {
+      'coins': '今日收集 {n} 枚金币',
+      'tiles': '单局行进 {n} 格',
+      'items': '今日获取 {n} 个道具箱',
+      'clears': '今日通关 {n} 个关卡'
+    }
+  },
+  'endless': {
+    'badge': '无尽',
+    'toEndless': '无尽模式',
+    'toCampaign': '战役',
+    'best': '最佳: {n}'
+  },
+  'boon': {
+    'title': '选择一项增益',
+    'names': {
+      'secondChance': '第二次机会',
+      'startPowerup': '抢先一步',
+      'coinBoost': '金币狂潮'
+    },
+    'descriptions': {
+      'secondChance': '以第二次机会护盾开始下一关。',
+      'startPowerup': '以随机道具开始下一关。',
+      'coinBoost': '整个下一关金币1.2倍。'
+    }
+  },
   'options': {
     'title': '选项',
     'general': '常规',
@@ -100,6 +137,11 @@ export default {
     'difficulty': '难度',
     'soundEffects': '音效',
     'music': '音乐',
+    'musicTrack': '背景音乐',
+    'musicTracks': {
+      'cozy': '温馨旋律',
+      'trance': '迷幻隧道'
+    },
     'close': '保存并关闭',
     'difficulties': { 'easy': '简单', 'medium': '中等', 'hard': '困难' },
     'difficultyHints': {

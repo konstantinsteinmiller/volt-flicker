@@ -37,7 +37,8 @@ export default {
     'crashed': '¡Chocaste con un obstáculo!',
     'tiles': 'Casillas',
     'winReward': 'incl. +{n} de bonus de nivel',
-    'double': 'Duplicar monedas'
+    'double': 'Duplicar monedas',
+    'firstRunDouble': '2× — ¡primera partida de hoy!'
   },
   'upgrades': {
     'title': 'Mejoras',
@@ -45,6 +46,7 @@ export default {
     'level': 'Nv.{n}',
     'maxedOut': 'MÁX',
     'sellBack': 'Vender +{n}',
+    'spotlight': '¡Gastar!',
     'unlocksAtStage': '🔒 Nivel {n}',
     'names': {
       'powerupDuration': 'Refuerzo',
@@ -52,6 +54,8 @@ export default {
       'coinValue': 'Valor de monedas',
       'itemLuck': 'Cajas de suerte',
       'dodgeApprentice': 'Aprendiz de Esquiva',
+      'deathMagnet': 'Imán Mortal',
+      'autoCollect': 'Recogida Automática',
       'rollingBoulder': 'Roca Rodante'
     },
     'descriptions': {
@@ -60,6 +64,8 @@ export default {
       'coinValue': 'Cada moneda vale más.',
       'itemLuck': 'Las cajas de objetos aparecen más a menudo.',
       'dodgeApprentice': 'Esquiva auto una casilla mortal, luego recarga (10s; −0,5s por nivel).',
+      'deathMagnet': 'Al morir, recoge todas las monedas en un radio de 4 casillas — guarda lo que habrías perdido.',
+      'autoCollect': 'Recoge siempre las monedas de las casillas cercanas — un imán de monedas permanente de 1 casilla.',
       'rollingBoulder': 'Atraviesa las cajas sin sufrir daño.'
     },
     'secondChance': {
@@ -92,6 +98,37 @@ export default {
     'equip': 'Equipar',
     'equipped': 'Equipado'
   },
+  'missions': {
+    'title': 'Misiones diarias',
+    'subtitle': 'Completa objetivos cada día para ganar monedas.',
+    'claim': 'Reclamar',
+    'done': 'Reclamado',
+    'types': {
+      'coins': 'Recoge {n} monedas hoy',
+      'tiles': 'Recorre {n} casillas en una partida',
+      'items': 'Consigue {n} cajas de objetos hoy',
+      'clears': 'Supera {n} niveles hoy'
+    }
+  },
+  'endless': {
+    'badge': 'Infinito',
+    'toEndless': 'Modo Infinito',
+    'toCampaign': 'Campaña',
+    'best': 'Mejor: {n}'
+  },
+  'boon': {
+    'title': 'Elige una bendición',
+    'names': {
+      'secondChance': 'Segunda Oportunidad',
+      'startPowerup': 'Ventaja',
+      'coinBoost': 'Fiebre de Monedas'
+    },
+    'descriptions': {
+      'secondChance': 'Empieza el siguiente nivel con un escudo de Segunda Oportunidad.',
+      'startPowerup': 'Empieza el siguiente nivel con un potenciador aleatorio.',
+      'coinBoost': '1,2× monedas durante todo el siguiente nivel.'
+    }
+  },
   'options': {
     'title': 'Opciones',
     'general': 'General',
@@ -100,6 +137,11 @@ export default {
     'difficulty': 'Dificultad',
     'soundEffects': 'Efectos de Sonido',
     'music': 'Música',
+    'musicTrack': 'Pista de música',
+    'musicTracks': {
+      'cozy': 'Armonía Acogedora',
+      'trance': 'Túnel Trance'
+    },
     'close': 'Guardar y Cerrar',
     'difficulties': { 'easy': 'Fácil', 'medium': 'Media', 'hard': 'Difícil' },
     'difficultyHints': {

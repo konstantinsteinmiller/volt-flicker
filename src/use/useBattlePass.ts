@@ -116,6 +116,8 @@ const addXp = (amount: number) => {
 
 const awardCampaignWin = () => addXp(BP_XP_CAMPAIGN_WIN)
 const awardAttempt = () => addXp(BP_XP_ATTEMPT)
+/** Grant an arbitrary XP amount (e.g. a daily-mission claim). Guards NaN. */
+const awardXp = (amount: number) => addXp(Number(amount) || 0)
 
 export interface ClaimResult {
   stage: number
@@ -171,6 +173,7 @@ export default function useBattlePass() {
     bpCoinReward,
     awardCampaignWin,
     awardAttempt,
+    awardXp,
     claimStage
   }
 }

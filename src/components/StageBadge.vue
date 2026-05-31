@@ -12,11 +12,15 @@ interface Props {
   cleared?: number
   /** Tiles required to clear the current stage. */
   target?: number
+  /** Endless mode: no finite goal — show the simple endless badge + count,
+   *  and no progress bar. */
+  endless?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
   cleared: 0,
-  target: 0
+  target: 0,
+  endless: false
 })
 
 // Cycle through a few cool palettes so consecutive stages feel distinct
@@ -58,36 +62,47 @@ const progress = computed(() => {
     class="cursor-pointer"
     style="touch-action: manipulation; -webkit-tap-highlight-color: transparent;"
   )
-    div.absolute.inset-0.translate-y-1.rounded-xl.opacity-80(
-      :class="stageTheme.shadowBase"
-      class="pointer-events-none"
-    )
-    div.relative.flex.items-center.gap-2.rounded-xl.border-2.shadow-lg.overflow-hidden(
-      :class="['bg-gradient-to-b', stageTheme.from, stageTheme.to, stageTheme.border, stageTheme.glow, isMobilePortrait ? 'pr-2' : 'pr-3']"
-      class="pl-1.5 py-1"
-    )
-      //- Stage number chip
-      div.relative.flex.items-center.justify-center.rounded-lg.border(
-        :class="[stageTheme.numberShadow, stageTheme.border]"
-        class="min-w-7 h-7 sm:min-w-8 sm:h-8 px-1"
-      )
-        span.font-black.game-text.leading-none(
-          :class="stageTheme.number"
-          class="text-sm sm:text-base"
-        ) {{ stageId }}
-      //- Label + progress. On mobile portrait the column sizes to the (short)
-      //- label so the badge stays compact; the bar matches that width. On wider
-      //- screens a min width keeps the bar a comfortable length.
-      div.flex.flex-col.leading-tight(:class="isMobilePortrait ? 'min-w-0' : 'min-w-16'")
-        span.font-black.uppercase.tracking-wider.game-text.text-white.whitespace-nowrap(
-          class="text-[9px] sm:text-[11px] opacity-90"
-        ) {{ t('stage') + ' ' + stageId }}
-        //- Slim progress bar toward the stage's clear target.
-        div.relative.rounded-full.overflow-hidden(
-          v-if="target > 0"
-          class="h-1.5 mt-0.5 bg-black/40"
+    //- Endless mode: the simple blue badge + run count, no progress bar.
+    template(v-if="endless")
+      div.relative.inline-flex.items-center.gap-2
+        div.rounded-xl.border-2.px-3.py-1.font-black.game-text.text-white.shadow-lg(
+          class="bg-gradient-to-b from-[#50aaff] to-[#2266ff] border-[#0f1a30]"
         )
-          div.h-full.rounded-full.bg-white.transition-all(
-            :style="{ width: progress * 100 + '%' }"
+          span.uppercase(class="text-xs sm:text-sm") {{ t('endless.badge') }}
+        span.text-white.game-text.font-black(class="text-xs sm:text-sm opacity-80") {{ cleared }}
+
+    //- Campaign mode: themed number chip + label + slim progress bar.
+    template(v-else)
+      div.absolute.inset-0.translate-y-1.rounded-xl.opacity-80(
+        :class="stageTheme.shadowBase"
+        class="pointer-events-none"
+      )
+      div.relative.flex.items-center.gap-2.rounded-xl.border-2.shadow-lg.overflow-hidden(
+        :class="['bg-gradient-to-b', stageTheme.from, stageTheme.to, stageTheme.border, stageTheme.glow, isMobilePortrait ? 'pr-2' : 'pr-3']"
+        class="pl-1.5 py-1"
+      )
+        //- Stage number chip
+        div.relative.flex.items-center.justify-center.rounded-lg.border(
+          :class="[stageTheme.numberShadow, stageTheme.border]"
+          class="min-w-7 h-7 sm:min-w-8 sm:h-8 px-1"
+        )
+          span.font-black.game-text.leading-none(
+            :class="stageTheme.number"
+            class="text-sm sm:text-base"
+          ) {{ stageId }}
+        //- Label + progress. On mobile portrait the column sizes to the (short)
+        //- label so the badge stays compact; the bar matches that width. On wider
+        //- screens a min width keeps the bar a comfortable length.
+        div.flex.flex-col.leading-tight(:class="isMobilePortrait ? 'min-w-0' : 'min-w-16'")
+          span.font-black.uppercase.tracking-wider.game-text.text-white.whitespace-nowrap(
+            class="text-[9px] sm:text-[11px] opacity-90"
+          ) {{ t('stage') + ' ' + stageId }}
+          //- Slim progress bar toward the stage's clear target.
+          div.relative.rounded-full.overflow-hidden(
+            v-if="target > 0"
+            class="h-1.5 mt-0.5 bg-black/40"
           )
+            div.h-full.rounded-full.bg-white.transition-all(
+              :style="{ width: progress * 100 + '%' }"
+            )
 </template>

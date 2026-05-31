@@ -37,7 +37,8 @@ export default {
     'crashed': 'Je botste op een obstakel!',
     'tiles': 'Tegels',
     'winReward': 'incl. +{n} levelbonus',
-    'double': 'Munten verdubbelen'
+    'double': 'Munten verdubbelen',
+    'firstRunDouble': '2× — eerste run van vandaag!'
   },
   'upgrades': {
     'title': 'Upgrades',
@@ -45,6 +46,7 @@ export default {
     'level': 'Lv.{n}',
     'maxedOut': 'MAX',
     'sellBack': 'Verkoop +{n}',
+    'spotlight': 'Uitgeven!',
     'unlocksAtStage': '🔒 Level {n}',
     'names': {
       'powerupDuration': 'Krachtboost',
@@ -52,6 +54,8 @@ export default {
       'coinValue': 'Muntwaarde',
       'itemLuck': 'Gelukskisten',
       'dodgeApprentice': 'Ontwijkleerling',
+      'deathMagnet': 'Doodsmagneet',
+      'autoCollect': 'Auto-Verzamelen',
       'rollingBoulder': 'Rollend Rotsblok'
     },
     'descriptions': {
@@ -60,6 +64,8 @@ export default {
       'coinValue': 'Elke munt is meer waard.',
       'itemLuck': 'Itemkisten verschijnen vaker.',
       'dodgeApprentice': 'Ontwijkt automatisch één dodelijke tegel, daarna opladen (10s; −0,5s per niveau).',
+      'deathMagnet': 'Bij overlijden grijp je elke munt binnen 4 tegels — bewaar wat je anders zou verliezen.',
+      'autoCollect': 'Verzamel altijd munten van nabijgelegen tegels — een permanente magneet van 1 tegel.',
       'rollingBoulder': 'Rol ongedeerd dwars door kistobstakels heen.'
     },
     'secondChance': {
@@ -92,6 +98,37 @@ export default {
     'equip': 'Uitrusten',
     'equipped': 'Uitgerust'
   },
+  'missions': {
+    'title': 'Dagelijkse Missies',
+    'subtitle': 'Voltooi elke dag doelen voor munten.',
+    'claim': 'Claimen',
+    'done': 'Geclaimd',
+    'types': {
+      'coins': 'Verzamel {n} munten vandaag',
+      'tiles': 'Reis {n} tegels in één run',
+      'items': 'Pak {n} itemkisten vandaag',
+      'clears': 'Voltooi {n} levels vandaag'
+    }
+  },
+  'endless': {
+    'badge': 'Eindeloos',
+    'toEndless': 'Eindeloze Modus',
+    'toCampaign': 'Campagne',
+    'best': 'Beste: {n}'
+  },
+  'boon': {
+    'title': 'Kies een voordeel',
+    'names': {
+      'secondChance': 'Tweede Kans',
+      'startPowerup': 'Vliegende Start',
+      'coinBoost': 'Muntenstormloop'
+    },
+    'descriptions': {
+      'secondChance': 'Begin het volgende level met een Tweede Kans-schild.',
+      'startPowerup': 'Begin het volgende level met een willekeurige power-up.',
+      'coinBoost': '1,2× munten voor het hele volgende level.'
+    }
+  },
   'options': {
     'title': 'Opties',
     'general': 'Algemeen',
@@ -100,6 +137,11 @@ export default {
     'difficulty': 'Moeilijkheid',
     'soundEffects': 'Geluidseffecten',
     'music': 'Muziek',
+    'musicTrack': 'Muziektrack',
+    'musicTracks': {
+      'cozy': 'Gezellige Harmonie',
+      'trance': 'Trance-Tunnel'
+    },
     'close': 'Opslaan & Sluiten',
     'difficulties': { 'easy': 'Makkelijk', 'medium': 'Gemiddeld', 'hard': 'Moeilijk' },
     'difficultyHints': {

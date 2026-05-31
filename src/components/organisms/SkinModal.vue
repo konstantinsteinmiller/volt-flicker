@@ -62,13 +62,18 @@ const onCardAction = (id: string): void => {
           class="bg-black/30"
           :class="card.selected ? 'border-yellow-300' : 'border-white/15'"
         )
-          //- Texture preview as a sphere-ish disc.
-          div.relative.rounded-full.overflow-hidden.border-2.border-black/40(class="w-14 h-14 sm:w-16 sm:h-16")
-            img.w-full.h-full.object-cover(:src="card.preview" alt="")
-            //- Equipped check badge.
-            div.absolute.flex.items-center.justify-center.rounded-full.bg-emerald-500.border-2.border-white(
+          //- Texture preview as a sphere-ish disc. The badge lives on this
+          //- (non-clipping) wrapper, NOT inside the clipped image circle, so it
+          //- overlaps the skin instead of being cut off. (Slash-opacity utilities
+          //- like `border-black/40` must live in `class=""` — Pug's dot-class
+          //- shorthand chokes on the `/` and dumps the rest as literal text.)
+          div.relative(class="w-14 h-14 sm:w-16 sm:h-16")
+            div.rounded-full.overflow-hidden.border-2.w-full.h-full(class="border-black/40")
+              img.w-full.h-full.object-cover(:src="card.preview" alt="")
+            //- Equipped check badge — over the image, clear of the clip.
+            div.absolute.flex.items-center.justify-center.rounded-full.border-2.shadow(
               v-if="card.selected"
-              class="w-5 h-5 -top-1 -right-1"
+              class="w-5 h-5 top-0 right-0 bg-emerald-500 border-white"
             )
               span.text-white.font-black(class="text-[10px]") ✓
           div.font-black.game-text.text-white(class="text-xs sm:text-sm") {{ card.name }}

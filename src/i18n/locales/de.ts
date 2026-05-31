@@ -37,7 +37,8 @@ export default {
     'crashed': 'Du bist in ein Hindernis gekracht!',
     'tiles': 'Felder',
     'winReward': 'inkl. +{n} Etappenbonus',
-    'double': 'Münzen verdoppeln'
+    'double': 'Münzen verdoppeln',
+    'firstRunDouble': '2× — erster Lauf heute!'
   },
   'upgrades': {
     'title': 'Verbesserungen',
@@ -45,6 +46,7 @@ export default {
     'level': 'Stufe {n}',
     'maxedOut': 'MAX',
     'sellBack': 'Verkaufen +{n}',
+    'spotlight': 'Ausgeben!',
     'unlocksAtStage': '🔒 Etappe {n}',
     'names': {
       'powerupDuration': 'Power-Boost',
@@ -52,6 +54,8 @@ export default {
       'coinValue': 'Münzwert',
       'itemLuck': 'Glücksboxen',
       'dodgeApprentice': 'Ausweich-Lehrling',
+      'deathMagnet': 'Todesmagnet',
+      'autoCollect': 'Auto-Einsammeln',
       'rollingBoulder': 'Rollender Felsbrocken'
     },
     'descriptions': {
@@ -60,6 +64,8 @@ export default {
       'coinValue': 'Jede Münze ist mehr wert.',
       'itemLuck': 'Item-Boxen erscheinen häufiger.',
       'dodgeApprentice': 'Weicht einem tödlichen Feld automatisch aus, dann Abklingzeit (10s; −0,5s pro Stufe).',
+      'deathMagnet': 'Schnapp dir beim Tod jede Münze im Umkreis von 4 Feldern — sichere dir, was du verloren hättest.',
+      'autoCollect': 'Sammelt immer Münzen von benachbarten Feldern ein — ein dauerhafter 1-Feld-Münzmagnet.',
       'rollingBoulder': 'Rolle unbeschadet direkt durch Kisten-Hindernisse.'
     },
     'secondChance': {
@@ -92,6 +98,37 @@ export default {
     'equip': 'Ausrüsten',
     'equipped': 'Ausgerüstet'
   },
+  'missions': {
+    'title': 'Tägliche Missionen',
+    'subtitle': 'Erfülle täglich Ziele für Münzen.',
+    'claim': 'Abholen',
+    'done': 'Abgeholt',
+    'types': {
+      'coins': 'Sammle heute {n} Münzen',
+      'tiles': 'Lege {n} Felder in einem Lauf zurück',
+      'items': 'Schnapp dir heute {n} Item-Boxen',
+      'clears': 'Schließe heute {n} Etappen ab'
+    }
+  },
+  'endless': {
+    'badge': 'Endlos',
+    'toEndless': 'Endlos-Modus',
+    'toCampaign': 'Kampagne',
+    'best': 'Beste: {n}'
+  },
+  'boon': {
+    'title': 'Wähle einen Segen',
+    'names': {
+      'secondChance': 'Zweite Chance',
+      'startPowerup': 'Vorsprung',
+      'coinBoost': 'Münzrausch'
+    },
+    'descriptions': {
+      'secondChance': 'Beginne die nächste Etappe mit einem Zweite-Chance-Schild.',
+      'startPowerup': 'Beginne die nächste Etappe mit einem zufälligen Power-up.',
+      'coinBoost': '1,2× Münzen für die gesamte nächste Etappe.'
+    }
+  },
   'options': {
     'title': 'Optionen',
     'general': 'Allgemein',
@@ -100,6 +137,11 @@ export default {
     'difficulty': 'Schwierigkeit',
     'soundEffects': 'Soundeffekte',
     'music': 'Musik',
+    'musicTrack': 'Musiktitel',
+    'musicTracks': {
+      'cozy': 'Gemütliche Harmonie',
+      'trance': 'Trance-Tunnel'
+    },
     'close': 'Speichern & Schließen',
     'difficulties': { 'easy': 'Einfach', 'medium': 'Mittel', 'hard': 'Schwer' },
     'difficultyHints': {

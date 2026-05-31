@@ -37,7 +37,8 @@ export default {
     'crashed': 'Hai colpito un ostacolo!',
     'tiles': 'Caselle',
     'winReward': 'incl. +{n} bonus livello',
-    'double': 'Raddoppia monete'
+    'double': 'Raddoppia monete',
+    'firstRunDouble': '2× — prima corsa di oggi!'
   },
   'upgrades': {
     'title': 'Potenziamenti',
@@ -45,6 +46,7 @@ export default {
     'level': 'Lv.{n}',
     'maxedOut': 'MAX',
     'sellBack': 'Vendi +{n}',
+    'spotlight': 'Spendi!',
     'unlocksAtStage': '🔒 Livello {n}',
     'names': {
       'powerupDuration': 'Boost Potere',
@@ -52,6 +54,8 @@ export default {
       'coinValue': 'Valore Moneta',
       'itemLuck': 'Casse Fortunate',
       'dodgeApprentice': 'Apprendista Schivata',
+      'deathMagnet': 'Calamita Mortale',
+      'autoCollect': 'Raccolta Automatica',
       'rollingBoulder': 'Masso Rotolante'
     },
     'descriptions': {
@@ -60,6 +64,8 @@ export default {
       'coinValue': 'Ogni moneta vale di più.',
       'itemLuck': 'Le casse oggetto appaiono più spesso.',
       'dodgeApprentice': 'Schiva auto una casella mortale, poi ricarica (10s; −0,5s per livello).',
+      'deathMagnet': 'Alla morte, raccogli tutte le monete entro 4 caselle — incassa ciò che avresti perso.',
+      'autoCollect': 'Raccoglie sempre le monete dalle caselle vicine — una calamita monete permanente da 1 casella.',
       'rollingBoulder': 'Rotola dritto attraverso le casse, senza danni.'
     },
     'secondChance': {
@@ -92,6 +98,37 @@ export default {
     'equip': 'Equipaggia',
     'equipped': 'Equipaggiato'
   },
+  'missions': {
+    'title': 'Missioni Giornaliere',
+    'subtitle': 'Completa obiettivi ogni giorno per ottenere monete.',
+    'claim': 'Riscuoti',
+    'done': 'Riscosso',
+    'types': {
+      'coins': 'Raccogli {n} monete oggi',
+      'tiles': 'Percorri {n} caselle in una corsa',
+      'items': 'Afferra {n} casse oggetto oggi',
+      'clears': 'Completa {n} livelli oggi'
+    }
+  },
+  'endless': {
+    'badge': 'Infinito',
+    'toEndless': 'Modalità Infinita',
+    'toCampaign': 'Campagna',
+    'best': 'Record: {n}'
+  },
+  'boon': {
+    'title': 'Scegli un bonus',
+    'names': {
+      'secondChance': 'Seconda Chance',
+      'startPowerup': 'Vantaggio',
+      'coinBoost': 'Pioggia di Monete'
+    },
+    'descriptions': {
+      'secondChance': 'Inizia il prossimo livello con uno scudo Seconda Chance.',
+      'startPowerup': 'Inizia il prossimo livello con un potenziamento casuale.',
+      'coinBoost': '1,2× monete per tutto il prossimo livello.'
+    }
+  },
   'options': {
     'title': 'Opzioni',
     'general': 'Generale',
@@ -100,6 +137,11 @@ export default {
     'difficulty': 'Difficoltà',
     'soundEffects': 'Effetti Sonori',
     'music': 'Musica',
+    'musicTrack': 'Traccia musicale',
+    'musicTracks': {
+      'cozy': 'Armonia Accogliente',
+      'trance': 'Tunnel Trance'
+    },
     'close': 'Salva e Chiudi',
     'difficulties': { 'easy': 'Facile', 'medium': 'Media', 'hard': 'Difficile' },
     'difficultyHints': {

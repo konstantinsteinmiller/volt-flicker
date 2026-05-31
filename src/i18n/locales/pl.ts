@@ -37,7 +37,8 @@ export default {
     'crashed': 'Uderzyłeś w przeszkodę!',
     'tiles': 'Pola',
     'winReward': 'w tym +{n} bonus za etap',
-    'double': 'Podwój monety'
+    'double': 'Podwój monety',
+    'firstRunDouble': '2× — pierwszy bieg dzisiaj!'
   },
   'upgrades': {
     'title': 'Ulepszenia',
@@ -45,6 +46,7 @@ export default {
     'level': 'Poz.{n}',
     'maxedOut': 'MAKS',
     'sellBack': 'Sprzedaj +{n}',
+    'spotlight': 'Wydaj!',
     'unlocksAtStage': '🔒 Etap {n}',
     'names': {
       'powerupDuration': 'Wzmocnienie Mocy',
@@ -52,6 +54,8 @@ export default {
       'coinValue': 'Wartość Monety',
       'itemLuck': 'Szczęśliwe Skrzynie',
       'dodgeApprentice': 'Uczeń Uniku',
+      'deathMagnet': 'Magnes Śmierci',
+      'autoCollect': 'Auto-Zbieranie',
       'rollingBoulder': 'Toczący się Głaz'
     },
     'descriptions': {
@@ -60,6 +64,8 @@ export default {
       'coinValue': 'Każda moneta jest warta więcej.',
       'itemLuck': 'Skrzynie z przedmiotami pojawiają się częściej.',
       'dodgeApprentice': 'Automatyczny unik przed jednym śmiertelnym polem, potem ładowanie (10s; −0,5s na poziom).',
+      'deathMagnet': 'Po śmierci zgarniasz każdą monetę w promieniu 4 pól — zachowaj to, co inaczej byś stracił.',
+      'autoCollect': 'Zawsze zbieraj monety z pobliskich pól — stały magnes o zasięgu 1 pola.',
       'rollingBoulder': 'Tocz się prosto przez skrzynie bez szwanku.'
     },
     'secondChance': {
@@ -92,6 +98,37 @@ export default {
     'equip': 'Załóż',
     'equipped': 'Założono'
   },
+  'missions': {
+    'title': 'Misje Dzienne',
+    'subtitle': 'Wykonuj codzienne cele, aby zdobyć monety.',
+    'claim': 'Odbierz',
+    'done': 'Odebrano',
+    'types': {
+      'coins': 'Zbierz dziś {n} monet',
+      'tiles': 'Przebądź {n} pól w jednym biegu',
+      'items': 'Złap dziś {n} skrzyń z przedmiotami',
+      'clears': 'Ukończ dziś {n} etapów'
+    }
+  },
+  'endless': {
+    'badge': 'Niekończący',
+    'toEndless': 'Tryb Niekończący',
+    'toCampaign': 'Kampania',
+    'best': 'Najlepszy: {n}'
+  },
+  'boon': {
+    'title': 'Wybierz dar',
+    'names': {
+      'secondChance': 'Druga Szansa',
+      'startPowerup': 'Przewaga na Starcie',
+      'coinBoost': 'Szał Monet'
+    },
+    'descriptions': {
+      'secondChance': 'Rozpocznij następny etap z tarczą Drugiej Szansy.',
+      'startPowerup': 'Rozpocznij następny etap z losowym ulepszeniem.',
+      'coinBoost': '1,2× monet przez cały następny etap.'
+    }
+  },
   'options': {
     'title': 'Opcje',
     'general': 'Ogólne',
@@ -100,6 +137,11 @@ export default {
     'difficulty': 'Trudność',
     'soundEffects': 'Efekty dźwiękowe',
     'music': 'Muzyka',
+    'musicTrack': 'Ścieżka muzyczna',
+    'musicTracks': {
+      'cozy': 'Przytulna Harmonia',
+      'trance': 'Tunel Trance'
+    },
     'close': 'Zapisz i Zamknij',
     'difficulties': { 'easy': 'Łatwy', 'medium': 'Średni', 'hard': 'Trudny' },
     'difficultyHints': {

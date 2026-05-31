@@ -37,7 +37,8 @@ export default {
     'crashed': 'Bạn đã đâm vào chướng ngại vật!',
     'tiles': 'Ô',
     'winReward': 'gồm +{n} thưởng màn',
-    'double': 'Nhân đôi xu'
+    'double': 'Nhân đôi xu',
+    'firstRunDouble': '2× — lượt chơi đầu tiên hôm nay!'
   },
   'upgrades': {
     'title': 'Nâng cấp',
@@ -45,6 +46,7 @@ export default {
     'level': 'Cấp {n}',
     'maxedOut': 'TỐI ĐA',
     'sellBack': 'Bán +{n}',
+    'spotlight': 'Tiêu ngay!',
     'unlocksAtStage': '🔒 Màn {n}',
     'names': {
       'powerupDuration': 'Tăng sức mạnh',
@@ -52,6 +54,8 @@ export default {
       'coinValue': 'Giá trị xu',
       'itemLuck': 'Hộp may mắn',
       'dodgeApprentice': 'Học việc né tránh',
+      'deathMagnet': 'Nam châm tử thần',
+      'autoCollect': 'Tự động thu thập',
       'rollingBoulder': 'Tảng đá lăn'
     },
     'descriptions': {
@@ -60,6 +64,8 @@ export default {
       'coinValue': 'Mỗi đồng xu bạn nhặt có giá trị cao hơn.',
       'itemLuck': 'Hộp vật phẩm xuất hiện thường xuyên hơn.',
       'dodgeApprentice': 'Tự động né một ô chết người, sau đó nạp lại (10s; −0.5s mỗi cấp).',
+      'deathMagnet': 'Khi chết, hút mọi đồng xu trong phạm vi 4 ô — giữ lại số xu lẽ ra đã mất.',
+      'autoCollect': 'Luôn thu thập xu từ các ô lân cận — nam châm 1 ô vĩnh viễn.',
       'rollingBoulder': 'Lăn xuyên qua các chướng ngại vật hộp mà không hề hấn gì.'
     },
     'secondChance': {
@@ -92,6 +98,37 @@ export default {
     'equip': 'Trang bị',
     'equipped': 'Đã trang bị'
   },
+  'missions': {
+    'title': 'Nhiệm vụ hằng ngày',
+    'subtitle': 'Hoàn thành mục tiêu mỗi ngày để nhận xu.',
+    'claim': 'Nhận',
+    'done': 'Đã nhận',
+    'types': {
+      'coins': 'Thu thập {n} xu hôm nay',
+      'tiles': 'Đi qua {n} ô trong một lượt chơi',
+      'items': 'Lấy {n} hộp vật phẩm hôm nay',
+      'clears': 'Hoàn thành {n} màn hôm nay'
+    }
+  },
+  'endless': {
+    'badge': 'Vô tận',
+    'toEndless': 'Chế độ Vô tận',
+    'toCampaign': 'Chiến dịch',
+    'best': 'Tốt nhất: {n}'
+  },
+  'boon': {
+    'title': 'Chọn một ân huệ',
+    'names': {
+      'secondChance': 'Cơ hội thứ hai',
+      'startPowerup': 'Khởi đầu thuận lợi',
+      'coinBoost': 'Cơn lốc xu'
+    },
+    'descriptions': {
+      'secondChance': 'Bắt đầu màn tiếp theo với khiên Cơ hội thứ hai.',
+      'startPowerup': 'Bắt đầu màn tiếp theo với một vật phẩm tăng sức mạnh ngẫu nhiên.',
+      'coinBoost': 'Nhân 1,2× xu cho toàn bộ màn tiếp theo.'
+    }
+  },
   'options': {
     'title': 'Tùy chọn',
     'general': 'Chung',
@@ -100,6 +137,11 @@ export default {
     'difficulty': 'Độ khó',
     'soundEffects': 'Hiệu ứng âm thanh',
     'music': 'Nhạc',
+    'musicTrack': 'Bản nhạc nền',
+    'musicTracks': {
+      'cozy': 'Giai Điệu Ấm Cúng',
+      'trance': 'Đường Hầm Trance'
+    },
     'close': 'Lưu & Đóng',
     'difficulties': {
       'easy': 'Dễ',

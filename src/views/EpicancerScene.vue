@@ -2,13 +2,16 @@
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 
-import useEpicGame from '@/use/useEpicGame'
+import useEpicGame, { gameMode, setGameMode, bestEndless, isOnboardingRun, setPendingBoon, type BoonId } from '@/use/useEpicGame'
 import useEpicConfig from '@/use/useEpicConfig'
 import { drawScene, configureGeometry, setBallSkin } from '@/use/useEpicArt'
 import { powerupFraction } from '@/use/usePowerups'
-import useEpicProgress from '@/use/useEpicProgress'
+import useEpicProgress, { UPGRADES } from '@/use/useEpicProgress'
+import useMissions from '@/use/useMissions'
 import { selectedSkinSrc } from '@/use/useEpicSkins'
 import { prependBaseUrl } from '@/utils/function'
+import { getState, setState } from '@/use/useEpicState'
+import { DAILY_BONUS_DAY_KEY, UPGRADE_SPOTLIGHT_KEY } from '@/keys'
 import useBattlePass from '@/use/useBattlePass'
 import { useMusic } from '@/use/useSound'
 import useSounds from '@/use/useSound'
@@ -35,16 +38,18 @@ import BattlePass from '@/components/organisms/BattlePass.vue'
 import OptionsModal from '@/components/organisms/OptionsModal.vue'
 import EpicUpgradesModal from '@/components/organisms/EpicUpgradesModal.vue'
 import SkinModal from '@/components/organisms/SkinModal.vue'
+import MissionsModal from '@/components/organisms/MissionsModal.vue'
 import IconCoin from '@/components/icons/IconCoin.vue'
 import IconMovie from '@/components/icons/IconMovie.vue'
 
 const { t } = useI18n()
 const epic = useEpicGame()
 const {
-  phase, score, gameResult, lossCause, coinsThisRun, lastWinReward,
+  phase, score, gameResult, lossCause, coinsThisRun, itemsThisRun, lastWinReward,
   stageTarget, resetForStage, begin, flip, step, revive
 } = epic
 const progress = useEpicProgress()
+const { recordRun } = useMissions()
 const { addCoins } = useEpicConfig()
 const { awardCampaignWin } = useBattlePass()
 const { startBattleMusic, stopBattleMusic } = useMusic()
@@ -106,14 +111,43 @@ const showUpgrades = ref(false)
 const showSkins = ref(false)
 const showResult = ref(false)
 const showSecondChance = ref(false)
+const showBoon = ref(false)
 const isAdInFlight = ref(false)
+// First-run-of-day 2× offer (roadmap #5): true while the current result screen
+// is the player's first finished run today, until it's consumed on continue.
+const firstRunBonusActive = ref(false)
+const isEndless = computed(() => gameMode.value === 'endless')
+
+// ─── Upgrade spotlight (roadmap #16) ────────────────────────────────────────
+// The first time the player can afford ANY upgrade — and only on the menu/idle
+// screen — pulse the Upgrades button to teach the coin→power loop. One-shot,
+// gated on a persisted flag; cleared the moment they open the modal.
+const upgradeSpotlightSeen = ref(getState<boolean>(UPGRADE_SPOTLIGHT_KEY, false) === true)
+const canAffordAnyUpgrade = computed(() =>
+  UPGRADES.some((u) => progress.isUnlocked(u.id) && progress.canBuy(u.id))
+)
+const showUpgradeSpotlight = computed(() =>
+  !upgradeSpotlightSeen.value && phase.value === 'idle' && !showUpgrades.value && canAffordAnyUpgrade.value
+)
+const openUpgrades = (): void => {
+  showUpgrades.value = true
+  if (!upgradeSpotlightSeen.value) {
+    upgradeSpotlightSeen.value = true
+    setState(UPGRADE_SPOTLIGHT_KEY, true)
+  }
+}
 const coinBadgeRef = ref<InstanceType<typeof CoinBadge> | null>(null)
 const coinBadgeEl = computed<HTMLElement | null>(() => coinBadgeRef.value?.rootEl ?? null)
 
 const bannerFraction = ref(0)
 let bannerTimer = 0
 
-const showHint = computed(() => phase.value === 'playing')
+// Show the "tap/click to change direction" reminder only on the first two
+// campaign stages — by stage 3 the player has the controls down, so hide it to
+// keep the playfield clean. (Endless is post-campaign, so never show it there.)
+const showHint = computed(() =>
+  phase.value === 'playing' && !isEndless.value && progress.stage.value < 3
+)
 const hintText = computed(() => isMobilePortrait.value ? t('hints.tapToTurn') : t('hints.clickToTurn'))
 const startText = computed(() => isMobilePortrait.value ? t('startTouch') : t('startDesktop'))
 
@@ -127,10 +161,19 @@ const tickNow = ref(Date.now())
 
 const runTotalCoins = computed(() => coinsThisRun.value + (gameResult.value === 'win' ? lastWinReward.value : 0))
 const twoXAvailable = computed(() =>
-  !twoXUsed.value && isRewardedReady.value && tickNow.value >= twoXReadyAt && runTotalCoins.value > 0
+  !twoXUsed.value && isRewardedReady.value && runTotalCoins.value > 0 &&
+  (firstRunBonusActive.value || tickNow.value >= twoXReadyAt)
 )
 const secondChanceEligible = (): boolean =>
   isRewardedReady.value && Date.now() - lastSecondChanceAt > SECOND_CHANCE_COOLDOWN
+
+const todayKey = (): string => new Date().toISOString().slice(0, 10)
+// Feed the finished run into daily missions and decide whether the first-run-of-
+// day 2× bonus applies to this result screen (roadmap #2 + #5).
+const finishRun = (cleared: boolean): void => {
+  recordRun({ tiles: score.value, coins: coinsThisRun.value, items: itemsThisRun.value, cleared })
+  firstRunBonusActive.value = getState<string>(DAILY_BONUS_DAY_KEY, '') !== todayKey()
+}
 
 // ─── Result / death / win flow ──────────────────────────────────────────────
 const onDeath = async (): Promise<void> => {
@@ -169,6 +212,7 @@ const onSkipContinue = (): void => {
 
 const presentLoseScreen = async (): Promise<void> => {
   twoXUsed.value = false
+  finishRun(false)
   showResult.value = true
   void grantRunCoins()
   // Game-Over sting as the lose screen appears (distinct from the crash SFX).
@@ -185,12 +229,19 @@ const presentLoseScreen = async (): Promise<void> => {
 const onWin = async (): Promise<void> => {
   awardCampaignWin()
   twoXUsed.value = false
-  showResult.value = true
-  void grantRunCoins()
-  // Silence the bg music while the win screen is up (celebration SFX still play).
+  finishRun(true)
+  // Silence the bg music while the post-run screens are up (SFX still play).
   stopBattleMusic()
   playSound('happy', 0.08)
   playSound('celebration-3', 0.08)
+  // Campaign clear: offer the pick-1-of-3 boon FIRST, then the win/reward
+  // screen. Endless has no boon, so it goes straight to the result screen.
+  if (!isEndless.value) {
+    showBoon.value = true
+    return
+  }
+  showResult.value = true
+  void grantRunCoins()
 }
 
 const onTwoX = async (): Promise<void> => {
@@ -227,12 +278,40 @@ const grantRunCoins = async (): Promise<void> => {
   }
 }
 
+// Consume the first-run-of-day bonus when the player leaves the result screen,
+// so the 2× offer is one-shot per day regardless of whether they watched it.
+const consumeFirstRunBonus = (): void => {
+  if (!firstRunBonusActive.value) return
+  firstRunBonusActive.value = false
+  setState(DAILY_BONUS_DAY_KEY, todayKey())
+}
+
 const onResultContinue = (): void => {
   if (isAdInFlight.value) return
   showResult.value = false
+  consumeFirstRunBonus()
+  // The boon (if any) was already chosen before this win screen, so just start
+  // the next run. Losses and endless runs land here directly.
   resetForStage()
   startBattleMusic()
 }
+
+// Boon picked on a campaign clear: stash it for the next stage, then reveal the
+// win/reward screen (the boon modal precedes FReward).
+const onChooseBoon = (boon: BoonId): void => {
+  setPendingBoon(boon)
+  showBoon.value = false
+  showResult.value = true
+  void grantRunCoins()
+}
+
+const toggleEndless = (): void => {
+  setGameMode(isEndless.value ? 'campaign' : 'endless')
+  resetForStage()
+}
+
+// The three stage-clear boons offered by the picker (roadmap #13).
+const boonOptions: BoonId[] = ['secondChance', 'startPowerup', 'coinBoost']
 
 const fireCoinExplosion = (sourceEl: HTMLElement): void => {
   if (coinBadgeEl.value) spawnCoinExplosion({ sourceEl, targetEl: coinBadgeEl.value })
@@ -297,6 +376,7 @@ onUnmounted(() => {
           :stage-id="progress.stage.value"
           :cleared="score"
           :target="stageTarget"
+          :endless="isEndless"
         )
         CoinBadge(ref="coinBadgeRef")
 
@@ -313,10 +393,25 @@ onUnmounted(() => {
         class="pointer-events-none"
       )
         div.text-center
+          //- Mode toggle (campaign ⇄ endless) sits ABOVE the "Tap to Start"
+          //- label so it's clear of the screen centre where the player taps to
+          //- begin — avoids accidental mode switches. Endless shows the best.
+          div.mb-4.flex.flex-col.items-center.gap-1.pointer-events-auto
+            button.cursor-pointer.transition-transform.rounded-lg.border-2.px-4.py-1.font-black.uppercase.game-text.text-white(
+              class="hover:scale-[103%] active:scale-95 bg-gradient-to-b from-[#50aaff] to-[#2266ff] border-[#0f1a30] text-sm"
+              @click.stop="toggleEndless"
+            ) {{ isEndless ? t('endless.toCampaign') : t('endless.toEndless') }}
+            div.text-yellow-200.game-text(v-if="isEndless" class="text-xs opacity-80") {{ t('endless.best', { n: bestEndless }) }}
           div.text-white.font-black.uppercase.tracking-wider.animate-pulse.game-text(
             class="text-3xl sm:text-5xl mb-2"
           ) {{ startText }}
-          div.text-white.italic.game-text(class="text-sm sm:text-lg opacity-60") {{ t('startSubhint') }}
+          //- The "roll upward / change direction" primer only helps brand-new
+          //- players — drop it from stage 3 on (and in endless), same as the
+          //- in-run control hint.
+          div.text-white.italic.game-text(
+            v-if="!isEndless && progress.stage.value < 3"
+            class="text-sm sm:text-lg opacity-60"
+          ) {{ t('startSubhint') }}
 
       //- "Tap/Click to change direction" hint (just below the score)
       Transition(name="fade")
@@ -340,8 +435,12 @@ onUnmounted(() => {
         }"
       )
         FMuteButton
+        //- Settings + the meta-button row are hidden DURING a run so they don't
+        //- distract or get tapped by accident; `scale-80 sm:scale-100` matches
+        //- the DailyRewards button footprint for a uniform row.
         button.cursor-pointer.transition-transform.mb-1(
-          class="hover:scale-[103%] active:scale-90"
+          v-show="phase !== 'playing'"
+          class="hover:scale-[103%] active:scale-90 scale-80 sm:scale-100"
           @click="showOptions = true"
         )
           div.relative
@@ -351,32 +450,48 @@ onUnmounted(() => {
             )
               svg(viewBox="0 0 24 24" class="w-7 h-7 text-white" fill="currentColor")
                 path(d="M12 4 a1 1 0 0 1 1 1 v1.6 a6 6 0 0 1 1.8 0.7 l1.1 -1.1 a1 1 0 0 1 1.4 1.4 l -1.1 1.1 a6 6 0 0 1 0.7 1.8 H18 a1 1 0 1 1 0 2 h-1.6 a6 6 0 0 1 -0.7 1.8 l1.1 1.1 a1 1 0 0 1 -1.4 1.4 l-1.1 -1.1 a6 6 0 0 1 -1.8 0.7 V18 a1 1 0 1 1 -2 0 v -1.6 a6 6 0 0 1 -1.8 -0.7 l-1.1 1.1 a1 1 0 0 1 -1.4 -1.4 l1.1 -1.1 a6 6 0 0 1 -0.7 -1.8 H6 a1 1 0 1 1 0 -2 h1.6 a6 6 0 0 1 0.7 -1.8 L7.2 7.6 a1 1 0 0 1 1.4 -1.4 l1.1 1.1 a6 6 0 0 1 1.8 -0.7 V5 a1 1 0 0 1 1 -1 Z M12 9 a3 3 0 1 0 0 6 a3 3 0 0 0 0 -6 Z")
-        div.flex.items-end(class="gap-0 sm:gap-2")
+        div.flex.items-end(v-show="phase !== 'playing'" class="gap-0 sm:gap-2")
           DailyRewards(@coins-awarded="fireCoinExplosion")
+          MissionsModal(@coins-awarded="fireCoinExplosion")
           AdRewardButton(@coins-awarded="fireCoinExplosion")
           BattlePass(@coins-awarded="fireCoinExplosion")
 
-      //- Bottom-right: upgrades
+      //- Bottom-right: upgrades + skins. Hidden during a run (no distraction /
+      //- accidental modal opens); buttons scaled to match the DailyRewards size.
       div.absolute.pointer-events-auto.z-50.flex.flex-col.items-end.gap-2(
+        v-show="phase !== 'playing'"
         :style="{\
           bottom: 'calc(0.5rem + env(safe-area-inset-bottom, 0px))',\
           right: 'calc(0.5rem + env(safe-area-inset-right, 0px))'\
         }"
       )
-        button.cursor-pointer.transition-transform(
-          class="hover:scale-[103%] active:scale-90"
-          @click="showUpgrades = true"
-        )
-          div.relative
-            div.absolute.inset-0.translate-y-1.rounded-lg(class="bg-[#102e7a]")
-            div.relative.rounded-lg.border-2.flex.items-center.justify-center.p-2(
-              class="bg-gradient-to-b from-[#50aaff] to-[#2266ff] border-[#0f1a30]"
-            )
-              svg(viewBox="0 0 24 24" class="w-7 h-7 text-white" fill="currentColor")
-                path(d="M4 14 L12 6 L20 14 H15 V20 H9 V14 Z" stroke="black" stroke-width="0.8")
+        //- Upgrades. Spotlit (pulsing ring + "Spend!" tag) the first time the
+        //- player can afford an upgrade on the menu screen (roadmap #16).
+        div.relative
+          //- One-time spotlight hint floating left of the button.
+          //- NOTE: slash utilities (top-1/2, -translate-y-1/2) MUST live in
+          //- class="" — Pug treats a slash in dot-class shorthand as a parse
+          //- break and dumps the rest of the tag out as literal text.
+          div.absolute.right-full.mr-2.whitespace-nowrap.rounded-lg.border-2.px-2.py-1.font-black.uppercase.game-text.text-white.animate-pulse(
+            v-if="showUpgradeSpotlight"
+            class="top-1/2 -translate-y-1/2 bg-gradient-to-b from-[#ffcd00] to-[#f7a000] border-[#0f1a30] text-[10px]"
+          ) {{ t('upgrades.spotlight') }} →
+          button.cursor-pointer.transition-transform(
+            class="hover:scale-[103%] active:scale-90 scale-80 sm:scale-100"
+            :class="showUpgradeSpotlight ? 'animate-pulse' : ''"
+            @click="openUpgrades"
+          )
+            div.relative
+              div.absolute.inset-0.translate-y-1.rounded-lg(class="bg-[#102e7a]")
+              div.relative.rounded-lg.border-2.flex.items-center.justify-center.p-2(
+                class="bg-gradient-to-b from-[#50aaff] to-[#2266ff]"
+                :class="showUpgradeSpotlight ? 'border-yellow-300 ring-4 ring-yellow-300/70' : 'border-[#0f1a30]'"
+              )
+                svg(viewBox="0 0 24 24" class="w-7 h-7 text-white" fill="currentColor")
+                  path(d="M4 14 L12 6 L20 14 H15 V20 H9 V14 Z" stroke="black" stroke-width="0.8")
         //- Skins shop
         button.cursor-pointer.transition-transform(
-          class="hover:scale-[103%] active:scale-90"
+          class="hover:scale-[103%] active:scale-90 scale-80 sm:scale-100"
           @click="showSkins = true"
         )
           div.relative
@@ -451,7 +566,31 @@ onUnmounted(() => {
           @click="onTwoX"
         )
           IconMovie(class="w-5 h-5 shrink-0")
-          span {{ t('result.double') }}
+          span {{ firstRunBonusActive ? t('result.firstRunDouble') : t('result.double') }}
+
+    //- Stage-clear boon picker (roadmap #13): pick one of three for next stage.
+    Transition(name="fade")
+      div.fixed.inset-0.flex.items-center.justify-center.backdrop-blur-md.p-4(
+        v-if="showBoon"
+        class="z-[110] bg-black/70"
+        :style="{\
+          paddingTop: 'calc(1rem + env(safe-area-inset-top, 0px))',\
+          paddingBottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))'\
+        }"
+      )
+        div.flex.flex-col.items-center.gap-4.rounded-2xl.border-2.shadow-2xl(
+          class="bg-gradient-to-b from-[#1a1f3a] to-[#0a0e22] border-yellow-300 px-6 py-5 max-w-sm w-full"
+        )
+          div.font-black.uppercase.tracking-wider.game-text.text-yellow-300(class="text-2xl sm:text-3xl") {{ t('boon.title') }}
+          div.flex.flex-col.gap-2.w-full
+            button.cursor-pointer.transition-transform.flex.flex-col.items-start.rounded-xl.border-2.px-4.py-2.text-left(
+              v-for="b in boonOptions"
+              :key="b"
+              class="gap-0.5 bg-black/30 border-white/15 hover:scale-[102%] active:scale-95 hover:border-yellow-300"
+              @click="onChooseBoon(b)"
+            )
+              span.font-black.game-text.text-white(class="text-sm sm:text-base") {{ t('boon.names.' + b) }}
+              span.text-white.game-text.opacity-70.leading-tight(class="text-[10px] sm:text-xs") {{ t('boon.descriptions.' + b) }}
 
     OptionsModal(:is-open="showOptions" @close="showOptions = false")
     EpicUpgradesModal(v-model="showUpgrades")

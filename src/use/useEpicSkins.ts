@@ -9,7 +9,7 @@ import useEpicConfig from '@/use/useEpicConfig'
 // Each skin is an equirectangular surface texture under `images/models/` that
 // the renderer (`useEpicArt`) sphere-maps onto the rolling ball. Skins are
 // purely cosmetic: they change appearance only, never gameplay. The default
-// `eye` skin is owned for free; every other skin costs a flat coin price.
+// `stone` skin is owned for free; every other skin costs a flat coin price.
 //
 // Persistence lives in the single `epicancer_state` blob under `SKINS_KEY` as
 // `{ owned: string[], selected: string }` — same pattern as upgrades — so it
@@ -26,9 +26,10 @@ export interface SkinDef {
 /** Flat coin price of any non-default skin. */
 export const SKIN_COST = 500
 
-/** The skin owned for free and selected on a fresh save. Matches the renderer's
- *  historical default texture so existing players see no change. */
-export const DEFAULT_SKIN_ID = 'eye'
+/** The skin owned for free and selected on a fresh save. New players start on
+ *  the Stone ball. (Existing players keep whatever they already saved — only a
+ *  brand-new save with no SKINS_KEY picks this up.) */
+export const DEFAULT_SKIN_ID = 'stone'
 
 export const SKINS: ReadonlyArray<SkinDef> = [
   { id: 'eye', src: 'images/models/ball-eye-texture.webp', name: 'Eye' },

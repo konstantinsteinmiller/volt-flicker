@@ -37,7 +37,8 @@ export default {
     'crashed': "Siz toʻsiqqa urilib ketdingiz!",
     'tiles': 'Plitalar',
     'winReward': "+{n} bosqich bonusi bilan",
-    'double': 'Ikki barobar tangalar'
+    'double': 'Ikki barobar tangalar',
+    'firstRunDouble': '2× — bugungi birinchi oʻyin!'
   },
   'upgrades': {
     'title': 'Yangilanishlar',
@@ -45,6 +46,7 @@ export default {
     'level': '{n}-dar.',
     'maxedOut': 'MAKSIMAL',
     'sellBack': '+{n} sotish',
+    'spotlight': 'Sarflang!',
     'unlocksAtStage': '🔒 {n}-bosqich',
     'names': {
       'powerupDuration': 'Kuch kuchaytirgich',
@@ -52,6 +54,8 @@ export default {
       'coinValue': 'Tanga qiymati',
       'itemLuck': 'Omadli qutilar',
       'dodgeApprentice': 'Qochish shogirdi',
+      'deathMagnet': 'Oʻlim magniti',
+      'autoCollect': 'Avtomatik yigʻish',
       'rollingBoulder': "Yumalayotgan toshtoʻp"
     },
     'descriptions': {
@@ -60,6 +64,8 @@ export default {
       'coinValue': 'Siz olgan har bir tanga qimmatroq.',
       'itemLuck': "Buyum qutilari tez-tez paydo boʻladi.",
       'dodgeApprentice': "Bitta halokatli plitadan avtomatik qochadi, soʻng quvvat tiklanadi (10s; har bir darajada −0,5s).",
+      'deathMagnet': 'Oʻlganingizda 4 plita ichidagi barcha tangalarni yigʻib oling — yoʻqotadigan tangalaringizni saqlab qoling.',
+      'autoCollect': 'Yaqin atrofdagi plitalardan tangalarni doimo yigʻing — doimiy 1 plitalik magnit.',
       'rollingBoulder': "Quti toʻsiqlaridan toʻgʻridan-toʻgʻri zararsiz yumalab oʻting."
     },
     'secondChance': {
@@ -92,6 +98,37 @@ export default {
     'equip': 'Kiyish',
     'equipped': 'Kiyilgan'
   },
+  'missions': {
+    'title': 'Kunlik vazifalar',
+    'subtitle': 'Tangalar uchun har kuni maqsadlarni bajaring.',
+    'claim': 'Olish',
+    'done': 'Olindi',
+    'types': {
+      'coins': 'Bugun {n} tanga toʻplang',
+      'tiles': 'Bitta oʻyinda {n} plitadan oʻting',
+      'items': 'Bugun {n} buyum qutisini oling',
+      'clears': 'Bugun {n} bosqichni tozalang'
+    }
+  },
+  'endless': {
+    'badge': 'Cheksiz',
+    'toEndless': 'Cheksiz rejim',
+    'toCampaign': 'Kampaniya',
+    'best': 'Eng yaxshi: {n}'
+  },
+  'boon': {
+    'title': 'Inʼomni tanlang',
+    'names': {
+      'secondChance': 'Ikkinchi imkoniyat',
+      'startPowerup': 'Tezkor boshlash',
+      'coinBoost': 'Tanga toshqini'
+    },
+    'descriptions': {
+      'secondChance': 'Keyingi bosqichni Ikkinchi imkoniyat qalqoni bilan boshlang.',
+      'startPowerup': 'Keyingi bosqichni tasodifiy kuch-quvvat bilan boshlang.',
+      'coinBoost': 'Butun keyingi bosqich uchun 1,2× tanga.'
+    }
+  },
   'options': {
     'title': 'Sozlamalar',
     'general': 'Umumiy',
@@ -100,6 +137,11 @@ export default {
     'difficulty': 'Qiyinlik',
     'soundEffects': 'Ovoz effektlari',
     'music': 'Musiqa',
+    'musicTrack': 'Musiqa treki',
+    'musicTracks': {
+      'cozy': 'Qulay ohang',
+      'trance': 'Trans tuneli'
+    },
     'close': 'Saqlash va yopish',
     'difficulties': { 'easy': 'Oson', 'medium': "Oʻrtacha", 'hard': 'Qiyin' },
     'difficultyHints': {

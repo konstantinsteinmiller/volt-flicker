@@ -227,18 +227,47 @@ const drawItemSparkles = (ctx: CanvasRenderingContext2D, x: number, cy: number, 
   ctx.globalAlpha = 1
 }
 
-const drawItemBox = (ctx: CanvasRenderingContext2D, x: number, y: number, now: number, seed = 0): void => {
+const drawItemBox = (ctx: CanvasRenderingContext2D, x: number, y: number, now: number, seed = 0, lucky = false): void => {
   const bob = Math.sin(now / 260 + seed) * geo.halfH * 0.2
   const cy = y - geo.tileH * 0.5 + bob
   const base = geo.tileW * 0.624 // 20% smaller so the sparkles read clearly
   const wobble = 0.975 + Math.sin(now / 320 + seed) * 0.025 // gentle 95%→100%→95% breathing
 
-  // Glow halo.
-  const glow = ctx.createRadialGradient(x, cy, 2, x, cy, base * 0.95)
-  glow.addColorStop(0, 'rgba(255,255,255,0.5)')
-  glow.addColorStop(1, 'rgba(255,255,255,0)')
-  ctx.fillStyle = glow
-  ctx.beginPath(); ctx.arc(x, cy, base * 0.95, 0, Math.PI * 2); ctx.fill()
+  // Glow halo. A LUCKY box telegraphs its rare double-duration drop with
+  // expanding rainbow-hued pulse rings radiating outward (no flat ellipse).
+  if (lucky) {
+    ctx.save()
+    ctx.globalCompositeOperation = 'lighter' // additive — rings glow, don't muddy
+    const PERIOD = 1100 // ms for one pulse ring to expand + fade
+    const RINGS = 3     // staggered rings in flight at once
+    for (let i = 0; i < RINGS; i++) {
+      const t = (((now / PERIOD) + i / RINGS) % 1) // 0→1 life of this ring
+      const rr = base * (0.5 + t * 1.3)            // expand outward from the box
+      const fade = (1 - t) * 0.7                   // fade as it grows
+      if (fade <= 0) continue
+      // Cycle the hue over time + per ring so it sweeps the rainbow.
+      const hue = (now / 12 + seed * 60 + i * 120) % 360
+      ctx.globalAlpha = fade
+      ctx.strokeStyle = `hsl(${hue}, 100%, 60%)`
+      ctx.lineWidth = Math.max(1.5, base * 0.12 * (1 - t))
+      ctx.beginPath(); ctx.arc(x, cy, rr, 0, Math.PI * 2); ctx.stroke()
+    }
+    // Soft rainbow core glow so the box centre reads as special too.
+    const coreHue = (now / 12 + seed * 60) % 360
+    const cg = ctx.createRadialGradient(x, cy, 2, x, cy, base * 0.8)
+    cg.addColorStop(0, `hsla(${coreHue}, 100%, 65%, 0.55)`)
+    cg.addColorStop(1, `hsla(${coreHue}, 100%, 65%, 0)`)
+    ctx.globalAlpha = 1
+    ctx.fillStyle = cg
+    ctx.beginPath(); ctx.arc(x, cy, base * 0.8, 0, Math.PI * 2); ctx.fill()
+    ctx.restore()
+  } else {
+    const glow = ctx.createRadialGradient(x, cy, 2, x, cy, base * 0.95)
+    glow.addColorStop(0, 'rgba(255,255,255,0.5)')
+    glow.addColorStop(1, 'rgba(255,255,255,0)')
+    ctx.fillStyle = glow
+    ctx.beginPath(); ctx.arc(x, cy, base * 0.95, 0, Math.PI * 2); ctx.fill()
+  }
 
   // Box sprite (wobbling), with a procedural fallback before the bitmap decodes.
   const img = getImg(ITEM_BOX_SRC)
@@ -518,13 +547,44 @@ const drawRollingBall = (ctx: CanvasRenderingContext2D, cx: number, cy: number, 
   return true
 }
 
-const drawBall = (ctx: CanvasRenderingContext2D, x: number, y: number, now: number, dropT = 0): void => {
+// ─── Stage-start drop-in bounce ─────────────────────────────────────────────
+//
+// On every stage (re)load the ball falls in from two ball-heights up and bounces
+// for ~600ms before settling — a small "ready!" attention grab. Driven by
+// performance.now() (NOT game.clock, which is frozen while the run is idle).
+const DROP_IN_MS = 600
+let dropInStart = -Infinity
+/** Trigger the drop-in bounce; called from `resetForStage`. */
+export const triggerBallDropIn = (): void => { dropInStart = performance.now() }
+
+/** Penner easeOutBounce: 0 (just dropped) → 1 (settled), with 3 diminishing
+ *  bounces — the canonical bounce-landing curve. */
+const easeOutBounce = (t: number): number => {
+  const n1 = 7.5625, d1 = 2.75
+  if (t < 1 / d1) return n1 * t * t
+  if (t < 2 / d1) { t -= 1.5 / d1; return n1 * t * t + 0.75 }
+  if (t < 2.5 / d1) { t -= 2.25 / d1; return n1 * t * t + 0.9375 }
+  t -= 2.625 / d1; return n1 * t * t + 0.984375
+}
+
+/** Current drop-in vertical lift in px (negative = airborne, 0 = settled). */
+const dropInLift = (now: number): number => {
+  const t = (now - dropInStart) / DROP_IN_MS
+  if (t < 0 || t >= 1) return 0
+  const fall = geo.halfH * 1.05 * 4 // two ball-heights (diameter × 2)
+  return -fall * (1 - easeOutBounce(t))
+}
+
+const drawBall = (ctx: CanvasRenderingContext2D, x: number, y: number, now: number, dropT = 0, lift = 0): void => {
   const baseRadius = geo.halfH * 1.05
   // While dropping the ball sinks below the surface, shrinks, and fades out as
   // it disappears into the pit. The hole's front lip (drawn afterwards) hides
   // its lower half so it reads as falling in rather than floating across.
   const radius = baseRadius * (1 - 0.6 * dropT)
-  const cy = y - baseRadius * 0.75 + dropT * baseRadius * 1.9
+  // `lift` (px, negative = airborne) is the stage-start drop-in bounce offset —
+  // the ball falls in from above and bounces before settling. Applied to the
+  // ball body + shadow scale only, so the contact shadow stays on the tile.
+  const cy = y - baseRadius * 0.75 + dropT * baseRadius * 1.9 + lift
   let alpha = dropT < 0.7 ? 1 : Math.max(0, 1 - (dropT - 0.7) / 0.3)
   // After spending a Second Chance the ball blinks for a beat.
   if (game.secondChanceBlinkUntil > game.clock) {
@@ -552,9 +612,12 @@ const drawBall = (ctx: CanvasRenderingContext2D, x: number, y: number, now: numb
   ctx.save()
   ctx.globalAlpha = alpha
 
-  // Soft contact shadow on the tile — fades away as the ball leaves the surface.
-  ctx.fillStyle = `rgba(0,0,0,${0.28 * (1 - dropT)})`
-  ctx.beginPath(); ctx.ellipse(x, y + geo.halfH * 0.15, radius * 0.8, radius * 0.4, 0, 0, Math.PI * 2); ctx.fill()
+  // Soft contact shadow on the tile — fades away as the ball leaves the surface,
+  // and shrinks/dims while the ball is airborne during the drop-in bounce.
+  const airT = Math.min(1, -lift / (baseRadius * 4)) // 0 grounded → 1 at apex
+  const shadowScale = 1 - 0.45 * airT
+  ctx.fillStyle = `rgba(0,0,0,${0.28 * (1 - dropT) * (1 - 0.5 * airT)})`
+  ctx.beginPath(); ctx.ellipse(x, y + geo.halfH * 0.15, radius * 0.8 * shadowScale, radius * 0.4 * shadowScale, 0, 0, Math.PI * 2); ctx.fill()
 
   // Ball body — 3D sphere-mapped rolling skin; the roll phase advances with how
   // far up the field the ball has travelled. Falls back to a procedural gradient
@@ -949,6 +1012,84 @@ const drawBallShatter = (ctx: CanvasRenderingContext2D, now: number): void => {
   }
 }
 
+// ─── Wings shatter (tears the angel-wings sprite into flying wedges) ─────────
+//
+// When a held Second Chance is spent, the wings break apart with the same
+// pie-wedge tear language as the ball/obstacle death. Snapshots the WINGS_SRC
+// bitmap at its on-ball draw size into an offscreen canvas, then slices it.
+const WINGS_SHARD_COUNT = 10
+const WINGS_SHATTER_MS = 700
+let wingsShatter: BallShatter | null = null
+let prevWingsBreakAt = 0
+
+/** Render the wings sprite centred into a square offscreen canvas so it can be
+ *  sliced into shards. `radius` is the ball radius (wings are radius*3.4 wide). */
+const renderWingsSnapshot = (radius: number): { canvas: HTMLCanvasElement; size: number } | null => {
+  const img = getImg(WINGS_SRC)
+  if (!ready(img)) return null
+  const w = radius * 3.4
+  const h = w * (img.naturalHeight / img.naturalWidth)
+  const size = Math.ceil(Math.max(w, h)) + 6
+  const cv = document.createElement('canvas')
+  cv.width = size; cv.height = size
+  const cx = cv.getContext('2d')
+  if (!cx) return null
+  const c = size / 2
+  cx.drawImage(img, c - w / 2, c - h / 2, w, h)
+  return { canvas: cv, size }
+}
+
+const spawnWingsShatter = (x: number, y: number, radius: number, now: number): void => {
+  const snap = renderWingsSnapshot(radius)
+  if (!snap) return
+  const shards: BallShard[] = []
+  const N = WINGS_SHARD_COUNT
+  // The wedge radius spans the (wider) wings snapshot, not the ball.
+  const wedgeR = snap.size / 2
+  for (let i = 0; i < N; i++) {
+    const a0 = (i / N) * Math.PI * 2
+    const a1 = ((i + 1) / N) * Math.PI * 2
+    const mid = (a0 + a1) / 2
+    shards.push({
+      a0, a1,
+      // Bias the spread sideways so feathers scatter outward like wings, not up.
+      fly: mid + (Math.random() - 0.5) * 0.6,
+      dist: wedgeR * (1.6 + Math.random() * 2.2),
+      rot: (Math.random() - 0.5) * 0.8,
+      spin: (Math.random() - 0.5) * 7
+    })
+  }
+  wingsShatter = { canvas: snap.canvas, size: snap.size, x, y, radius: wedgeR, bornAt: now, shards }
+}
+
+/** Draw the active wings-shatter shards for this frame; clears when expired. */
+const drawWingsShatter = (ctx: CanvasRenderingContext2D, now: number): void => {
+  if (!wingsShatter) return
+  const t = (now - wingsShatter.bornAt) / WINGS_SHATTER_MS
+  if (t >= 1) { wingsShatter = null; return }
+  const ease = 1 - (1 - t) * (1 - t)
+  const { canvas, size, x, y, radius, shards } = wingsShatter
+  const half = size / 2
+  for (const s of shards) {
+    const dist = s.dist * ease
+    const px = x + Math.cos(s.fly) * dist
+    const py = y + Math.sin(s.fly) * dist * 0.72 + t * t * radius * 1.2 // gentle gravity
+    const scale = 1 - 0.5 * t
+    ctx.save()
+    ctx.globalAlpha = Math.max(0, 1 - t)
+    ctx.translate(px, py)
+    ctx.rotate(s.rot + s.spin * t)
+    ctx.scale(scale, scale)
+    ctx.beginPath()
+    ctx.moveTo(0, 0)
+    ctx.arc(0, 0, radius + 1, s.a0, s.a1)
+    ctx.closePath()
+    ctx.clip()
+    ctx.drawImage(canvas, -half, -half)
+    ctx.restore()
+  }
+}
+
 // ─── Main draw ──────────────────────────────────────────────────────────────
 
 interface Drawable { r: number; fn: () => void }
@@ -994,7 +1135,8 @@ export const drawScene = (ctx: CanvasRenderingContext2D, w: number, h: number, n
         drawables.push({ r: r + 0.1, fn: () => drawCoinSprite(ctx, x, y - geo.tileH * 0.4 + Math.sin(now / 240 + c) * geo.halfH * 0.15, geo.halfW * 0.7) })
       } else if (cell.kind === 'item') {
         const seed = (hash(c, r) % 997) / 159
-        drawables.push({ r: r + 0.1, fn: () => drawItemBox(ctx, x, y, now, seed) })
+        const lucky = cell.lucky === true
+        drawables.push({ r: r + 0.1, fn: () => drawItemBox(ctx, x, y, now, seed, lucky) })
       }
     }
   }
@@ -1007,9 +1149,19 @@ export const drawScene = (ctx: CanvasRenderingContext2D, w: number, h: number, n
   if (game.exploded && !prevExploded) spawnBallShatter(ballPos.x, deathCy, deathRadius, now)
   prevExploded = game.exploded
 
+  // The frame a held Second Chance is spent: tear the angel wings apart.
+  if (game.wingsBreakAt !== prevWingsBreakAt) {
+    if (game.wingsBreakAt !== 0) spawnWingsShatter(ballPos.x, deathCy, deathRadius, now)
+    prevWingsBreakAt = game.wingsBreakAt
+  }
+
+  // Stage-start drop-in bounce — suppressed while sinking into a hole or after
+  // a blow-up so it never fights those animations.
+  const lift = (game.dropping || game.exploded) ? 0 : dropInLift(now)
+
   // Renders the player ball, with the pit-clip applied while it's dropping.
   const paintBall = (): void => {
-    if (!game.dropping) { drawBall(ctx, ballPos.x, ballPos.y, now, dropT); return }
+    if (!game.dropping) { drawBall(ctx, ballPos.x, ballPos.y, now, dropT, lift); return }
     // Falling into a hole: clip the ball to the pit opening plus everything
     // ABOVE it. The whole dark pit was filled in the floor pass, so the ball
     // shows in front of it (overlapping the back rim); the part that sinks
@@ -1052,9 +1204,77 @@ export const drawScene = (ctx: CanvasRenderingContext2D, w: number, h: number, n
 
   // Tear-apart shards of the destroyed ball (under the explosion FX).
   drawBallShatter(ctx, now)
+  // Tear-apart shards of broken angel wings (spent Second Chance).
+  drawWingsShatter(ctx, now)
 
   // Pass 3 — FX on top.
   for (const fx of game.fx) drawFx(ctx, fx, camOffsetY, ballPos.x, ballY, now)
+
+  // Pass 4 — full-screen "juice" overlays (roadmap #14).
+  drawSpeedLines(ctx, w, h, now)
+  drawPowerupPulse(ctx, w, h)
+}
+
+// ─── Speed lines (roadmap #14) ───────────────────────────────────────────────
+//
+// Above a speed threshold, faint vertical streaks rush down the screen edges to
+// sell velocity. Intensity (count + opacity) scales with how fast the ball is
+// going; nothing draws at calm speeds so slow play stays clean.
+const SPEED_LINE_MIN = 5.2 // diamonds/sec before any streaks appear
+const SPEED_LINE_MAX = 8   // matches MAX_SPEED — full intensity
+const drawSpeedLines = (ctx: CanvasRenderingContext2D, w: number, h: number, now: number): void => {
+  if (game.phase !== 'playing') return
+  const frac = (game.speed - SPEED_LINE_MIN) / (SPEED_LINE_MAX - SPEED_LINE_MIN)
+  if (frac <= 0) return
+  const intensity = Math.min(1, frac)
+  const count = Math.round(4 + intensity * 8)
+  const lineH = h * (0.12 + intensity * 0.12)
+  ctx.save()
+  ctx.globalCompositeOperation = 'lighter'
+  ctx.strokeStyle = `rgba(255,255,255,${0.05 + intensity * 0.12})`
+  ctx.lineWidth = 2
+  for (let i = 0; i < count; i++) {
+    // Deterministic per-streak x near the left/right margins; scroll downward.
+    const seed = i * 97.13
+    const side = i % 2 === 0 ? 0 : 1
+    const margin = w * 0.16
+    const x = side === 0
+      ? (seed % margin)
+      : w - (seed % margin)
+    const speedPx = h * (0.6 + intensity) // px/sec scroll
+    const yStart = ((now / 1000 * speedPx + seed * 7) % (h + lineH)) - lineH
+    ctx.beginPath()
+    ctx.moveTo(x, yStart)
+    ctx.lineTo(x, yStart + lineH)
+    ctx.stroke()
+  }
+  ctx.restore()
+}
+
+// ─── Power-up pickup chromatic pulse (roadmap #14) ───────────────────────────
+//
+// A brief RGB-split vignette flash radiating from the screen edges the instant a
+// power-up is grabbed (`game.powerupFlashAt`). Hue sweeps over the short life so
+// it reads as a chromatic pop, not a flat colour.
+const POWERUP_PULSE_MS = 320
+const drawPowerupPulse = (ctx: CanvasRenderingContext2D, w: number, h: number): void => {
+  if (!game.powerupFlashAt) return
+  const age = game.clock - game.powerupFlashAt
+  if (age < 0 || age > POWERUP_PULSE_MS) return
+  const t = age / POWERUP_PULSE_MS // 0 → 1
+  const alpha = (1 - t) * 0.5
+  const hue = (t * 300) % 360
+  const cx = w / 2, cy = h / 2
+  const inner = Math.min(w, h) * (0.35 + t * 0.15)
+  const outer = Math.hypot(w, h) / 2
+  const g = ctx.createRadialGradient(cx, cy, inner, cx, cy, outer)
+  g.addColorStop(0, `hsla(${hue}, 100%, 60%, 0)`)
+  g.addColorStop(1, `hsla(${hue}, 100%, 60%, ${alpha})`)
+  ctx.save()
+  ctx.globalCompositeOperation = 'lighter'
+  ctx.fillStyle = g
+  ctx.fillRect(0, 0, w, h)
+  ctx.restore()
 }
 
 /** Dim the whole viewport ~70% with a soft transparent hole cut around the

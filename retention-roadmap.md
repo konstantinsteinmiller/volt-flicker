@@ -12,56 +12,31 @@ Legend: 🟢 small (hours) · 🟡 medium (1–2 days) · 🔴 large (multi-day)
 
 ## A. First-session hooks (Day-1 retention)
 
-### 1. 🟢 First-run guided tutorial overlay
-**Lever:** Day-1 retention, easy-to-pick-up.
-Brand-new players currently get the `startSubhint` line only. Add a 2–3 step
-coachmark on the very first run: "Tap to flip direction" → highlight a gap →
-"Dodge the holes" → first item box "Grab power-ups!". Gate on a `tutorialSeen`
-flag in the save blob.
-**Impl:** new `useOnboarding.ts` + a lightweight `<Coachmark>` overlay in
-`EpicancerScene.vue`; pause `step()` via the existing `isGamePaused` gate while a
-coachmark is up.
-
-### 2. 🟢 "Almost!" near-miss + best-tile ghost line
+### 2. 🟢 "Almost!" near-miss + best-tile ghost line  (next)
 **Lever:** hard-to-put-down.
-On a loss, show how close they were to clearing ("You needed 3 more tiles!") and
-render a faint marker at their personal-best tile depth so every run has a visible
-target to beat.
+On a loss, show how close they were to clearing ("You needed 3 more tiles!")
 **Impl:** lose screen already shows tiles; add the delta + read `bestScore` from
 `useEpicProgress`. Ghost line is one `drawScene` pass in `useEpicArt`.
 
-### 3. 🟡 Instant restart / one-tap retry
+### 3. 🟡 Instant restart / one-tap retry  (next)
 **Lever:** average playtime, hard-to-put-down.
 The fastest way to grow sessions in arcade games is to shrink the gap between
-death and next attempt. Add a prominent "Retry" that skips straight back to
-`begin()` without closing/reopening the result modal, and make `Space`/tap
-re-launch from the lose screen.
+death and next attempt. Add a prominent "Retry" that skips from the "ContinueModal" that offers a revive 
+straight back to
+`begin()` without closing/reopening the result modal.
 **Impl:** `onResultContinue` already does `resetForStage()`; add a retry path that
 also auto-`begin()`s, and bind it to the existing key handler.
 
-### 4. 🟡 Daily first-win bonus / streak escalation
-**Lever:** Day-1 + Day-N retention, conversion.
-`DailyRewards` exists; layer a "first clear of the day = 2× coins" and an
-escalating login streak (day 7 = a free skin or Second Chance). Visible streak
-counter on the menu creates a return reason.
-**Impl:** extend `useDailyRewards`/`DailyRewards.vue`; reuse the coin-explosion
-and `armStartSecondChance` paths.
 
 ---
 
 ## B. Session-length / playtime
 
-### 5. 🟡 Endless "just one more" mode after the campaign
-**Lever:** average playtime.
-Once a player clears their current frontier, offer an Endless run scored on tiles
-with its own leaderboard, so skilled players aren't capped by stage pacing.
-**Impl:** a phase variant in `useEpicGame` that ignores `stageTarget` and ramps
-density/speed via the existing `stageHazardChance`/speed curve.
-
-### 6. 🟡 Combo / coin-multiplier chain
+### 6. 🟡 Combo / coin-multiplier chain (next)
 **Lever:** hard-to-put-down, playtime.
-Reward clean play: consecutive coins or near-misses build a multiplier that
-resets on hit. Shows a rising "x2 x3" on the HUD — a classic dopamine loop.
+Reward clean play: consecutive coins collection(within 4 seconds of last pickup) build a multiplier that
+resets on hit or after 4 seconds without coin collection. Shows a rising "x2 x3" on the HUD — a classic dopamine loop.
+Rises by 0.05x per freely placed coin(destroying obstacles dont count to this combo) in the loop up to a 3x reward(golden color, 2x is displayed in fancy orangish color).
 **Impl:** add a `combo` ref to `useEpicGame`, surface in a HUD badge, fold into
 `collectCoin`/`awardInstantCoins`.
 
@@ -71,13 +46,6 @@ The Second-Chance / rewarded-revive already exists. A/B the cooldown and offer a
 *coin* revive as well as the ad revive, so non-ad-watchers also extend runs.
 **Impl:** parameterise `SECOND_CHANCE_COOLDOWN` in `EpicancerScene.vue`; add a
 coin-priced revive button next to the ad one.
-
-### 8. 🔴 Weekly rotating challenge / mutator
-**Lever:** Day-N retention, playtime.
-"This week: double lava, half gaps, 3× coins." A single seeded mutator gives
-veterans a fresh reason to log in.
-**Impl:** a `mutators` table feeding `genRow`/`hazardPool` weights; seed by ISO
-week so all players share it (no backend needed).
 
 ---
 
@@ -91,33 +59,20 @@ rubber-band).
 **Impl:** read fail counts (already tracked for the rubber band) and surface a
 one-time "Try Easy?" prompt.
 
-### 10. 🟢 Clearer power-up telegraphing
-**Lever:** easy-to-pick-up.
-Power-ups read as generic boxes. Add a small icon/colour on the item box hinting
-what it grants, and a short banner on pickup (the `PowerupBanner` exists — make
-the pickup moment louder with a per-type sting, see sound-todo.md #2).
-**Impl:** extend `drawItemBox` with a type glyph; pre-roll the type at spawn in
-`genRow`.
-
-### 11. 🟡 Readability pass: colour-blind-safe hazards
-**Lever:** easy-to-pick-up, accessibility → retention.
-Holes/lava/obstacles rely partly on colour. Add distinct silhouettes/patterns and
-a colour-blind toggle in Options.
-**Impl:** alternate sprite tints/outlines in `useEpicArt`; new `userColorBlind`
-setting in `useUser` like the difficulty one.
-
 ---
 
 ## D. Hard-to-put-down / progression depth
 
-### 12. 🟡 Skin collection meta + rarity
+### 12. 🟡 Skin collection meta + rarity  (next)
 **Lever:** conversion, hard-to-put-down.
 The new SkinModal sells skins for coins. Add rarity tiers, a "new!" badge,
 preview-on-roll, and one premium/ad-locked skin to seed cosmetic desire.
 **Impl:** extend the skins catalogue with `rarity`/`source` (coin | ad | streak);
 the renderer hook for the active texture already exists.
+Lock rare skins behind an stage progression lock(Lock symbol and grey overlay with ~60% opacity).
 
-### 13. 🟡 Achievements / milestone quests
+
+### 13. 🟡 Achievements / milestone quests  (next)
 **Lever:** Day-N retention, playtime.
 "Travel 500 lifetime tiles", "Clear stage 5 on Hard", "Destroy 50 boxes". Each
 grants coins — turns incidental play into goals.
@@ -125,44 +80,16 @@ grants coins — turns incidental play into goals.
 (`recordScore`, obstacle-destroy, stage clears); claim UI modeled on
 `BattlePass.vue`.
 
-### 14. 🔴 Social leaderboard + ghost replays
-**Lever:** hard-to-put-down, conversion.
-Friend/global leaderboards (the platform SDKs expose score posting; `gamesPlayedTotal`/
-`maxStageReached` are already published). Add an asynchronous "beat this run" ghost.
-**Impl:** post `bestScore` via the existing platform plugins; ghost = recorded
-tap timestamps replayed against the same seed.
-
-### 15. 🟢 Battle Pass season framing
-**Lever:** Day-N retention, conversion.
-`BattlePass` exists; give it a visible season timer + a free *and* premium track
-so there's a paid conversion path and a recurring "season ending soon" hook.
-**Impl:** add `seasonEndsAt` + a premium-track flag to `useBattlePass`; gate
-premium rewards behind a single IAP/ad-bundle.
-
 ---
 
 ## E. Conversion (new player → engaged / paying)
 
-### 16. 🟢 Rewarded-ad value clarity
+### 16. 🟢 Rewarded-ad value clarity  (next)
 **Lever:** conversion.
 Surface what each rewarded ad gives *before* the watch (e.g. "+125 coins",
 "revive", "Second Chance") with a consistent movie icon — already partly done;
 unify copy and placement so the value prop is obvious.
 **Impl:** centralise rewarded-CTA labels in i18n; reuse `AdRewardButton`.
-
-### 17. 🟡 Starter pack / first-purchase nudge
-**Lever:** conversion.
-After the player's first few stages, offer a one-time high-value coin+skin bundle
-("Starter Pack — 70% off") to convert engaged free users.
-**Impl:** trigger off `gamesPlayed`/`maxStage` thresholds; a dedicated modal
-reusing the SkinModal/Upgrades buy flow.
-
-### 18. 🟢 Coin-sink visibility ("what's next to buy")
-**Lever:** conversion, hard-to-put-down.
-On the result screen, show the cheapest affordable-soon upgrade/skin ("180 coins
-to Magnet Range Lv.2") so coins always feel one run away from a goal.
-**Impl:** compute the nearest target from `UPGRADES`/skins vs `coins` in
-`EpicancerScene.vue`.
 
 ---
 

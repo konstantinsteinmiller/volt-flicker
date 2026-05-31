@@ -37,7 +37,8 @@ export default {
     'crashed': 'Ви врізалися в перешкоду!',
     'tiles': 'Клітини',
     'winReward': 'вкл. +{n} бонус за етап',
-    'double': 'Подвоїти монети'
+    'double': 'Подвоїти монети',
+    'firstRunDouble': '2× — перший забіг сьогодні!'
   },
   'upgrades': {
     'title': 'Покращення',
@@ -45,6 +46,7 @@ export default {
     'level': 'Рів.{n}',
     'maxedOut': 'МАКС',
     'sellBack': 'Продати +{n}',
+    'spotlight': 'Витратити!',
     'unlocksAtStage': '🔒 Етап {n}',
     'names': {
       'powerupDuration': 'Підсилення',
@@ -52,6 +54,8 @@ export default {
       'coinValue': 'Цінність Монет',
       'itemLuck': 'Щасливі Скрині',
       'dodgeApprentice': 'Учень Ухилення',
+      'deathMagnet': 'Магніт Смерті',
+      'autoCollect': 'Авто-Збирання',
       'rollingBoulder': 'Валун, що Котиться'
     },
     'descriptions': {
@@ -60,6 +64,8 @@ export default {
       'coinValue': 'Кожна монета коштує більше.',
       'itemLuck': 'Скрині з предметами з’являються частіше.',
       'dodgeApprentice': 'Авто-ухилення від однієї смертельної клітини, потім перезарядка (10с; −0,5с за рівень).',
+      'deathMagnet': 'Після смерті збери всі монети в радіусі 4 клітин — збережи те, що інакше втратив би.',
+      'autoCollect': 'Завжди збирай монети із сусідніх клітин — постійний магніт на 1 клітину.',
       'rollingBoulder': 'Котіться прямо крізь ящики без шкоди.'
     },
     'secondChance': {
@@ -92,6 +98,37 @@ export default {
     'equip': 'Вдягнути',
     'equipped': 'Вдягнено'
   },
+  'missions': {
+    'title': 'Щоденні Місії',
+    'subtitle': 'Виконуйте цілі щодня заради монет.',
+    'claim': 'Отримати',
+    'done': 'Отримано',
+    'types': {
+      'coins': 'Зберіть {n} монет сьогодні',
+      'tiles': 'Пройдіть {n} клітин за один забіг',
+      'items': 'Зберіть {n} скринь з предметами сьогодні',
+      'clears': 'Пройдіть {n} етапів сьогодні'
+    }
+  },
+  'endless': {
+    'badge': 'Нескінченний',
+    'toEndless': 'Нескінченний Режим',
+    'toCampaign': 'Кампанія',
+    'best': 'Рекорд: {n}'
+  },
+  'boon': {
+    'title': 'Оберіть благо',
+    'names': {
+      'secondChance': 'Другий Шанс',
+      'startPowerup': 'Фора на Старті',
+      'coinBoost': 'Монетний Шквал'
+    },
+    'descriptions': {
+      'secondChance': 'Почніть наступний етап зі щитом Другого Шансу.',
+      'startPowerup': 'Почніть наступний етап з випадковим підсиленням.',
+      'coinBoost': '1,2× монет протягом усього наступного етапу.'
+    }
+  },
   'options': {
     'title': 'Опції',
     'general': 'Загальні',
@@ -100,6 +137,11 @@ export default {
     'difficulty': 'Складність',
     'soundEffects': 'Звукові ефекти',
     'music': 'Музика',
+    'musicTrack': 'Музична тема',
+    'musicTracks': {
+      'cozy': 'Затишна гармонія',
+      'trance': 'Транс-тунель'
+    },
     'close': 'Зберегти й Закрити',
     'difficulties': { 'easy': 'Легка', 'medium': 'Середня', 'hard': 'Складна' },
     'difficultyHints': {

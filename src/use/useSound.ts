@@ -1,5 +1,5 @@
 import { prependBaseUrl } from '@/utils/function'
-import useUser from '@/use/useUser'
+import useUser, { MUSIC_TRACK_FILES } from '@/use/useUser'
 import { getAudioContext, loadAudioBuffer, resourceCache, registerHtmlAudio, unregisterHtmlAudio, isAudioSuspended, registerOneShotSource } from '@/use/useAssets'
 import { isGamePaused } from '@/use/useGamePause'
 
@@ -39,13 +39,66 @@ export const forceStopMusic = (): void => {
   isPlaying.value = false
 }
 
+/**
+ * Drive the background-music *tempo* from gameplay intensity. Callers pass a
+ * 0..1 ratio (0 = calm / stage start, 1 = max ball speed) and we map it onto a
+ * gentle playbackRate ramp so the track subtly quickens as the run heats up.
+ * Idempotent, null-safe, and a no-op before the music element exists — the game
+ * tick calls this every frame, so it must never throw or allocate.
+ */
+export const setMusicIntensity = (intensity: number): void => {
+  if (!bgMusic.value) return
+  const clamped = Math.max(0, Math.min(1, Number.isFinite(intensity) ? intensity : 0))
+  // 1.0× when calm → 1.15× at full tilt. Small enough to feel like energy, not
+  // a pitch-up gimmick.
+  const rate = 1 + clamped * 0.15
+  try {
+    bgMusic.value.playbackRate = rate
+  } catch { /* element not ready / rate unsupported */ }
+}
+
 export const useMusic = () => {
-  const { userMusicVolume } = useUser()
+  const { userMusicVolume, userMusicTrack } = useUser()
 
   watch(userMusicVolume, () => {
     if (!bgMusic.value) return
     bgMusic.value.volume = Math.max(0, Math.min(1, (userMusicVolume.value ?? 0.6) * 0.025))
   })
+
+  // Live-swap the background track when the player picks a different one in
+  // Options. Only reload if music is meant to be playing right now — otherwise
+  // the next `startBattleMusic()` naturally picks up the new choice.
+  watch(userMusicTrack, () => {
+    if (!bgMusic.value || !shouldPlay.value) return
+    isPlaying.value = false
+    loadAndPlayTrack()
+  })
+
+  // Resolve the active track's filename, falling back to the default.
+  const currentTrackFile = (): string =>
+    MUSIC_TRACK_FILES[userMusicTrack.value] ?? MUSIC_TRACK_FILES.trance
+
+  // Point the music element at the active track and fade it in — using the
+  // preloaded/decoded copy when available, otherwise fetching on demand.
+  const loadAndPlayTrack = () => {
+    if (!bgMusic.value) return
+    const src = prependBaseUrl('audio/music/' + currentTrackFile())
+    const cached = resourceCache.audio.get(src)
+    bgMusic.value.pause()
+    bgMusic.value.volume = 0
+    if (cached) {
+      bgMusic.value.src = cached.src
+      isLoaded.value = true
+      playWithFade()
+    } else {
+      bgMusic.value.src = src
+      bgMusic.value.load()
+      bgMusic.value.addEventListener('canplaythrough', () => {
+        isLoaded.value = true
+        playWithFade()
+      }, { once: true })
+    }
+  }
 
   const pauseMusic = () => {
     if (bgMusic.value) {
@@ -105,26 +158,7 @@ export const useMusic = () => {
     // mid-fight on extra calls.
     if (shouldPlay.value && isPlaying.value) return
     shouldPlay.value = true
-    const filename = `bg-cozy.ogg`
-    const src = prependBaseUrl('audio/music/' + filename)
-    const cached = resourceCache.audio.get(src)
-
-    bgMusic.value.pause()
-    bgMusic.value.volume = 0
-
-    if (cached) {
-      // Use preloaded audio — already decoded, skip network fetch
-      bgMusic.value.src = cached.src
-      isLoaded.value = true
-      playWithFade()
-    } else {
-      bgMusic.value.src = src
-      bgMusic.value.load()
-      bgMusic.value.addEventListener('canplaythrough', () => {
-        isLoaded.value = true
-        playWithFade()
-      }, { once: true })
-    }
+    loadAndPlayTrack()
   }
 
   const stopBattleMusic = () => {

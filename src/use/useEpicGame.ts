@@ -1,10 +1,14 @@
-import { ref, type Ref } from 'vue'
-import useSounds from '@/use/useSound'
+import { ref, computed, type Ref } from 'vue'
+import useSounds, { setMusicIntensity } from '@/use/useSound'
 import { useScreenshake } from '@/use/useScreenshake'
 import useEpicProgress, { tilesToClear, upgradedValue } from '@/use/useEpicProgress'
 import useBattlePass from '@/use/useBattlePass'
 import usePowerups, { type PowerupType } from '@/use/usePowerups'
 import { difficultySpeedFactor } from '@/use/useUser'
+import { getState, setState } from '@/use/useEpicState'
+import { ONBOARDED_KEY, BEST_ENDLESS_KEY } from '@/keys'
+import { flushSaveNow } from '@/use/useSaveStatus'
+import { triggerBallDropIn } from '@/use/useEpicArt'
 
 /**
  * Core game loop for Epicancer.
@@ -35,6 +39,9 @@ export interface Cell {
   obstacle?: ObstacleKind
   /** Coin already swallowed (kept for a frame so the renderer can fade it). */
   collected?: boolean
+  /** Item box only: a rare "lucky" box that grants a double-duration power-up.
+   *  The renderer draws it with a distinct golden glow to telegraph the drop. */
+  lucky?: boolean
 }
 
 export interface FxEvent {
@@ -90,6 +97,58 @@ const rubberBandedTarget = (stage: number): number => {
   return Math.max(1, Math.round(base * factor))
 }
 
+// ─── Game mode: campaign vs endless (roadmap #9) ────────────────────────────
+//
+// Campaign = the staged progression (clear a tile goal → next stage). Endless
+// "Zen / Marathon" = no tile goal, a gentler time-based ramp, scored on tiles
+// travelled with its own persisted best. Toggled from the idle screen.
+export type GameMode = 'campaign' | 'endless'
+export const gameMode: Ref<GameMode> = ref('campaign')
+export const setGameMode = (m: GameMode): void => { gameMode.value = m }
+/** Endless personal best (tiles), persisted separately from the campaign best. */
+export const bestEndless: Ref<number> = ref(Math.max(0, Number(getState<number>(BEST_ENDLESS_KEY, 0)) || 0))
+
+// ─── Adaptive spawn director (roadmap #8, session-only) ─────────────────────
+//
+// Counts deaths per hazard kind this session; the hazard that has been killing
+// the player most has its spawn weight reduced for upcoming runs (decays as
+// they survive), keeping strugglers in flow without dumbing the game down for
+// everyone. Not persisted — resets on reload.
+type HazardKey = 'hole' | 'lava' | 'box' | 'stone' | 'pyramid' | 'wall' | 'libertyCat'
+const hazardDeaths = new Map<HazardKey, number>()
+/** What killed the player on the current run (for the director + adaptive UI). */
+let lastKillerKind: HazardKey | null = null
+
+const hazardKeyOf = (kind: CellKind, obstacle?: ObstacleKind): HazardKey | null => {
+  if (kind === 'hole') return 'hole'
+  if (kind === 'lava') return 'lava'
+  if (kind === 'obstacle' && obstacle) return obstacle
+  return null
+}
+
+// ─── Onboarding (roadmap #7) ────────────────────────────────────────────────
+//
+// The player's first-ever run gets a longer safe runway, a gentler speed ramp,
+// and a guided "tap to turn" callout. `epic_onboarded` flips true once that run
+// finishes, so the assist shows exactly once.
+export const isOnboardingRun: Ref<boolean> = ref(getState<boolean>(ONBOARDED_KEY, false) !== true)
+const ONBOARD_RUNWAY_BONUS = 10 // extra guaranteed-safe rows on the first run
+
+// ─── Stage-clear boons (roadmap #13, session/transient) ─────────────────────
+//
+// On each stage clear the player picks one of three boons for the NEXT stage.
+// The choice is stored here and consumed by `resetForStage` / `begin`.
+export type BoonId = 'secondChance' | 'startPowerup' | 'coinBoost'
+const pendingBoon: Ref<BoonId | null> = ref(null)
+export const setPendingBoon = (b: BoonId): void => { pendingBoon.value = b }
+/** True while a 1.2× coin boon is active for the current stage. */
+let coinBoostActive = false
+/** Power-up to grant at the start of the run (from the 'startPowerup' boon). */
+let pendingStartPowerup: PowerupType | null = null
+
+// ─── Per-run metrics surface (roadmap #2 daily missions) ────────────────────
+const itemsThisRun: Ref<number> = ref(0)
+
 const cellKey = (c: number, r: number): string => `${c},${r}`
 const isSmall = (o: ObstacleKind | undefined): boolean => !!o && SMALL_OBSTACLES.includes(o)
 
@@ -134,7 +193,10 @@ export const game = {
   secondChanceBlinkUntil: 0,
   // Dodge Apprentice cooldown gate: game-clock ms at/after which a dodge is
   // available again. 0 = ready (each run starts with one charge).
-  dodgeReadyAt: 0
+  dodgeReadyAt: 0,
+  // Game-clock ms at which a Second Chance was just spent — the renderer reads
+  // a fresh (changed) value to spawn the angel-wings tear-apart shatter. 0 = none.
+  wingsBreakAt: 0
 }
 
 /** Duration (ms) of the post-teleport orientation slow-motion. */
@@ -177,6 +239,16 @@ const useEpicGame = () => {
     playSound('coin-pickup', 0.05, 1 + (Math.random() - 0.5) * 0.1)
   }
 
+  /** Fire a short device-vibration if supported (roadmap #14 haptics). Silently
+   *  ignored on desktop / unsupported browsers. */
+  const haptic = (pattern: number | number[]): void => {
+    try {
+      if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+        navigator.vibrate(pattern)
+      }
+    } catch { /* no-op */ }
+  }
+
   /** Cooldown (ms) of the Dodge Apprentice passive at a given level: 10s at
    *  level 1, −0.5s per level (max level 10 → 5.5s). */
   const dodgeCooldownMs = (level: number): number => Math.max(0, 10 - (level - 1) * 0.5) * 1000
@@ -193,11 +265,47 @@ const useEpicGame = () => {
 
   // Hazard density ramps from very sparse (stage 1, a gentle tutorial) up to the
   // original "stage 1" density at stage 10 — the difficulty test level reachable
-  // via the CTRL+SHIFT+ALT+T cheat — then keeps creeping up, capped.
-  const stageHazardChance = (): number => {
-    const stage = progress.stage.value
-    if (stage <= 10) return 0.05 + (stage - 1) * ((0.18 - 0.05) / 9)
-    return Math.min(0.42, 0.18 + (stage - 10) * 0.012)
+  // via the CTRL+SHIFT+ALT+T cheat — then keeps creeping up, capped. Endless
+  // softens it a touch; the first-ever (onboarding) run halves it.
+  const stageHazardChance = (stage: number): number => {
+    let p = stage <= 10
+      ? 0.05 + (stage - 1) * ((0.18 - 0.05) / 9)
+      : Math.min(0.42, 0.18 + (stage - 10) * 0.012)
+    if (gameMode.value === 'endless') p *= 0.9
+    if (isOnboardingRun.value) p *= 0.5
+    return p
+  }
+
+  /** Stage used to drive procedural generation. Campaign uses the player's
+   *  stage; endless ramps a pseudo-stage with distance travelled (capped). */
+  const genStage = (): number => {
+    if (gameMode.value === 'endless') {
+      const dist = Math.max(0, -game.genR)
+      return Math.min(12, 1 + Math.floor(dist / 30))
+    }
+    return progress.stage.value
+  }
+
+  /** Weighted hazard pick honouring the adaptive spawn director: a hazard kind
+   *  that has been killing the player a lot this session is down-weighted so
+   *  upcoming runs ease off it (roadmap #8). */
+  const pickHazard = (
+    pool: Array<{ kind: CellKind; obstacle?: ObstacleKind }>
+  ): { kind: CellKind; obstacle?: ObstacleKind } => {
+    let total = 0
+    const weights = pool.map((p) => {
+      const key = hazardKeyOf(p.kind, p.obstacle)
+      const deaths = key ? (hazardDeaths.get(key) ?? 0) : 0
+      const w = 1 / (1 + deaths * 0.6)
+      total += w
+      return w
+    })
+    let roll = Math.random() * total
+    for (let i = 0; i < pool.length; i++) {
+      roll -= weights[i]!
+      if (roll <= 0) return pool[i]!
+    }
+    return pool[pool.length - 1]!
   }
 
   /** Hazard types unlocked per stage. Stage 1 introduces only boxes; holes join
@@ -219,9 +327,11 @@ const useEpicGame = () => {
    *  "no two adjacent diamonds both hazardous" rule guarantees the ball always
    *  has at least one safe up-neighbour, so the run is always solvable. */
   const genRow = (r: number): void => {
-    const safeRunway = r > -START_RUNWAY
-    const stage = progress.stage.value
-    const pHazard = stageHazardChance()
+    const stage = genStage()
+    // Onboarding extends the guaranteed-safe runway on the first-ever run.
+    const runway = START_RUNWAY + (isOnboardingRun.value ? ONBOARD_RUNWAY_BONUS : 0)
+    const safeRunway = r > -runway
+    const pHazard = stageHazardChance(stage)
     const pool = hazardPool(stage)
     const portalsAllowed = stage >= 4
     const cols: number[] = []
@@ -233,8 +343,8 @@ const useEpicGame = () => {
       let kind: CellKind = 'floor'
       let obstacle: ObstacleKind | undefined
       if (!safeRunway && !prevHazard && Math.random() < pHazard) {
-        // Hazard drawn from the stage's unlocked pool.
-        const pick = pool[Math.floor(Math.random() * pool.length)]!
+        // Hazard drawn from the stage's unlocked pool (adaptive-weighted).
+        const pick = pickHazard(pool)
         kind = pick.kind
         obstacle = pick.obstacle
         // Late game (stage 10+): half the spiky-poles become Liberty Cats.
@@ -260,7 +370,9 @@ const useEpicGame = () => {
       const mid = C_MAX >> 1
       // Keep parity valid for this row ((c + r) must be even); nudge off-centre by one if needed.
       const c = ((mid + r) & 1) === 0 ? mid : (Math.random() < 0.5 ? mid - 1 : mid + 1)
-      game.cells.set(cellKey(c, r), { c, r, kind: 'item' })
+      // ~12% of item boxes are "lucky" — a telegraphed rare double-duration drop.
+      const lucky = Math.random() < 0.12
+      game.cells.set(cellKey(c, r), { c, r, kind: 'item', lucky })
       // Clear the two diamonds the ball can hop onto it from, so there's always a way in.
       game.cells.delete(cellKey(c - 1, r + 1))
       game.cells.delete(cellKey(c + 1, r + 1))
@@ -388,6 +500,10 @@ const useEpicGame = () => {
     }
     if (cell.kind === 'hole') {
       if (invuln) { emitFx('sparkle', c, r, '#ffd23f'); return }
+      // A held Second Chance lets the angel wings carry the ball over the gap
+      // once (matching the upgrade description), then breaks — same consume path
+      // as an obstacle/lava save, just gliding across instead of falling in.
+      if (surviveWithSecondChance(c, r)) return
       startDrop()
       return
     }
@@ -395,6 +511,7 @@ const useEpicGame = () => {
       if (invuln) { emitFx('sparkle', c, r, '#ffd23f'); return }
       if (surviveWithSecondChance(c, r)) return
       game.exploded = true
+      lastKillerKind = 'lava'
       die('crash')
       return
     }
@@ -418,6 +535,7 @@ const useEpicGame = () => {
       }
       if (surviveWithSecondChance(c, r)) return
       game.exploded = true
+      lastKillerKind = hazardKeyOf('obstacle', cell.obstacle)
       die('crash')
     }
   }
@@ -432,6 +550,9 @@ const useEpicGame = () => {
     // must purchase another before it arms a future run.
     progress.consumeStartSecondChance()
     game.secondChanceBlinkUntil = game.clock + SECOND_CHANCE_BLINK_MS
+    // Signal the renderer to tear the wings apart (same shatter language as the
+    // ball/obstacle death). A changing non-zero timestamp is the edge trigger.
+    game.wingsBreakAt = game.clock || 1
     for (const [dc, dr] of [[0, 0], [-1, -1], [1, -1]] as const) {
       game.cells.delete(cellKey(c + dc, r + dr))
     }
@@ -441,10 +562,14 @@ const useEpicGame = () => {
     return true
   }
 
+  /** 1.2× while the stage-clear coin boon is active for this stage (roadmap #13);
+   *  stacks multiplicatively with the result-screen 2× rewarded button. */
+  const coinMult = (): number => (coinBoostActive ? 1.2 : 1)
+
   /** Spawn `n` coins at (c, r) that fly straight into the run tally, exactly
    *  like a grid-coin pickup. Used when a destructible obstacle is cleared. */
   const awardInstantCoins = (c: number, r: number, n: number): void => {
-    coinsThisRun.value += n
+    coinsThisRun.value += Math.round(n * coinMult())
     for (let i = 0; i < n; i++) emitFx('coin', c, r, '#ffd23f')
     playCoinSound()
   }
@@ -452,7 +577,7 @@ const useEpicGame = () => {
   const collectCoin = (cell: Cell): void => {
     if (cell.collected) return
     cell.collected = true
-    const value = Math.round(upgradedValue('coinValue'))
+    const value = Math.round(upgradedValue('coinValue') * coinMult())
     // Coins are tallied for the run but NOT banked to the wallet here — they're
     // granted on the win/lose screen with a CoinExplosion (see EpicancerScene).
     coinsThisRun.value += value
@@ -463,24 +588,49 @@ const useEpicGame = () => {
 
   const grantItem = (cell: Cell): void => {
     game.cells.delete(cellKey(cell.c, cell.r))
+    itemsThisRun.value += 1
     playSound('level-up', 0.07)
     triggerShake('small')
-    // ~25% of item boxes grant the persistent Second Chance (when not already
-    // held); otherwise a random timed power-up.
-    if (!game.secondChance && Math.random() < 0.25) {
+    const lucky = cell.lucky === true
+    // A LUCKY box always rolls a power-up — at DOUBLE duration — and never the
+    // Second Chance, so the telegraphed rare drop reliably pays off (roadmap #12).
+    if (!lucky && !game.secondChance && Math.random() < 0.25) {
       game.secondChance = true
       emitFx('item', cell.c, cell.r, '#37e0a0')
       return
     }
     const type = powerups.randomType()
-    powerups.activate(type, game.clock)
-    emitFx('item', cell.c, cell.r, '#ffffff')
+    powerups.activate(type, game.clock, lucky ? 2 : 1)
+    emitFx('item', cell.c, cell.r, lucky ? '#ffd23f' : '#ffffff')
+    game.powerupFlashAt = game.clock || 1 // brief chromatic pickup pulse (#14)
+    haptic(15)
+    if (lucky) playSound('happy', 0.05)
   }
 
-  /** Coin Magnet: pull in nearby coins each frame. */
+  /** Death Magnet upgrade: on a fatal hit, sweep every coin within a 4-tile
+   *  radius (all directions, incl. diagonal) into the run tally — banking coins
+   *  that would otherwise be lost. A one-shot magnet fired the instant the game
+   *  knows the player is dying with no Second Chance left. */
+  const deathCoinSweep = (): void => {
+    if (progress.levelOf('deathMagnet') <= 0) return
+    const R = 4
+    const r2 = R * R
+    for (const cell of game.cells.values()) {
+      if (cell.kind !== 'coin' || cell.collected) continue
+      const dc = (cell.c - game.ballC) * 0.5
+      const dr = cell.r - game.ballR
+      if (dc * dc + dr * dr <= r2) collectCoin(cell)
+    }
+  }
+
+  /** Coin Magnet: pull in nearby coins each frame. The active reach is the
+   *  larger of the timed Magnet power-up's upgraded range and the permanent
+   *  Auto-Collect upgrade's fixed 1-tile reach (owned → always-on, no power-up). */
   const runMagnet = (): void => {
-    if (!powerups.isActive('magnet')) return
-    const range = upgradedValue('magnetRange') // pickup reach in tiles
+    const magnetReach = powerups.isActive('magnet') ? upgradedValue('magnetRange') : 0
+    const autoReach = progress.levelOf('autoCollect') > 0 ? 1 : 0
+    const range = Math.max(magnetReach, autoReach)
+    if (range <= 0) return
     const r2 = range * range
     for (const cell of game.cells.values()) {
       if (cell.kind !== 'coin' || cell.collected) continue
@@ -512,23 +662,41 @@ const useEpicGame = () => {
     game.dropClock = 0
     game.exploded = false
     game.teleportSlowUntil = 0
+    // Consume any stage-clear boon chosen on the previous win (roadmap #13).
+    // The 'secondChance' boon arms the sticky start-shield (overwriting the
+    // buyable perk); 'coinBoost' enables the 1.2× for THIS stage; 'startPowerup'
+    // is granted in `begin`. Each boon lasts exactly the one stage it precedes.
+    coinBoostActive = pendingBoon.value === 'coinBoost'
+    if (pendingBoon.value === 'secondChance') progress.armStartSecondChance()
+    pendingStartPowerup = pendingBoon.value === 'startPowerup' ? powerups.randomType() : null
+    pendingBoon.value = null
     // A pre-bought Second Chance arms the run: start with the shield (and its
     // angel wings) held. It persists across runs until one is actually spent.
     game.secondChance = progress.startSecondChance.value
     game.secondChanceBlinkUntil = 0
     game.dodgeReadyAt = 0 // every run starts with one Dodge Apprentice charge ready
+    game.wingsBreakAt = 0 // clear any pending wings-shatter trigger
+    game.powerupFlashAt = 0 // clear any pending pickup pulse
+    setMusicIntensity(0) // reset music tempo for the fresh stage
     powerups.clear()
     score.value = 0
     coinsThisRun.value = 0
+    itemsThisRun.value = 0
     lastWinReward.value = 0
+    lastKillerKind = null
     gameResult.value = ''
     lossCause.value = ''
     survivalMs.value = 0
-    stageTarget.value = rubberBandedTarget(progress.stage.value)
+    // Endless has no tile goal — a sentinel target the win-check never reaches.
+    stageTarget.value = gameMode.value === 'endless'
+      ? Number.POSITIVE_INFINITY
+      : rubberBandedTarget(progress.stage.value)
     game.phase = 'idle'
     phase.value = 'idle'
     retarget()
     ensureGenerated()
+    // Play the falling-ball "ready!" bounce as the fresh stage settles in.
+    triggerBallDropIn()
   }
 
   const begin = (): void => {
@@ -536,6 +704,11 @@ const useEpicGame = () => {
     game.phase = 'playing'
     phase.value = 'playing'
     game.runStartClock = game.clock
+    // Stage-clear 'startPowerup' boon: kick the run off with a free power-up.
+    if (pendingStartPowerup) {
+      powerups.activate(pendingStartPowerup, game.clock)
+      pendingStartPowerup = null
+    }
     progress.recordGamePlayed()
     awardAttempt() // every run grants the battle-pass participation XP
   }
@@ -554,6 +727,7 @@ const useEpicGame = () => {
     game.dropping = true
     game.dropClock = 0
     game.progress = 0
+    lastKillerKind = 'hole'
     // Falling into a hole — the gravity "drop" cue (same as the portal pull).
     playSound('gravity', 0.06)
   }
@@ -566,10 +740,16 @@ const useEpicGame = () => {
     lossCause.value = cause
     // Rubber band: record this failed attempt so the next try at an early stage
     // gets a slightly lower tile goal (struggling-player assist; session-only).
-    if (progress.stage.value <= RUBBER_BAND_STAGES) {
+    if (gameMode.value === 'campaign' && progress.stage.value <= RUBBER_BAND_STAGES) {
       const s = progress.stage.value
       stageFailCounts.set(s, (stageFailCounts.get(s) ?? 0) + 1)
     }
+    // Adaptive spawn director: log which hazard killed the player this run.
+    if (lastKillerKind) hazardDeaths.set(lastKillerKind, (hazardDeaths.get(lastKillerKind) ?? 0) + 1)
+    markOnboarded()
+    // Death Magnet: bank nearby coins on the way out (no-op unless owned).
+    deathCoinSweep()
+    haptic([18, 40, 18]) // hit haptic (#14)
     survivalMs.value = game.clock - game.runStartClock
     // No collision FX: a hole death plays the ball's sink animation, a crash
     // plays the tear-apart (ball-shatter) animation — both stand on their own.
@@ -578,7 +758,25 @@ const useEpicGame = () => {
     // ball apart — fire a random plastic-torn variant so repeated deaths vary.
     if (cause === 'hole') playSound('celebration-1', 0.08)
     else playRandomVariant('plastic-torn', 2, 0.09)
-    progress.recordScore(score.value)
+    // Endless tracks its OWN best (tiles); campaign updates the personal best.
+    if (gameMode.value === 'endless') recordEndlessBest()
+    else progress.recordScore(score.value)
+  }
+
+  /** Mark the one-time onboarding assist as consumed once the first run ends. */
+  const markOnboarded = (): void => {
+    if (!isOnboardingRun.value) return
+    isOnboardingRun.value = false
+    setState(ONBOARDED_KEY, true)
+    void flushSaveNow()
+  }
+
+  /** Persist a new endless best (tiles) if this run beat it. */
+  const recordEndlessBest = (): void => {
+    if (score.value <= bestEndless.value) return
+    bestEndless.value = score.value
+    setState(BEST_ENDLESS_KEY, score.value)
+    void flushSaveNow()
   }
 
   /** Revive at the current spot: clear the hazard that killed the player and
@@ -614,6 +812,8 @@ const useEpicGame = () => {
     // Reward coins are banked on the win screen (with the CoinExplosion), not here.
     progress.recordScore(score.value)
     progress.advanceStage()
+    markOnboarded() // a first run that ends in a win also consumes onboarding
+    haptic([30, 30, 30, 30, 60]) // stage-clear celebration haptic (#14)
     playSound('celebration-2', 0.09)
     triggerShake('strong')
   }
@@ -645,19 +845,29 @@ const useEpicGame = () => {
 
     powerups.update(game.clock)
 
-    // Speed: a per-stage starting speed that accelerates as the player nears the
-    // goal (fraction of the stage's tile target travelled). Stages 1-5 ramp a
-    // gentle +30%; stage 6+ ramp +66%.
-    const stage = progress.stage.value
-    const startSpeed = BASE_SPEED + (stage - 1) * STAGE_SPEED_BONUS
-    const frac = Math.min(1, Math.max(0, score.value / Math.max(1, stageTarget.value)))
-    const rampMax = stage <= 5 ? EARLY_STAGE_RAMP : LATE_STAGE_RAMP
-    let speed = Math.min(MAX_SPEED, startSpeed * (1 + rampMax * frac))
+    // Speed. Campaign: a per-stage starting speed that accelerates as the player
+    // nears the tile goal (stages 1-5 ramp a gentle +30%; stage 6+ +66%).
+    // Endless: a gentle distance ramp with no goal (roadmap #9).
+    let speed: number
+    if (gameMode.value === 'endless') {
+      const ramp = Math.min(0.6, score.value * 0.006) // +0.6%/tile, capped +60%
+      speed = Math.min(MAX_SPEED, BASE_SPEED * (1 + ramp))
+    } else {
+      const stage = progress.stage.value
+      const startSpeed = BASE_SPEED + (stage - 1) * STAGE_SPEED_BONUS
+      const frac = Math.min(1, Math.max(0, score.value / Math.max(1, stageTarget.value)))
+      const rampMax = stage <= 5 ? EARLY_STAGE_RAMP : LATE_STAGE_RAMP
+      speed = Math.min(MAX_SPEED, startSpeed * (1 + rampMax * frac))
+    }
+    // The first-ever run rolls slower so newcomers can find the controls.
+    if (isOnboardingRun.value) speed *= 0.8
     // Difficulty: Easy −20% (more reaction time), Medium ×1, Hard +10%.
     speed *= difficultySpeedFactor()
     if (powerups.isActive('slowmo')) speed *= 0.5
     if (game.clock < game.teleportSlowUntil) speed *= TELEPORT_SLOW_FACTOR
     game.speed = speed
+    // Dynamic music intensity (#14): tempo creeps up with the run's speed.
+    setMusicIntensity((speed - BASE_SPEED) / (MAX_SPEED - BASE_SPEED))
     survivalMs.value = game.clock - game.runStartClock
 
     game.progress += speed * dt
@@ -716,6 +926,7 @@ const useEpicGame = () => {
     gameResult,
     lossCause,
     coinsThisRun,
+    itemsThisRun,
     lastWinReward,
     stageTarget,
     survivalMs,

@@ -59,6 +59,15 @@ export const UPGRADES: ReadonlyArray<UpgradeDef> = [
   // gameplay reads but kept so `upgradedValue` stays well-defined. This upgrade
   // is the only sellable one (see `sellUpgrade`).
   { id: 'dodgeApprentice', maxLevel: 10, base: 10, perLevel: -0.5, costBase: 140, costGrowth: 1.4, unlockStage: 2 },
+  // Death Magnet: a single-level passive. On death (no Second Chance left) it
+  // sweeps every coin within a 4-tile radius (all directions, incl. diagonal)
+  // into the run tally — a one-shot "0.5ms" magnet that banks otherwise-lost
+  // coins, accruing wealth over many runs. costGrowth irrelevant at maxLevel 1.
+  { id: 'deathMagnet', maxLevel: 1, base: 1, perLevel: 0, costBase: 1500, costGrowth: 1, unlockStage: 4 },
+  // Auto-Collect: a single-level, late-game passive. Once owned, the ball always
+  // collects coins from nearby grid tiles — like a permanent Coin Magnet at a
+  // fixed 1-tile reach (no power-up needed). costGrowth irrelevant at maxLevel 1.
+  { id: 'autoCollect', maxLevel: 1, base: 1, perLevel: 0, costBase: 5000, costGrowth: 1, unlockStage: 6 },
   // Rolling Boulder: a single-level, late-game capstone. Once owned, the ball
   // rolls straight through BOX obstacles unharmed (like a permanent Push Force,
   // boxes only). Coin-only — never offered via a rewarded ad. costGrowth is

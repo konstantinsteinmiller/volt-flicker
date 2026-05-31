@@ -37,7 +37,8 @@ export default {
     'crashed': 'Вы врезались в препятствие!',
     'tiles': 'Плитки',
     'winReward': 'вкл. +{n} бонус за этап',
-    'double': 'Удвоить монеты'
+    'double': 'Удвоить монеты',
+    'firstRunDouble': '2× — первый забег сегодня!'
   },
   'upgrades': {
     'title': 'Улучшения',
@@ -45,6 +46,7 @@ export default {
     'level': 'Ур.{n}',
     'maxedOut': 'МАКС',
     'sellBack': 'Продать +{n}',
+    'spotlight': 'Потратить!',
     'unlocksAtStage': '🔒 Этап {n}',
     'names': {
       'powerupDuration': 'Усиление',
@@ -52,6 +54,8 @@ export default {
       'coinValue': 'Ценность монет',
       'itemLuck': 'Удачные ящики',
       'dodgeApprentice': 'Ученик Уклонения',
+      'deathMagnet': 'Магнит Смерти',
+      'autoCollect': 'Авто-Сбор',
       'rollingBoulder': 'Катящийся Валун'
     },
     'descriptions': {
@@ -60,6 +64,8 @@ export default {
       'coinValue': 'Каждая монета стоит больше.',
       'itemLuck': 'Ящики с предметами появляются чаще.',
       'dodgeApprentice': 'Авто-уклонение от одной смертельной клетки, затем перезарядка (10с; −0,5с за уровень).',
+      'deathMagnet': 'При смерти собери все монеты в радиусе 4 клеток — сохрани то, что иначе потерял бы.',
+      'autoCollect': 'Всегда собирай монеты с соседних клеток — постоянный магнит на 1 клетку.',
       'rollingBoulder': 'Катитесь сквозь ящики без вреда.'
     },
     'secondChance': {
@@ -92,6 +98,37 @@ export default {
     'equip': 'Надеть',
     'equipped': 'Надето'
   },
+  'missions': {
+    'title': 'Ежедневные Миссии',
+    'subtitle': 'Выполняйте цели каждый день ради монет.',
+    'claim': 'Забрать',
+    'done': 'Получено',
+    'types': {
+      'coins': 'Соберите {n} монет сегодня',
+      'tiles': 'Пройдите {n} плиток за один забег',
+      'items': 'Соберите {n} ящиков с предметами сегодня',
+      'clears': 'Пройдите {n} этапов сегодня'
+    }
+  },
+  'endless': {
+    'badge': 'Бесконечный',
+    'toEndless': 'Бесконечный режим',
+    'toCampaign': 'Кампания',
+    'best': 'Рекорд: {n}'
+  },
+  'boon': {
+    'title': 'Выберите благо',
+    'names': {
+      'secondChance': 'Второй шанс',
+      'startPowerup': 'Фора на старте',
+      'coinBoost': 'Монетный шквал'
+    },
+    'descriptions': {
+      'secondChance': 'Начните следующий этап со щитом Второго шанса.',
+      'startPowerup': 'Начните следующий этап со случайным усилением.',
+      'coinBoost': '1,2× монет на весь следующий этап.'
+    }
+  },
   'options': {
     'title': 'Опции',
     'general': 'Общие',
@@ -100,6 +137,11 @@ export default {
     'difficulty': 'Сложность',
     'soundEffects': 'Звуковые эффекты',
     'music': 'Музыка',
+    'musicTrack': 'Музыкальная тема',
+    'musicTracks': {
+      'cozy': 'Уютная гармония',
+      'trance': 'Транс-тоннель'
+    },
     'close': 'Сохранить и Закрыть',
     'difficulties': { 'easy': 'Лёгкая', 'medium': 'Средняя', 'hard': 'Сложная' },
     'difficultyHints': {

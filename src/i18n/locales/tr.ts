@@ -37,7 +37,8 @@ export default {
     'crashed': 'Bir engele çarptın!',
     'tiles': 'Kareler',
     'winReward': '+{n} aşama bonusu dahil',
-    'double': 'Paraları ikiye katla'
+    'double': 'Paraları ikiye katla',
+    'firstRunDouble': '2× — bugünün ilk koşusu!'
   },
   'upgrades': {
     'title': 'Geliştirmeler',
@@ -45,6 +46,7 @@ export default {
     'level': 'Sv.{n}',
     'maxedOut': 'MAKS',
     'sellBack': 'Sat +{n}',
+    'spotlight': 'Harca!',
     'unlocksAtStage': '🔒 Aşama {n}',
     'names': {
       'powerupDuration': 'Güç Takviyesi',
@@ -52,6 +54,8 @@ export default {
       'coinValue': 'Para Değeri',
       'itemLuck': 'Şanslı Kutular',
       'dodgeApprentice': 'Kaçış Çırağı',
+      'deathMagnet': 'Ölüm Mıknatısı',
+      'autoCollect': 'Otomatik Toplama',
       'rollingBoulder': 'Yuvarlanan Kaya'
     },
     'descriptions': {
@@ -60,6 +64,8 @@ export default {
       'coinValue': 'Topladığın her para daha değerli.',
       'itemLuck': 'Eşya kutuları daha sık çıkar.',
       'dodgeApprentice': 'Ölümcül bir kareden otomatik kaç, sonra dolar (10sn; −0,5sn / seviye).',
+      'deathMagnet': 'Öldüğünde 4 kare içindeki tüm madeni paraları topla — kaybedeceğin parayı kasaya at.',
+      'autoCollect': 'Yakındaki karelerdeki paraları her zaman topla — kalıcı 1 karelik mıknatıs.',
       'rollingBoulder': 'Kutu engellerin içinden zarar görmeden yuvarlan.'
     },
     'secondChance': {
@@ -92,6 +98,37 @@ export default {
     'equip': 'Kuşan',
     'equipped': 'Kuşanıldı'
   },
+  'missions': {
+    'title': 'Günlük Görevler',
+    'subtitle': 'Para için her gün hedefleri tamamla.',
+    'claim': 'Al',
+    'done': 'Alındı',
+    'types': {
+      'coins': 'Bugün {n} para topla',
+      'tiles': 'Tek koşuda {n} kare ilerle',
+      'items': 'Bugün {n} eşya kutusu yakala',
+      'clears': 'Bugün {n} aşama tamamla'
+    }
+  },
+  'endless': {
+    'badge': 'Sonsuz',
+    'toEndless': 'Sonsuz Mod',
+    'toCampaign': 'Kampanya',
+    'best': 'En İyi: {n}'
+  },
+  'boon': {
+    'title': 'Bir lütuf seç',
+    'names': {
+      'secondChance': 'İkinci Şans',
+      'startPowerup': 'Erken Başlangıç',
+      'coinBoost': 'Para Akını'
+    },
+    'descriptions': {
+      'secondChance': 'Sonraki aşamaya bir İkinci Şans kalkanıyla başla.',
+      'startPowerup': 'Sonraki aşamaya rastgele bir güçlendirmeyle başla.',
+      'coinBoost': 'Sonraki aşamanın tamamında 1,2× para.'
+    }
+  },
   'options': {
     'title': 'Seçenekler',
     'general': 'Genel',
@@ -100,6 +137,11 @@ export default {
     'difficulty': 'Zorluk',
     'soundEffects': 'Ses Efektleri',
     'music': 'Müzik',
+    'musicTrack': 'Müzik Parçası',
+    'musicTracks': {
+      'cozy': 'Huzurlu Uyum',
+      'trance': 'Trans Tüneli'
+    },
     'close': 'Kaydet ve Kapat',
     'difficulties': { 'easy': 'Kolay', 'medium': 'Orta', 'hard': 'Zor' },
     'difficultyHints': {

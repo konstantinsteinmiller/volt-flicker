@@ -37,7 +37,8 @@ export default {
     'crashed': '障害物に衝突した！',
     'tiles': 'マス',
     'winReward': '（+{n} ステージボーナス込み）',
-    'double': 'コイン2倍'
+    'double': 'コイン2倍',
+    'firstRunDouble': '2倍 — 本日初プレイ！'
   },
   'upgrades': {
     'title': 'アップグレード',
@@ -45,6 +46,7 @@ export default {
     'level': 'Lv.{n}',
     'maxedOut': '最大',
     'sellBack': '売却 +{n}',
+    'spotlight': '使おう！',
     'unlocksAtStage': '🔒 ステージ {n}',
     'names': {
       'powerupDuration': 'パワーブースト',
@@ -52,6 +54,8 @@ export default {
       'coinValue': 'コイン価値',
       'itemLuck': 'ラッキーボックス',
       'dodgeApprentice': '回避見習い',
+      'deathMagnet': 'デスマグネット',
+      'autoCollect': 'オートコレクト',
       'rollingBoulder': '転がる大岩'
     },
     'descriptions': {
@@ -60,6 +64,8 @@ export default {
       'coinValue': '各コインの価値が上がる。',
       'itemLuck': 'アイテムボックスの出現頻度が上がる。',
       'dodgeApprentice': '危険なマスを1回自動回避、その後リチャージ（10秒、レベルごとに−0.5秒）。',
+      'deathMagnet': '死亡時、4マス以内のすべてのコインを引き寄せる — 失うはずだったコインを回収する。',
+      'autoCollect': '近くのマスからコインを常に集める — 永続的な1マスのコインマグネット。',
       'rollingBoulder': '箱の障害物を無傷で突き抜ける。'
     },
     'secondChance': {
@@ -92,6 +98,37 @@ export default {
     'equip': '装備',
     'equipped': '装備中'
   },
+  'missions': {
+    'title': 'デイリーミッション',
+    'subtitle': '毎日目標を達成してコインを獲得しよう。',
+    'claim': '受け取る',
+    'done': '受取済み',
+    'types': {
+      'coins': '本日 {n} コインを集める',
+      'tiles': '1プレイで {n} マス進む',
+      'items': '本日 {n} 個のアイテムボックスを取る',
+      'clears': '本日 {n} ステージをクリアする'
+    }
+  },
+  'endless': {
+    'badge': 'エンドレス',
+    'toEndless': 'エンドレスモード',
+    'toCampaign': 'キャンペーン',
+    'best': '最高: {n}'
+  },
+  'boon': {
+    'title': '恩恵を選ぼう',
+    'names': {
+      'secondChance': 'セカンドチャンス',
+      'startPowerup': 'スタートダッシュ',
+      'coinBoost': 'コインラッシュ'
+    },
+    'descriptions': {
+      'secondChance': 'セカンドチャンスのシールドで次のステージを開始する。',
+      'startPowerup': 'ランダムなパワーアップで次のステージを開始する。',
+      'coinBoost': '次のステージ全体でコイン1.2倍。'
+    }
+  },
   'options': {
     'title': 'オプション',
     'general': '全般',
@@ -100,6 +137,11 @@ export default {
     'difficulty': '難易度',
     'soundEffects': '効果音',
     'music': '音楽',
+    'musicTrack': '音楽トラック',
+    'musicTracks': {
+      'cozy': 'コージーハーモニー',
+      'trance': 'トランストンネル'
+    },
     'close': '保存して閉じる',
     'difficulties': { 'easy': 'やさしい', 'medium': 'ふつう', 'hard': 'むずかしい' },
     'difficultyHints': {

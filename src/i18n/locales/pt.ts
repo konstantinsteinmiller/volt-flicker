@@ -37,7 +37,8 @@ export default {
     'crashed': 'Você bateu em um obstáculo!',
     'tiles': 'Casas',
     'winReward': 'incl. +{n} bônus de fase',
-    'double': 'Dobrar moedas'
+    'double': 'Dobrar moedas',
+    'firstRunDouble': '2× — primeira corrida de hoje!'
   },
   'upgrades': {
     'title': 'Melhorias',
@@ -45,6 +46,7 @@ export default {
     'level': 'Nv.{n}',
     'maxedOut': 'MÁX',
     'sellBack': 'Vender +{n}',
+    'spotlight': 'Gastar!',
     'unlocksAtStage': '🔒 Fase {n}',
     'names': {
       'powerupDuration': 'Reforço de Poder',
@@ -52,6 +54,8 @@ export default {
       'coinValue': 'Valor da Moeda',
       'itemLuck': 'Caixas da Sorte',
       'dodgeApprentice': 'Aprendiz de Esquiva',
+      'deathMagnet': 'Ímã da Morte',
+      'autoCollect': 'Coleta Automática',
       'rollingBoulder': 'Pedra Rolante'
     },
     'descriptions': {
@@ -60,6 +64,8 @@ export default {
       'coinValue': 'Cada moeda vale mais.',
       'itemLuck': 'Caixas de itens aparecem com mais frequência.',
       'dodgeApprentice': 'Esquiva auto de uma casa mortal, depois recarrega (10s; −0,5s por nível).',
+      'deathMagnet': 'Ao morrer, recolha todas as moedas num raio de 4 casas — garanta o que teria perdido.',
+      'autoCollect': 'Coleta sempre as moedas das casas próximas — um ímã de moedas permanente de 1 casa.',
       'rollingBoulder': 'Role direto pelas caixas, sem sofrer dano.'
     },
     'secondChance': {
@@ -92,6 +98,37 @@ export default {
     'equip': 'Equipar',
     'equipped': 'Equipado'
   },
+  'missions': {
+    'title': 'Missões Diárias',
+    'subtitle': 'Complete objetivos todos os dias para ganhar moedas.',
+    'claim': 'Resgatar',
+    'done': 'Resgatado',
+    'types': {
+      'coins': 'Colete {n} moedas hoje',
+      'tiles': 'Percorra {n} casas em uma corrida',
+      'items': 'Pegue {n} caixas de itens hoje',
+      'clears': 'Complete {n} fases hoje'
+    }
+  },
+  'endless': {
+    'badge': 'Infinito',
+    'toEndless': 'Modo Infinito',
+    'toCampaign': 'Campanha',
+    'best': 'Recorde: {n}'
+  },
+  'boon': {
+    'title': 'Escolha uma bênção',
+    'names': {
+      'secondChance': 'Segunda Chance',
+      'startPowerup': 'Vantagem',
+      'coinBoost': 'Chuva de Moedas'
+    },
+    'descriptions': {
+      'secondChance': 'Comece a próxima fase com um escudo de Segunda Chance.',
+      'startPowerup': 'Comece a próxima fase com um poder aleatório.',
+      'coinBoost': '1,2× moedas durante toda a próxima fase.'
+    }
+  },
   'options': {
     'title': 'Opções',
     'general': 'Geral',
@@ -100,6 +137,11 @@ export default {
     'difficulty': 'Dificuldade',
     'soundEffects': 'Efeitos Sonoros',
     'music': 'Música',
+    'musicTrack': 'Faixa de música',
+    'musicTracks': {
+      'cozy': 'Harmonia Aconchegante',
+      'trance': 'Túnel Trance'
+    },
     'close': 'Salvar e Fechar',
     'difficulties': { 'easy': 'Fácil', 'medium': 'Médio', 'hard': 'Difícil' },
     'difficultyHints': {
