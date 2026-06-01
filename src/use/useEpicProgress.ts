@@ -44,8 +44,9 @@ export interface UpgradeDef {
 // upgrade discounted 50% (see `upgradeCost`) so a brand-new player can afford a
 // meaningful first boost after a run or two.
 export const UPGRADES: ReadonlyArray<UpgradeDef> = [
-  // +0.75s to EVERY power-up's duration per level.
-  { id: 'powerupDuration', maxLevel: 6, base: 0, perLevel: 0.75, costBase: 80, costGrowth: 1.4, unlockStage: 1 },
+  // +0.75s to EVERY power-up's duration per level (12 levels → up to +9s; pips
+  // wrap to a second row of 6 like Dodge Apprentice).
+  { id: 'powerupDuration', maxLevel: 12, base: 0, perLevel: 0.75, costBase: 80, costGrowth: 1.4, unlockStage: 1 },
   // Coin-magnet pickup reach in TILES (base 2.5 tiles, +1 tile per level).
   { id: 'magnetRange', maxLevel: 5, base: 2.5, perLevel: 1, costBase: 100, costGrowth: 1.4, unlockStage: 1 },
   // Coins earned per pickup (base 1, +1 per level).
@@ -54,11 +55,11 @@ export const UPGRADES: ReadonlyArray<UpgradeDef> = [
   // tiles" bonus; consumed by the spawn director. Base 0, +1 per level.
   { id: 'itemLuck', maxLevel: 5, base: 0, perLevel: 1, costBase: 150, costGrowth: 1.45, unlockStage: 3 },
   // Dodge Apprentice: a cooldown-gated auto-dodge. The stored value is the
-  // cooldown in seconds (10s at level 1, −0.5s per level → 5.5s at level 10).
+  // cooldown in seconds (10s at level 1, −0.5s per level → 4.5s at level 12).
   // Consumed by useEpicGame's `dodgeCooldownMs`; `base/perLevel` are unused for
   // gameplay reads but kept so `upgradedValue` stays well-defined. This upgrade
   // is the only sellable one (see `sellUpgrade`).
-  { id: 'dodgeApprentice', maxLevel: 10, base: 10, perLevel: -0.5, costBase: 140, costGrowth: 1.4, unlockStage: 2 },
+  { id: 'dodgeApprentice', maxLevel: 12, base: 10, perLevel: -0.5, costBase: 140, costGrowth: 1.4, unlockStage: 2 },
   // Death Magnet: a single-level passive. On death (no Second Chance left) it
   // sweeps every coin within a 4-tile radius (all directions, incl. diagonal)
   // into the run tally — a one-shot "0.5ms" magnet that banks otherwise-lost

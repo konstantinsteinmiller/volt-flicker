@@ -1,4 +1,27 @@
 export default {
+  'ads': {
+    'watch': '시청', 'revive': '부활', 'secondChance': '두 번째 기회', 'doubleCoins': '2× 코인', 'plusCoins': '+{n} 코인'
+  },
+  'achievements': {
+    'title': '업적', 'subtitle': '평생 이정표를 달성해 코인을 받으세요.', 'claim': '수령', 'claimed': '수령함', 'progress': '{c} / {t}',
+    'items': {
+      'tiles1k': { 'name': 'Globetrotter', 'desc': 'Travel 1,000 tiles in total.' },
+      'tiles5k': { 'name': 'Marathoner', 'desc': 'Travel 5,000 tiles in total.' },
+      'tiles10k': { 'name': 'Long Hauler', 'desc': 'Travel 10,000 tiles in total.' },
+      'tiles100k': { 'name': 'Voyager', 'desc': 'Travel 100,000 tiles in total.' },
+      'stage5': { 'name': 'Getting Started', 'desc': 'Reach stage 5.' },
+      'stage10': { 'name': 'Seasoned', 'desc': 'Reach stage 10.' },
+      'stage20': { 'name': 'Veteran', 'desc': 'Reach stage 20.' },
+      'clears25': { 'name': 'Clearing House', 'desc': 'Clear 25 stages in total.' },
+      'clears100': { 'name': 'Centurion', 'desc': 'Clear 100 stages in total.' },
+      'bestRun100': { 'name': 'Sprinter', 'desc': 'Travel 100 tiles in a single run.' },
+      'bestRun250': { 'name': 'Distance Demon', 'desc': 'Travel 250 tiles in a single run.' },
+      'coins5k': { 'name': 'Coin Collector', 'desc': 'Collect 5,000 coins in total.' },
+      'coins50k': { 'name': 'Treasurer', 'desc': 'Collect 50,000 coins in total.' },
+      'items50': { 'name': 'Unboxer', 'desc': 'Grab 50 item boxes in total.' },
+      'items250': { 'name': 'Hoarder', 'desc': 'Grab 250 item boxes in total.' }
+    }
+  },
   'gameName': 'Epicancer',
   'cancel': '취소',
   'close': '닫기',
@@ -22,8 +45,8 @@ export default {
     'magnet': '코인 자석',
     'dodge': '회피 마스터',
     'slowmo': '슬로 모션',
-    'push': '밀어내기'
-  },
+    'push': '밀어내기',
+   'racer': '레이서!' },
   'secondChance': {
     'title': '계속할까요?',
     'body': '짧은 광고를 보고 부활하여 계속하세요.',
@@ -38,8 +61,8 @@ export default {
     'tiles': '타일',
     'winReward': '+{n} 스테이지 보너스 포함',
     'double': '코인 2배',
-    'firstRunDouble': '2배 — 오늘 첫 플레이!'
-  },
+    'firstRunDouble': '2배 — 오늘 첫 플레이!',
+   'almost': '거의! {n}칸 남았어요.', 'retry': '다시 시도', },
   'upgrades': {
     'title': '업그레이드',
     'subtitle': '코인을 사용해 영구적으로 강화하세요.',
@@ -96,8 +119,8 @@ export default {
     'title': '공 스킨',
     'subtitle': '코인을 사용해 새로운 모습을 잠금 해제하고 장착하세요.',
     'equip': '장착',
-    'equipped': '장착됨'
-  },
+    'equipped': '장착됨',
+   'locked': '스테이지 {n}', 'new': '신규!', 'rarity': { 'common': '일반', 'rare': '희귀', 'epic': '에픽' }, },
   'missions': {
     'title': '일일 미션',
     'subtitle': '매일 목표를 달성하고 코인을 받으세요.',

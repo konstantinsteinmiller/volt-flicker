@@ -1,5 +1,5 @@
 import { ref, computed, type Ref } from 'vue'
-import useSounds, { setMusicIntensity } from '@/use/useSound'
+import useSounds, { setMusicRate } from '@/use/useSound'
 import { useScreenshake } from '@/use/useScreenshake'
 import useEpicProgress, { tilesToClear, upgradedValue } from '@/use/useEpicProgress'
 import useBattlePass from '@/use/useBattlePass'
@@ -72,7 +72,11 @@ const EARLY_STAGE_RAMP = 0.30
 const LATE_STAGE_RAMP = 0.66
 
 const START_RUNWAY = 7          // rows of guaranteed-safe floor at the start
-const SMALL_OBSTACLES: ObstacleKind[] = ['box', 'stone']
+// Push Force / shatter-able obstacles. `wall` is included because it renders
+// with the SAME box sprite as `box` (see useEpicArt `obstacleSrc`) — to the
+// player it IS a wooden box, so Push Force must clear it too, otherwise the
+// power-up "fails" on a hazard that looks identical to a pushable one.
+const SMALL_OBSTACLES: ObstacleKind[] = ['box', 'stone', 'wall']
 
 /** How long (ms) the ball spends sinking into a hole before death registers.
  *  Read by the renderer to drive the drop visual. */
@@ -217,6 +221,30 @@ const lastWinReward: Ref<number> = ref(0)
 const stageTarget: Ref<number> = ref(tilesToClear(1))
 const survivalMs: Ref<number> = ref(0)
 
+// ─── Coin-combo multiplier chain (roadmap #6) ───────────────────────────────
+//
+// Collecting freely-placed coins in quick succession builds a multiplier: each
+// coin grabbed within COMBO_WINDOW_MS of the last one bumps it +COMBO_STEP, up
+// to COMBO_MAX. It resets to 1× on a hit (death) or after COMBO_WINDOW_MS with
+// no pickup. Obstacle-destroy coins do NOT feed the chain (only `collectCoin`).
+export const combo: Ref<number> = ref(1)
+const COMBO_WINDOW_MS = 4000
+const COMBO_STEP = 0.05
+const COMBO_MAX = 3
+let lastComboCoinAt = -Infinity
+
+// ─── Racer pickup (auto-pilot dash) ─────────────────────────────────────────
+//
+// A rare item-box drop that takes the wheel: the ball rockets forward at 5×
+// speed along a safe path for RACER_TILES tiles (no player control, item boxes
+// skipped, hazards cleared), then hands back a clean runway. `racerActive` is a
+// reactive mirror of the game-state counters for the HUD badge.
+const RACER_TILES = 25       // standard Racer drop (rare non-lucky box)
+const RACER_TILES_GOLDEN = 40 // golden (lucky) box → a longer dash
+const RACER_SPEED_MULT = 5
+const RACER_EXIT_RUNWAY = 2
+export const racerActive: Ref<boolean> = ref(false)
+
 const useEpicGame = () => {
   const { playSound, playRandomVariant } = useSounds()
   const { triggerShake } = useScreenshake()
@@ -263,14 +291,16 @@ const useEpicGame = () => {
 
   // ─── Procedural generation ────────────────────────────────────────────────
 
-  // Hazard density ramps from very sparse (stage 1, a gentle tutorial) up to the
-  // original "stage 1" density at stage 10 — the difficulty test level reachable
-  // via the CTRL+SHIFT+ALT+T cheat — then keeps creeping up, capped. Endless
-  // softens it a touch; the first-ever (onboarding) run halves it.
+  // Hazard density ramps from very sparse (stage 1, a gentle tutorial) up to a
+  // ceiling at stage 10, then STAYS there. Stages past 10 only get a higher tile
+  // goal (+10/stage via `tilesToClear`), not more obstacles — otherwise stage 12+
+  // becomes a wall of dodging that's near-impossible without invuln pickups.
+  // Endless softens it a touch; the first-ever (onboarding) run halves it.
+  const STAGE10_HAZARD = 0.18
   const stageHazardChance = (stage: number): number => {
-    let p = stage <= 10
-      ? 0.05 + (stage - 1) * ((0.18 - 0.05) / 9)
-      : Math.min(0.42, 0.18 + (stage - 10) * 0.012)
+    let p = stage >= 10
+      ? STAGE10_HAZARD
+      : 0.05 + (stage - 1) * ((STAGE10_HAZARD - 0.05) / 9)
     if (gameMode.value === 'endless') p *= 0.9
     if (isOnboardingRun.value) p *= 0.5
     return p
@@ -407,9 +437,48 @@ const useEpicGame = () => {
     return false
   }
 
+  /** Start the Racer auto-pilot dash from (c, r): a hands-off 5× sprint that
+   *  steers a guaranteed-safe path forward for RACER_TILES tiles. */
+  const startRacer = (c: number, r: number, tiles: number = RACER_TILES): void => {
+    game.racerTilesLeft = tiles
+    game.racerExitGuard = 0
+    racerActive.value = true
+    emitFx('item', c, r, '#ff3df0')
+    game.powerupFlashAt = game.clock || 1 // reuse the pickup chromatic pulse
+    haptic([10, 20, 10])
+    playSound('happy', 0.06)
+  }
+
+  /** Pick the dash's next diamond: stay in bounds, prefer the current heading,
+   *  swerve to dodge an item box when the other side is clear, and wipe any
+   *  hazard / portal on the landing cell so the auto-pilot can never crash. */
+  const racerRetarget = (): void => {
+    ensureGenerated()
+    const r = game.cell.r - 1
+    let d = game.dir
+    let nc = game.cell.c + d
+    if (nc < 0 || nc > C_MAX) { d = (-d) as 1 | -1; nc = game.cell.c + d }
+    const altC = game.cell.c - d
+    const kindAt = (cc: number): CellKind | undefined => game.cells.get(cellKey(cc, r))?.kind
+    // Prefer not to vacuum up item boxes during the dash — swerve if the other
+    // diagonal is a valid in-bounds tile.
+    if (kindAt(nc) === 'item' && altC >= 0 && altC <= C_MAX && kindAt(altC) !== 'item') {
+      d = (-d) as 1 | -1
+      nc = altC
+    }
+    game.dir = d
+    game.nextDir = d
+    game.target = { c: nc, r }
+    // Clear anything lethal/blocking on the landing cell so the sprint is safe.
+    const k = kindAt(nc)
+    if (k && k !== 'floor' && k !== 'coin') game.cells.delete(cellKey(nc, r))
+  }
+
   /** Resolve the next target diamond from the current cell, honouring the
    *  queued heading, edge bounce, and the Dodge-Master auto-avoid. */
   const retarget = (): void => {
+    // Hands-off Racer dash steers itself along a guaranteed-safe path.
+    if (game.racerTilesLeft > 0 || game.racerExitGuard > 0) { racerRetarget(); return }
     game.dir = game.nextDir
     let tc = game.cell.c + game.dir
     if (tc < 0 || tc > C_MAX) {
@@ -479,6 +548,23 @@ const useEpicGame = () => {
     // Win check.
     if (score.value >= stageTarget.value) {
       win()
+      return
+    }
+
+    // Racer dash: scoop coins, skip/clear everything else, count down. Once the
+    // 25 tiles are done, keep clearing a short runway so the player resumes on
+    // safe ground (the requested ≥2 free exit tiles).
+    if (game.racerTilesLeft > 0 || game.racerExitGuard > 0) {
+      if (cell) {
+        if (cell.kind === 'coin') collectCoin(cell)
+        else if (cell.kind !== 'floor') game.cells.delete(cellKey(c, r))
+      }
+      if (game.racerTilesLeft > 0) {
+        game.racerTilesLeft -= 1
+        if (game.racerTilesLeft === 0) game.racerExitGuard = RACER_EXIT_RUNWAY
+      } else {
+        game.racerExitGuard -= 1
+      }
       return
     }
 
@@ -577,7 +663,16 @@ const useEpicGame = () => {
   const collectCoin = (cell: Cell): void => {
     if (cell.collected) return
     cell.collected = true
-    const value = Math.round(upgradedValue('coinValue') * coinMult())
+    // Combo chain: a freely-collected coin within the window bumps the
+    // multiplier; otherwise the chain (re)starts at the first step above 1×.
+    if (game.clock - lastComboCoinAt <= COMBO_WINDOW_MS) {
+      combo.value = Math.min(COMBO_MAX, +(combo.value + COMBO_STEP).toFixed(2))
+    } else {
+      combo.value = +(1 + COMBO_STEP).toFixed(2)
+    }
+    lastComboCoinAt = game.clock
+    const base = upgradedValue('coinValue') * coinMult()
+    const value = Math.max(1, Math.round(base * combo.value))
     // Coins are tallied for the run but NOT banked to the wallet here — they're
     // granted on the win/lose screen with a CoinExplosion (see EpicancerScene).
     coinsThisRun.value += value
@@ -592,6 +687,20 @@ const useEpicGame = () => {
     playSound('level-up', 0.07)
     triggerShake('small')
     const lucky = cell.lucky === true
+    const racerIdle = game.racerTilesLeft <= 0 && game.racerExitGuard <= 0
+    // GOLDEN (lucky) box → always a long 40-tile Racer dash. The telegraphed rare
+    // drop reliably pays off with the big hands-off sprint.
+    if (lucky && racerIdle) {
+      startRacer(cell.c, cell.r, RACER_TILES_GOLDEN)
+      return
+    }
+    // Racer: a hands-off 5× dash. Rolled FIRST (before the Second-Chance branch)
+    // so it isn't starved by it. Non-lucky boxes only; never while one is already
+    // running. ~15% chance — rare enough to feel special, common enough to see.
+    if (!lucky && racerIdle && Math.random() < 0.15) {
+      startRacer(cell.c, cell.r)
+      return
+    }
     // A LUCKY box always rolls a power-up — at DOUBLE duration — and never the
     // Second Chance, so the telegraphed rare drop reliably pays off (roadmap #12).
     if (!lucky && !game.secondChance && Math.random() < 0.25) {
@@ -677,7 +786,13 @@ const useEpicGame = () => {
     game.dodgeReadyAt = 0 // every run starts with one Dodge Apprentice charge ready
     game.wingsBreakAt = 0 // clear any pending wings-shatter trigger
     game.powerupFlashAt = 0 // clear any pending pickup pulse
-    setMusicIntensity(0) // reset music tempo for the fresh stage
+    combo.value = 1 // reset the coin-combo chain for the fresh stage
+    lastComboCoinAt = -Infinity
+    game.racerTilesLeft = 0 // clear any Racer dash for the fresh stage
+    game.racerExitGuard = 0
+    racerActive.value = false
+    // Reset the music tempo to this stage's floor (0.60× early, 1.0× from st.8).
+    setMusicRate(progress.stage.value >= 8 ? 1.0 : 0.6)
     powerups.clear()
     score.value = 0
     coinsThisRun.value = 0
@@ -715,6 +830,8 @@ const useEpicGame = () => {
 
   const flip = (): void => {
     if (phase.value !== 'playing') return
+    // No control during the Racer dash — the auto-pilot owns the wheel.
+    if (game.racerTilesLeft > 0 || game.racerExitGuard > 0) return
     game.nextDir = (-game.nextDir) as 1 | -1
     playSound('anchor-swap', 0.035, 1 + (Math.random() - 0.5) * 0.12)
   }
@@ -738,6 +855,11 @@ const useEpicGame = () => {
     phase.value = 'dead'
     gameResult.value = 'lose'
     lossCause.value = cause
+    combo.value = 1 // a hit breaks the coin-combo chain
+    lastComboCoinAt = -Infinity
+    game.racerTilesLeft = 0 // end any Racer dash on death
+    game.racerExitGuard = 0
+    racerActive.value = false
     // Rubber band: record this failed attempt so the next try at an early stage
     // gets a slightly lower tile goal (struggling-player assist; session-only).
     if (gameMode.value === 'campaign' && progress.stage.value <= RUBBER_BAND_STAGES) {
@@ -865,9 +987,30 @@ const useEpicGame = () => {
     speed *= difficultySpeedFactor()
     if (powerups.isActive('slowmo')) speed *= 0.5
     if (game.clock < game.teleportSlowUntil) speed *= TELEPORT_SLOW_FACTOR
+    // Racer dash overrides everything with a flat 5× sprint (ignores slow-mo).
+    const racing = game.racerTilesLeft > 0 || game.racerExitGuard > 0
+    if (racing) {
+      const stageBase = BASE_SPEED + (progress.stage.value - 1) * STAGE_SPEED_BONUS
+      speed = stageBase * RACER_SPEED_MULT
+    }
+    racerActive.value = racing
     game.speed = speed
-    // Dynamic music intensity (#14): tempo creeps up with the run's speed.
-    setMusicIntensity((speed - BASE_SPEED) / (MAX_SPEED - BASE_SPEED))
+    // Combo chain times out after a quiet spell with no fresh coin pickup.
+    if (combo.value > 1 && game.clock - lastComboCoinAt > COMBO_WINDOW_MS) {
+      combo.value = 1
+    }
+    // Dynamic music tempo: modulate the track's playback rate from the ball's
+    // ACTUAL current speed (which already folds in slow-mo, teleport slow and
+    // difficulty, so those naturally drag the beat down). Below stage 8 the beat
+    // sits low (0.60×) and ramps to 1.5×; from stage 8 it starts at full tempo
+    // (1.0×) and pushes to 1.75× at top speed.
+    {
+      const frac = Math.max(0, Math.min(1, speed / MAX_SPEED))
+      const lateGame = genStage() >= 8
+      const floor = lateGame ? 1.0 : 0.6
+      const ceil = lateGame ? 1.75 : 1.5
+      setMusicRate(floor + frac * (ceil - floor))
+    }
     survivalMs.value = game.clock - game.runStartClock
 
     game.progress += speed * dt
@@ -879,6 +1022,7 @@ const useEpicGame = () => {
     const lethalObstacle = tcell?.kind === 'obstacle'
       && !powerups.isActive('invuln')
       && !isPassableObstacle(tcell.obstacle)
+      && !racing // the dash pre-clears its path; never blow up mid-Racer
     if (lethalObstacle && game.progress >= 0.5) {
       // A held Second Chance clears the obstacle and lets the ball roll on;
       // otherwise it blows up at the midpoint of the hop.
@@ -919,6 +1063,35 @@ const useEpicGame = () => {
     cull()
   }
 
+  /** DEV/CHEAT: drop a normal item box 1 tile ahead and a GOLDEN (lucky) box 4
+   *  tiles ahead, both on the ball's projected (no-input) path, with cleared
+   *  approaches so they're reachable. Used to test the Racer dash quickly. */
+  const spawnTestItemBoxes = (): void => {
+    // Allowed from the idle (menu) screen too, not just mid-run, so you can set
+    // up the test BEFORE starting — the boxes sit on already-generated rows and
+    // persist into the run (begin() doesn't regenerate). No-op once dead/won.
+    if (phase.value !== 'idle' && phase.value !== 'playing') return
+    // Make sure the rows we're about to place on actually exist.
+    ensureGenerated()
+    // Walk the path the ball would take with no taps: each hop is one row up and
+    // one column in the current heading, bouncing off the field edges.
+    let c = game.cell.c
+    let r = game.cell.r
+    let d = game.dir
+    for (let step = 1; step <= 4; step++) {
+      if (c + d < 0 || c + d > C_MAX) d = (-d) as 1 | -1
+      c += d
+      r -= 1
+      if (step === 1 || step === 4) {
+        const lucky = step === 4
+        game.cells.set(cellKey(c, r), { c, r, kind: 'item', lucky })
+        // Clear the two diamonds the ball can hop onto it from + the cell itself.
+        game.cells.delete(cellKey(c - 1, r + 1))
+        game.cells.delete(cellKey(c + 1, r + 1))
+      }
+    }
+  }
+
   return {
     // reactive
     phase,
@@ -930,6 +1103,7 @@ const useEpicGame = () => {
     lastWinReward,
     stageTarget,
     survivalMs,
+    combo,
     activePowerup: powerups.active,
     // control
     resetForStage,
@@ -938,6 +1112,7 @@ const useEpicGame = () => {
     step,
     die,
     revive,
+    spawnTestItemBoxes,
     // helpers for the scene
     powerupRemainingMs: (): number => powerups.remainingMs(game.clock),
     isPowerupActive: (t: PowerupType): boolean => powerups.isActive(t),

@@ -81,6 +81,10 @@ const scCost = SECOND_CHANCE_COST
 const scAdInFlight = ref(false)
 const canBuySc = computed(() => !scActive.value && coins.value >= scCost)
 const canWatchSc = computed(() => !scActive.value && isRewardedReady.value && !scAdInFlight.value)
+// Only SHOW the rewarded "Free" option when a rewarded ad is actually
+// available (loaded / filled / off cooldown) — or while one is mid-watch — so
+// the button never appears as a dead, disabled stub. Hidden entirely otherwise.
+const showWatchSc = computed(() => !scActive.value && (isRewardedReady.value || scAdInFlight.value))
 
 const buySecondChance = (): void => {
   if (progress.buyStartSecondChance()) playSound('level-up', 0.06)
@@ -139,8 +143,10 @@ const watchForSecondChance = async (): Promise<void> => {
             )
               IconCoin(class="w-4 h-4 text-yellow-100")
               span.font-black.game-text.text-white(class="text-sm") {{ scCost }}
-            //- Rewarded-ad option (below the buy button)
+            //- Rewarded-ad option (below the buy button). Only shown when a
+            //- rewarded ad is actually available — no dead disabled stub.
             button.cursor-pointer.transition-transform.flex.items-center.justify-center.gap-1.rounded-lg.border-2.px-3(
+              v-if="showWatchSc"
               class="py-1.5 active:scale-95 hover:scale-[103%] bg-gradient-to-b from-[#ffcd00] to-[#f7a000] border-[#0f1a30] disabled:opacity-50 disabled:grayscale"
               :disabled="!canWatchSc"
               @click="watchForSecondChance"

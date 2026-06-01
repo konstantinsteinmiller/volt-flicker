@@ -2,12 +2,13 @@
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 
-import useEpicGame, { gameMode, setGameMode, bestEndless, isOnboardingRun, setPendingBoon, type BoonId } from '@/use/useEpicGame'
+import useEpicGame, { gameMode, setGameMode, bestEndless, isOnboardingRun, setPendingBoon, combo, racerActive, type BoonId } from '@/use/useEpicGame'
 import useEpicConfig from '@/use/useEpicConfig'
-import { drawScene, configureGeometry, setBallSkin } from '@/use/useEpicArt'
+import { drawScene, configureGeometry, setBallSkin, setGhostBest } from '@/use/useEpicArt'
 import { powerupFraction } from '@/use/usePowerups'
 import useEpicProgress, { UPGRADES } from '@/use/useEpicProgress'
 import useMissions from '@/use/useMissions'
+import useAchievements from '@/use/useAchievements'
 import { selectedSkinSrc } from '@/use/useEpicSkins'
 import { prependBaseUrl } from '@/utils/function'
 import { getState, setState } from '@/use/useEpicState'
@@ -35,6 +36,7 @@ import FReward from '@/components/atoms/FReward.vue'
 import DailyRewards from '@/components/organisms/DailyRewards.vue'
 import AdRewardButton from '@/components/organisms/AdRewardButton.vue'
 import BattlePass from '@/components/organisms/BattlePass.vue'
+import AchievementsButton from '@/components/organisms/AchievementsButton.vue'
 import OptionsModal from '@/components/organisms/OptionsModal.vue'
 import EpicUpgradesModal from '@/components/organisms/EpicUpgradesModal.vue'
 import SkinModal from '@/components/organisms/SkinModal.vue'
@@ -50,6 +52,7 @@ const {
 } = epic
 const progress = useEpicProgress()
 const { recordRun } = useMissions()
+const { recordRun: recordAchievementRun } = useAchievements()
 const { addCoins } = useEpicConfig()
 const { awardCampaignWin } = useBattlePass()
 const { startBattleMusic, stopBattleMusic } = useMusic()
@@ -171,8 +174,32 @@ const todayKey = (): string => new Date().toISOString().slice(0, 10)
 // Feed the finished run into daily missions and decide whether the first-run-of-
 // day 2× bonus applies to this result screen (roadmap #2 + #5).
 const finishRun = (cleared: boolean): void => {
-  recordRun({ tiles: score.value, coins: coinsThisRun.value, items: itemsThisRun.value, cleared })
+  const run = { tiles: score.value, coins: coinsThisRun.value, items: itemsThisRun.value, cleared }
+  recordRun(run)
+  recordAchievementRun(run) // lifetime milestone counters (roadmap #13)
   firstRunBonusActive.value = getState<string>(DAILY_BONUS_DAY_KEY, '') !== todayKey()
+}
+
+// Near-miss "Almost!" line (roadmap #2): on a campaign loss, how many tiles the
+// player was short of the goal — shown only when they were genuinely close.
+const nearMissTiles = computed(() => {
+  if (gameResult.value !== 'lose' || isEndless.value) return 0
+  const needed = Math.ceil(stageTarget.value - score.value)
+  return needed > 0 && needed <= 10 ? needed : 0
+})
+
+// Instant one-tap retry (roadmap #3): skip the close/reopen dance — drop both
+// post-run modals and start a fresh attempt immediately.
+const retry = (): void => {
+  if (isAdInFlight.value) return
+  showResult.value = false
+  showSecondChance.value = false
+  showBoon.value = false
+  // Fresh attempt — the run's collected coins are forfeited (no grantRunCoins /
+  // CoinExplosion) and we never route through the win/lose screen.
+  resetForStage()
+  begin()
+  startBattleMusic() // onDeath stopped it; bring the battle track back
 }
 
 // ─── Result / death / win flow ──────────────────────────────────────────────
@@ -330,6 +357,10 @@ watch(phase, (p, prev) => {
 // texture so the next frame re-samples from the new skin.
 watch(selectedSkinSrc, (src) => setBallSkin(prependBaseUrl(src)), { immediate: true })
 
+// Keep the renderer's best-tile ghost line (roadmap #2) in sync with the
+// personal best, so the "line to beat" is always drawn at the right row.
+watch(() => progress.bestScore.value, (v) => setGhostBest(v), { immediate: true })
+
 // ─── Lifecycle ──────────────────────────────────────────────────────────────
 onMounted(() => {
   resetForStage()
@@ -386,6 +417,27 @@ onUnmounted(() => {
         :style="{ top: 'calc(3.2rem + env(safe-area-inset-top, 0px))' }"
       )
         ScoreBadge(v-if="phase === 'playing' || phase === 'dead'" :score="score")
+
+      //- Coin-combo multiplier chain (roadmap #6): a rising ×-multiplier badge
+      //- under the score. White → orange from 2× → golden at the 3× cap.
+      div.pointer-events-none.absolute.left-0.right-0.flex.justify-center.z-10(
+        v-show="phase === 'playing' && combo > 1.05"
+        :style="{ top: 'calc(5rem + env(safe-area-inset-top, 0px))' }"
+      )
+        div.font-black.game-text.italic.animate-pulse(
+          class="text-xl sm:text-3xl -mb-2"
+          :style="{ color: combo >= 3 ? '#ffd23c' : (combo >= 2 ? '#ff9a3c' : '#ffffff'), textShadow: '2px 2px 0 #000' }"
+        ) ×{{ combo.toFixed(2) }}
+
+      //- Racer dash banner: hands-off 5× sprint indicator.
+      div.pointer-events-none.absolute.left-0.right-0.flex.justify-center.z-10(
+        v-show="racerActive"
+        :style="{ top: 'calc(7rem + env(safe-area-inset-top, 0px))' }"
+      )
+        div.font-black.game-text.italic.uppercase.tracking-widest.animate-pulse(
+          class="text-2xl sm:text-4xl"
+          :style="{ color: '#ff3df0', textShadow: '2px 2px 0 #000' }"
+        ) {{ t('powerups.racer') }}
 
       //- Tap-to-start prompt
       div.absolute.inset-0.flex.items-center.justify-center.z-10(
@@ -453,6 +505,7 @@ onUnmounted(() => {
         div.flex.items-end(v-show="phase !== 'playing'" class="gap-0 sm:gap-2")
           DailyRewards(@coins-awarded="fireCoinExplosion")
           MissionsModal(@coins-awarded="fireCoinExplosion")
+          AchievementsButton(@coins-awarded="fireCoinExplosion")
           AdRewardButton(@coins-awarded="fireCoinExplosion")
           BattlePass(@coins-awarded="fireCoinExplosion")
 
@@ -525,6 +578,18 @@ onUnmounted(() => {
           )
             IconMovie(class="w-5 h-5 shrink-0")
             span {{ t('secondChance.watch') }}
+          //- Retry: abandon this run and restart the stage immediately. Does
+          //- NOT bank the run's coins (no reward / CoinExplosion) and never
+          //- routes through the win/lose screen — it's a clean fresh attempt.
+          button.cursor-pointer.transition-transform.flex.items-center.justify-center.gap-2(
+            class="w-full px-4 py-2 rounded-lg bg-gradient-to-b from-emerald-400 to-emerald-700 border-2 border-emerald-200 text-white font-black uppercase game-text hover:scale-[103%] active:scale-95 disabled:opacity-50"
+            :disabled="isAdInFlight"
+            @click="retry"
+          )
+            svg(viewBox="0 0 24 24" class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round")
+              path(d="M3 12 a9 9 0 1 0 3 -6.7 L3 8")
+              path(d="M3 4 v4 h4")
+            span {{ t('result.retry') }}
           button.cursor-pointer.transition-transform(
             class="w-full px-4 py-2 rounded-lg bg-slate-700 border-2 border-slate-500 text-white font-bold uppercase game-text hover:scale-[103%] active:scale-95 disabled:opacity-50"
             :disabled="isAdInFlight"
@@ -548,6 +613,11 @@ onUnmounted(() => {
           v-if="gameResult === 'lose'"
           class="text-sm sm:text-base"
         ) {{ lossCause === 'hole' ? t('result.fell') : t('result.crashed') }}
+        //- "Almost!" near-miss nudge — only when the player was genuinely close.
+        div.text-yellow-200.game-text.text-center.font-black.animate-pulse(
+          v-if="nearMissTiles > 0"
+          class="text-sm sm:text-base"
+        ) {{ t('result.almost', { n: nearMissTiles }) }}
         //- Tiles travelled this run
         div.flex.items-center.gap-2.text-white.game-text(class="text-base sm:text-lg")
           span.opacity-70.uppercase.tracking-wider.text-xs {{ t('result.tiles') }}

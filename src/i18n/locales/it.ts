@@ -1,4 +1,27 @@
 export default {
+  'ads': {
+    'watch': 'Guarda', 'revive': 'Rinasci', 'secondChance': 'Seconda chance', 'doubleCoins': '2× monete', 'plusCoins': '+{n} monete'
+  },
+  'achievements': {
+    'title': 'Obiettivi', 'subtitle': 'Raggiungi traguardi per ottenere monete.', 'claim': 'Riscuoti', 'claimed': 'Riscosso', 'progress': '{c} / {t}',
+    'items': {
+      'tiles1k': { 'name': 'Globetrotter', 'desc': 'Travel 1,000 tiles in total.' },
+      'tiles5k': { 'name': 'Marathoner', 'desc': 'Travel 5,000 tiles in total.' },
+      'tiles10k': { 'name': 'Long Hauler', 'desc': 'Travel 10,000 tiles in total.' },
+      'tiles100k': { 'name': 'Voyager', 'desc': 'Travel 100,000 tiles in total.' },
+      'stage5': { 'name': 'Getting Started', 'desc': 'Reach stage 5.' },
+      'stage10': { 'name': 'Seasoned', 'desc': 'Reach stage 10.' },
+      'stage20': { 'name': 'Veteran', 'desc': 'Reach stage 20.' },
+      'clears25': { 'name': 'Clearing House', 'desc': 'Clear 25 stages in total.' },
+      'clears100': { 'name': 'Centurion', 'desc': 'Clear 100 stages in total.' },
+      'bestRun100': { 'name': 'Sprinter', 'desc': 'Travel 100 tiles in a single run.' },
+      'bestRun250': { 'name': 'Distance Demon', 'desc': 'Travel 250 tiles in a single run.' },
+      'coins5k': { 'name': 'Coin Collector', 'desc': 'Collect 5,000 coins in total.' },
+      'coins50k': { 'name': 'Treasurer', 'desc': 'Collect 50,000 coins in total.' },
+      'items50': { 'name': 'Unboxer', 'desc': 'Grab 50 item boxes in total.' },
+      'items250': { 'name': 'Hoarder', 'desc': 'Grab 250 item boxes in total.' }
+    }
+  },
   'gameName': 'Epicancer',
   'cancel': 'Annulla',
   'close': 'Chiudi',
@@ -22,8 +45,8 @@ export default {
     'magnet': 'Calamita Monete',
     'dodge': 'Maestro di Schivata',
     'slowmo': 'Rallentatore',
-    'push': "Forza d'Urto"
-  },
+    'push': "Forza d'Urto",
+   'racer': 'Racer!' },
   'secondChance': {
     'title': 'Continuare?',
     'body': 'Guarda un breve annuncio per rivivere e continuare la corsa.',
@@ -38,8 +61,8 @@ export default {
     'tiles': 'Caselle',
     'winReward': 'incl. +{n} bonus livello',
     'double': 'Raddoppia monete',
-    'firstRunDouble': '2× — prima corsa di oggi!'
-  },
+    'firstRunDouble': '2× — prima corsa di oggi!',
+   'almost': 'Quasi! Ancora {n} caselle.', 'retry': 'Riprova', },
   'upgrades': {
     'title': 'Potenziamenti',
     'subtitle': 'Spendi monete per potenziarti in modo permanente.',
@@ -96,8 +119,8 @@ export default {
     'title': 'Skin Palla',
     'subtitle': 'Spendi monete per sbloccare ed equipaggiare nuovi look.',
     'equip': 'Equipaggia',
-    'equipped': 'Equipaggiato'
-  },
+    'equipped': 'Equipaggiato',
+   'locked': 'Livello {n}', 'new': 'Nuovo!', 'rarity': { 'common': 'Comune', 'rare': 'Raro', 'epic': 'Epico' }, },
   'missions': {
     'title': 'Missioni Giornaliere',
     'subtitle': 'Completa obiettivi ogni giorno per ottenere monete.',

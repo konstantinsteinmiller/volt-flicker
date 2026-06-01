@@ -1,5 +1,6 @@
 import { onMounted, onUnmounted, ref } from 'vue'
 import useEpicConfig from '@/use/useEpicConfig'
+import useEpicGame from '@/use/useEpicGame'
 import { setState } from '@/use/useEpicState'
 import { toggleDebug } from '@/use/useMatch'
 import { STAGE_KEY } from '@/keys'
@@ -60,6 +61,7 @@ const useCheats = () => {
   if (!isCheat.value) return {}
 
   const { addCoins } = useEpicConfig()
+  const { spawnTestItemBoxes } = useEpicGame()
 
   // Epicancer has open-ended stages (tilesToClear scales with stage), so there
   // is no fixed STAGE_COUNT/STAGE_NAMES — just write the stage into the save
@@ -91,7 +93,13 @@ const useCheats = () => {
     'ctrl+shift+alt+4': () => setStage(14),
     'ctrl+shift+alt+k': () => addCoins(3000),
     // Jump to the stage-10 difficulty test level (the old, dense "stage 1").
-    'ctrl+shift+alt+t': () => setStage(10)
+    'ctrl+shift+alt+t': () => setStage(10),
+    // Spawn a normal item box 1 tile ahead + a GOLDEN box 4 tiles ahead on the
+    // ball's path — for testing the Racer dash (golden = 40-tile dash).
+    'ctrl+shift+alt+i': () => {
+      spawnTestItemBoxes()
+      console.warn('[CHEAT] Spawned 1 item box + 1 golden box ahead.')
+    }
   }
 
   const heldKeys = new Set<string>()

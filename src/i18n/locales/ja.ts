@@ -1,4 +1,27 @@
 export default {
+  'ads': {
+    'watch': '見る', 'revive': '復活', 'secondChance': 'セカンドチャンス', 'doubleCoins': '2× コイン', 'plusCoins': '+{n} コイン'
+  },
+  'achievements': {
+    'title': '実績', 'subtitle': '生涯マイルストーンを達成してコイン獲得。', 'claim': '受取', 'claimed': '受取済', 'progress': '{c} / {t}',
+    'items': {
+      'tiles1k': { 'name': 'Globetrotter', 'desc': 'Travel 1,000 tiles in total.' },
+      'tiles5k': { 'name': 'Marathoner', 'desc': 'Travel 5,000 tiles in total.' },
+      'tiles10k': { 'name': 'Long Hauler', 'desc': 'Travel 10,000 tiles in total.' },
+      'tiles100k': { 'name': 'Voyager', 'desc': 'Travel 100,000 tiles in total.' },
+      'stage5': { 'name': 'Getting Started', 'desc': 'Reach stage 5.' },
+      'stage10': { 'name': 'Seasoned', 'desc': 'Reach stage 10.' },
+      'stage20': { 'name': 'Veteran', 'desc': 'Reach stage 20.' },
+      'clears25': { 'name': 'Clearing House', 'desc': 'Clear 25 stages in total.' },
+      'clears100': { 'name': 'Centurion', 'desc': 'Clear 100 stages in total.' },
+      'bestRun100': { 'name': 'Sprinter', 'desc': 'Travel 100 tiles in a single run.' },
+      'bestRun250': { 'name': 'Distance Demon', 'desc': 'Travel 250 tiles in a single run.' },
+      'coins5k': { 'name': 'Coin Collector', 'desc': 'Collect 5,000 coins in total.' },
+      'coins50k': { 'name': 'Treasurer', 'desc': 'Collect 50,000 coins in total.' },
+      'items50': { 'name': 'Unboxer', 'desc': 'Grab 50 item boxes in total.' },
+      'items250': { 'name': 'Hoarder', 'desc': 'Grab 250 item boxes in total.' }
+    }
+  },
   'gameName': 'Epicancer',
   'cancel': 'キャンセル',
   'close': '閉じる',
@@ -22,8 +45,8 @@ export default {
     'magnet': 'コインマグネット',
     'dodge': '回避マスター',
     'slowmo': 'スローモーション',
-    'push': 'プッシュフォース'
-  },
+    'push': 'プッシュフォース',
+   'racer': 'レーサー!' },
   'secondChance': {
     'title': '続ける？',
     'body': '短い広告を見て復活し、続けよう。',
@@ -38,8 +61,8 @@ export default {
     'tiles': 'マス',
     'winReward': '（+{n} ステージボーナス込み）',
     'double': 'コイン2倍',
-    'firstRunDouble': '2倍 — 本日初プレイ！'
-  },
+    'firstRunDouble': '2倍 — 本日初プレイ！',
+   'almost': 'あと少し！残り {n} マス。', 'retry': 'リトライ', },
   'upgrades': {
     'title': 'アップグレード',
     'subtitle': 'コインを使って永続的に強化しよう。',
@@ -96,8 +119,8 @@ export default {
     'title': 'ボールスキン',
     'subtitle': 'コインを使って新しい見た目を解放・装備しよう。',
     'equip': '装備',
-    'equipped': '装備中'
-  },
+    'equipped': '装備中',
+   'locked': 'ステージ {n}', 'new': '新!', 'rarity': { 'common': 'コモン', 'rare': 'レア', 'epic': 'エピック' }, },
   'missions': {
     'title': 'デイリーミッション',
     'subtitle': '毎日目標を達成してコインを獲得しよう。',

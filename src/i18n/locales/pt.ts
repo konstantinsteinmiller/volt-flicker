@@ -1,4 +1,27 @@
 export default {
+  'ads': {
+    'watch': 'Assistir', 'revive': 'Reviver', 'secondChance': 'Segunda chance', 'doubleCoins': '2× moedas', 'plusCoins': '+{n} moedas'
+  },
+  'achievements': {
+    'title': 'Conquistas', 'subtitle': 'Alcance marcos para ganhar moedas.', 'claim': 'Resgatar', 'claimed': 'Resgatado', 'progress': '{c} / {t}',
+    'items': {
+      'tiles1k': { 'name': 'Globetrotter', 'desc': 'Travel 1,000 tiles in total.' },
+      'tiles5k': { 'name': 'Marathoner', 'desc': 'Travel 5,000 tiles in total.' },
+      'tiles10k': { 'name': 'Long Hauler', 'desc': 'Travel 10,000 tiles in total.' },
+      'tiles100k': { 'name': 'Voyager', 'desc': 'Travel 100,000 tiles in total.' },
+      'stage5': { 'name': 'Getting Started', 'desc': 'Reach stage 5.' },
+      'stage10': { 'name': 'Seasoned', 'desc': 'Reach stage 10.' },
+      'stage20': { 'name': 'Veteran', 'desc': 'Reach stage 20.' },
+      'clears25': { 'name': 'Clearing House', 'desc': 'Clear 25 stages in total.' },
+      'clears100': { 'name': 'Centurion', 'desc': 'Clear 100 stages in total.' },
+      'bestRun100': { 'name': 'Sprinter', 'desc': 'Travel 100 tiles in a single run.' },
+      'bestRun250': { 'name': 'Distance Demon', 'desc': 'Travel 250 tiles in a single run.' },
+      'coins5k': { 'name': 'Coin Collector', 'desc': 'Collect 5,000 coins in total.' },
+      'coins50k': { 'name': 'Treasurer', 'desc': 'Collect 50,000 coins in total.' },
+      'items50': { 'name': 'Unboxer', 'desc': 'Grab 50 item boxes in total.' },
+      'items250': { 'name': 'Hoarder', 'desc': 'Grab 250 item boxes in total.' }
+    }
+  },
   'gameName': 'Epicancer',
   'cancel': 'Cancelar',
   'close': 'Fechar',
@@ -22,8 +45,8 @@ export default {
     'magnet': 'Ímã de Moedas',
     'dodge': 'Mestre da Esquiva',
     'slowmo': 'Câmara Lenta',
-    'push': 'Força de Impulso'
-  },
+    'push': 'Força de Impulso',
+   'racer': 'Racer!' },
   'secondChance': {
     'title': 'Continuar rolando?',
     'body': 'Assista a um anúncio curto para reviver e continuar sua corrida.',
@@ -38,8 +61,8 @@ export default {
     'tiles': 'Casas',
     'winReward': 'incl. +{n} bônus de fase',
     'double': 'Dobrar moedas',
-    'firstRunDouble': '2× — primeira corrida de hoje!'
-  },
+    'firstRunDouble': '2× — primeira corrida de hoje!',
+   'almost': 'Quase! Faltam {n} casas.', 'retry': 'Repetir', },
   'upgrades': {
     'title': 'Melhorias',
     'subtitle': 'Gaste moedas para se fortalecer permanentemente.',
@@ -96,8 +119,8 @@ export default {
     'title': 'Skins da Bola',
     'subtitle': 'Gaste moedas para desbloquear e equipar novos visuais.',
     'equip': 'Equipar',
-    'equipped': 'Equipado'
-  },
+    'equipped': 'Equipado',
+   'locked': 'Fase {n}', 'new': 'Novo!', 'rarity': { 'common': 'Comum', 'rare': 'Raro', 'epic': 'Épico' }, },
   'missions': {
     'title': 'Missões Diárias',
     'subtitle': 'Complete objetivos todos os dias para ganhar moedas.',

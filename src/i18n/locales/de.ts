@@ -1,4 +1,27 @@
 export default {
+  'ads': {
+    'watch': 'Ansehen', 'revive': 'Wiederbeleben', 'secondChance': 'Zweite Chance', 'doubleCoins': '2× Münzen', 'plusCoins': '+{n} Münzen'
+  },
+  'achievements': {
+    'title': 'Erfolge', 'subtitle': 'Erreiche Langzeit-Meilensteine für Münzen.', 'claim': 'Abholen', 'claimed': 'Abgeholt', 'progress': '{c} / {t}',
+    'items': {
+      'tiles1k': { 'name': 'Globetrotter', 'desc': 'Travel 1,000 tiles in total.' },
+      'tiles5k': { 'name': 'Marathoner', 'desc': 'Travel 5,000 tiles in total.' },
+      'tiles10k': { 'name': 'Long Hauler', 'desc': 'Travel 10,000 tiles in total.' },
+      'tiles100k': { 'name': 'Voyager', 'desc': 'Travel 100,000 tiles in total.' },
+      'stage5': { 'name': 'Getting Started', 'desc': 'Reach stage 5.' },
+      'stage10': { 'name': 'Seasoned', 'desc': 'Reach stage 10.' },
+      'stage20': { 'name': 'Veteran', 'desc': 'Reach stage 20.' },
+      'clears25': { 'name': 'Clearing House', 'desc': 'Clear 25 stages in total.' },
+      'clears100': { 'name': 'Centurion', 'desc': 'Clear 100 stages in total.' },
+      'bestRun100': { 'name': 'Sprinter', 'desc': 'Travel 100 tiles in a single run.' },
+      'bestRun250': { 'name': 'Distance Demon', 'desc': 'Travel 250 tiles in a single run.' },
+      'coins5k': { 'name': 'Coin Collector', 'desc': 'Collect 5,000 coins in total.' },
+      'coins50k': { 'name': 'Treasurer', 'desc': 'Collect 50,000 coins in total.' },
+      'items50': { 'name': 'Unboxer', 'desc': 'Grab 50 item boxes in total.' },
+      'items250': { 'name': 'Hoarder', 'desc': 'Grab 250 item boxes in total.' }
+    }
+  },
   'gameName': 'Epicancer',
   'cancel': 'Abbrechen',
   'close': 'Schließen',
@@ -22,8 +45,8 @@ export default {
     'magnet': 'Münzmagnet',
     'dodge': 'Ausweichmeister',
     'slowmo': 'Zeitlupe',
-    'push': 'Schubkraft'
-  },
+    'push': 'Schubkraft',
+   'racer': 'Racer!' },
   'secondChance': {
     'title': 'Weiterrollen?',
     'body': 'Sieh dir eine kurze Werbung an, um wiederbelebt zu werden und weiterzuspielen.',
@@ -38,8 +61,8 @@ export default {
     'tiles': 'Felder',
     'winReward': 'inkl. +{n} Etappenbonus',
     'double': 'Münzen verdoppeln',
-    'firstRunDouble': '2× — erster Lauf heute!'
-  },
+    'firstRunDouble': '2× — erster Lauf heute!',
+   'almost': 'Fast! Noch {n} Tiles bis zum Ziel.', 'retry': 'Erneut', },
   'upgrades': {
     'title': 'Verbesserungen',
     'subtitle': 'Gib Münzen aus, um dich dauerhaft zu verstärken.',
@@ -96,8 +119,8 @@ export default {
     'title': 'Ball-Skins',
     'subtitle': 'Gib Münzen aus, um neue Looks freizuschalten und auszurüsten.',
     'equip': 'Ausrüsten',
-    'equipped': 'Ausgerüstet'
-  },
+    'equipped': 'Ausgerüstet',
+   'locked': 'Stage {n}', 'new': 'Neu!', 'rarity': { 'common': 'Gewöhnlich', 'rare': 'Selten', 'epic': 'Episch' }, },
   'missions': {
     'title': 'Tägliche Missionen',
     'subtitle': 'Erfülle täglich Ziele für Münzen.',

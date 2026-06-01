@@ -1,4 +1,27 @@
 export default {
+  'ads': {
+    'watch': 'Xem', 'revive': 'Hồi sinh', 'secondChance': 'Cơ hội thứ hai', 'doubleCoins': '2× xu', 'plusCoins': '+{n} xu'
+  },
+  'achievements': {
+    'title': 'Thành tựu', 'subtitle': 'Đạt cột mốc trọn đời để kiếm xu.', 'claim': 'Nhận', 'claimed': 'Đã nhận', 'progress': '{c} / {t}',
+    'items': {
+      'tiles1k': { 'name': 'Globetrotter', 'desc': 'Travel 1,000 tiles in total.' },
+      'tiles5k': { 'name': 'Marathoner', 'desc': 'Travel 5,000 tiles in total.' },
+      'tiles10k': { 'name': 'Long Hauler', 'desc': 'Travel 10,000 tiles in total.' },
+      'tiles100k': { 'name': 'Voyager', 'desc': 'Travel 100,000 tiles in total.' },
+      'stage5': { 'name': 'Getting Started', 'desc': 'Reach stage 5.' },
+      'stage10': { 'name': 'Seasoned', 'desc': 'Reach stage 10.' },
+      'stage20': { 'name': 'Veteran', 'desc': 'Reach stage 20.' },
+      'clears25': { 'name': 'Clearing House', 'desc': 'Clear 25 stages in total.' },
+      'clears100': { 'name': 'Centurion', 'desc': 'Clear 100 stages in total.' },
+      'bestRun100': { 'name': 'Sprinter', 'desc': 'Travel 100 tiles in a single run.' },
+      'bestRun250': { 'name': 'Distance Demon', 'desc': 'Travel 250 tiles in a single run.' },
+      'coins5k': { 'name': 'Coin Collector', 'desc': 'Collect 5,000 coins in total.' },
+      'coins50k': { 'name': 'Treasurer', 'desc': 'Collect 50,000 coins in total.' },
+      'items50': { 'name': 'Unboxer', 'desc': 'Grab 50 item boxes in total.' },
+      'items250': { 'name': 'Hoarder', 'desc': 'Grab 250 item boxes in total.' }
+    }
+  },
   'gameName': 'Epicancer',
   'cancel': 'Hủy',
   'close': 'Đóng',
@@ -22,8 +45,8 @@ export default {
     'magnet': 'Nam châm hút xu',
     'dodge': 'Bậc thầy né tránh',
     'slowmo': 'Chuyển động chậm',
-    'push': 'Lực đẩy'
-  },
+    'push': 'Lực đẩy',
+   'racer': 'Racer!' },
   'secondChance': {
     'title': 'Lăn tiếp chứ?',
     'body': 'Xem một quảng cáo ngắn để hồi sinh và tiếp tục lượt chơi.',
@@ -38,8 +61,8 @@ export default {
     'tiles': 'Ô',
     'winReward': 'gồm +{n} thưởng màn',
     'double': 'Nhân đôi xu',
-    'firstRunDouble': '2× — lượt chơi đầu tiên hôm nay!'
-  },
+    'firstRunDouble': '2× — lượt chơi đầu tiên hôm nay!',
+   'almost': 'Sắp rồi! Còn {n} ô nữa.', 'retry': 'Thử lại', },
   'upgrades': {
     'title': 'Nâng cấp',
     'subtitle': 'Dùng xu để tăng sức mạnh vĩnh viễn.',
@@ -96,8 +119,8 @@ export default {
     'title': 'Giao Diện Bóng',
     'subtitle': 'Tiêu xu để mở khóa và trang bị giao diện mới.',
     'equip': 'Trang bị',
-    'equipped': 'Đã trang bị'
-  },
+    'equipped': 'Đã trang bị',
+   'locked': 'Màn {n}', 'new': 'Mới!', 'rarity': { 'common': 'Thường', 'rare': 'Hiếm', 'epic': 'Sử thi' }, },
   'missions': {
     'title': 'Nhiệm vụ hằng ngày',
     'subtitle': 'Hoàn thành mục tiêu mỗi ngày để nhận xu.',

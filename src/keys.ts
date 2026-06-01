@@ -26,3 +26,9 @@ export const MISSIONS_KEY = 'epic_missions'
 export const DAILY_BONUS_DAY_KEY = 'epic_daily_bonus_day'
 // One-time "you can afford an upgrade" spotlight on the Upgrades button (#16).
 export const UPGRADE_SPOTLIGHT_KEY = 'epic_upgrade_spotlight_seen'
+// Achievements (roadmap #13): { claimed: string[], stats: { tiles, coins,
+// items, clears, bestRun } }. Lifetime counters + which milestones were banked.
+export const ACHIEVEMENTS_KEY = 'epic_achievements'
+// Skin IDs the player has already seen in the Skin shop — drives the "NEW!"
+// badge on freshly-owned / newly-unlocked skins (roadmap #12). string[].
+export const SKINS_SEEN_KEY = 'epic_skins_seen'

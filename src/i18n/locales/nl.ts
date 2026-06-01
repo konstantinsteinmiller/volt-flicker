@@ -1,4 +1,27 @@
 export default {
+  'ads': {
+    'watch': 'Bekijk', 'revive': 'Herleven', 'secondChance': 'Tweede kans', 'doubleCoins': '2× munten', 'plusCoins': '+{n} munten'
+  },
+  'achievements': {
+    'title': 'Prestaties', 'subtitle': 'Behaal mijlpalen om munten te verdienen.', 'claim': 'Claim', 'claimed': 'Geclaimd', 'progress': '{c} / {t}',
+    'items': {
+      'tiles1k': { 'name': 'Globetrotter', 'desc': 'Travel 1,000 tiles in total.' },
+      'tiles5k': { 'name': 'Marathoner', 'desc': 'Travel 5,000 tiles in total.' },
+      'tiles10k': { 'name': 'Long Hauler', 'desc': 'Travel 10,000 tiles in total.' },
+      'tiles100k': { 'name': 'Voyager', 'desc': 'Travel 100,000 tiles in total.' },
+      'stage5': { 'name': 'Getting Started', 'desc': 'Reach stage 5.' },
+      'stage10': { 'name': 'Seasoned', 'desc': 'Reach stage 10.' },
+      'stage20': { 'name': 'Veteran', 'desc': 'Reach stage 20.' },
+      'clears25': { 'name': 'Clearing House', 'desc': 'Clear 25 stages in total.' },
+      'clears100': { 'name': 'Centurion', 'desc': 'Clear 100 stages in total.' },
+      'bestRun100': { 'name': 'Sprinter', 'desc': 'Travel 100 tiles in a single run.' },
+      'bestRun250': { 'name': 'Distance Demon', 'desc': 'Travel 250 tiles in a single run.' },
+      'coins5k': { 'name': 'Coin Collector', 'desc': 'Collect 5,000 coins in total.' },
+      'coins50k': { 'name': 'Treasurer', 'desc': 'Collect 50,000 coins in total.' },
+      'items50': { 'name': 'Unboxer', 'desc': 'Grab 50 item boxes in total.' },
+      'items250': { 'name': 'Hoarder', 'desc': 'Grab 250 item boxes in total.' }
+    }
+  },
   'gameName': 'Epicancer',
   'cancel': 'Annuleren',
   'close': 'Sluiten',
@@ -22,8 +45,8 @@ export default {
     'magnet': 'Muntmagneet',
     'dodge': 'Ontwijkmeester',
     'slowmo': 'Slow Motion',
-    'push': 'Duwkracht'
-  },
+    'push': 'Duwkracht',
+   'racer': 'Racer!' },
   'secondChance': {
     'title': 'Blijven rollen?',
     'body': 'Bekijk een korte advertentie om te herleven en je run voort te zetten.',
@@ -38,8 +61,8 @@ export default {
     'tiles': 'Tegels',
     'winReward': 'incl. +{n} levelbonus',
     'double': 'Munten verdubbelen',
-    'firstRunDouble': '2× — eerste run van vandaag!'
-  },
+    'firstRunDouble': '2× — eerste run van vandaag!',
+   'almost': 'Bijna! Nog {n} tegels te gaan.', 'retry': 'Opnieuw', },
   'upgrades': {
     'title': 'Upgrades',
     'subtitle': 'Geef munten uit om permanent sterker te worden.',
@@ -96,8 +119,8 @@ export default {
     'title': 'Bal-Skins',
     'subtitle': 'Geef munten uit om nieuwe looks te ontgrendelen en uit te rusten.',
     'equip': 'Uitrusten',
-    'equipped': 'Uitgerust'
-  },
+    'equipped': 'Uitgerust',
+   'locked': 'Stage {n}', 'new': 'Nieuw!', 'rarity': { 'common': 'Gewoon', 'rare': 'Zeldzaam', 'epic': 'Episch' }, },
   'missions': {
     'title': 'Dagelijkse Missies',
     'subtitle': 'Voltooi elke dag doelen voor munten.',

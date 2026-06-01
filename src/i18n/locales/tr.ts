@@ -1,4 +1,27 @@
 export default {
+  'ads': {
+    'watch': 'İzle', 'revive': 'Canlandır', 'secondChance': 'İkinci Şans', 'doubleCoins': '2× Para', 'plusCoins': '+{n} para'
+  },
+  'achievements': {
+    'title': 'Başarımlar', 'subtitle': 'Para kazanmak için kalıcı hedeflere ulaş.', 'claim': 'Al', 'claimed': 'Alındı', 'progress': '{c} / {t}',
+    'items': {
+      'tiles1k': { 'name': 'Globetrotter', 'desc': 'Travel 1,000 tiles in total.' },
+      'tiles5k': { 'name': 'Marathoner', 'desc': 'Travel 5,000 tiles in total.' },
+      'tiles10k': { 'name': 'Long Hauler', 'desc': 'Travel 10,000 tiles in total.' },
+      'tiles100k': { 'name': 'Voyager', 'desc': 'Travel 100,000 tiles in total.' },
+      'stage5': { 'name': 'Getting Started', 'desc': 'Reach stage 5.' },
+      'stage10': { 'name': 'Seasoned', 'desc': 'Reach stage 10.' },
+      'stage20': { 'name': 'Veteran', 'desc': 'Reach stage 20.' },
+      'clears25': { 'name': 'Clearing House', 'desc': 'Clear 25 stages in total.' },
+      'clears100': { 'name': 'Centurion', 'desc': 'Clear 100 stages in total.' },
+      'bestRun100': { 'name': 'Sprinter', 'desc': 'Travel 100 tiles in a single run.' },
+      'bestRun250': { 'name': 'Distance Demon', 'desc': 'Travel 250 tiles in a single run.' },
+      'coins5k': { 'name': 'Coin Collector', 'desc': 'Collect 5,000 coins in total.' },
+      'coins50k': { 'name': 'Treasurer', 'desc': 'Collect 50,000 coins in total.' },
+      'items50': { 'name': 'Unboxer', 'desc': 'Grab 50 item boxes in total.' },
+      'items250': { 'name': 'Hoarder', 'desc': 'Grab 250 item boxes in total.' }
+    }
+  },
   'gameName': 'Epicancer',
   'cancel': 'İptal',
   'close': 'Kapat',
@@ -22,8 +45,8 @@ export default {
     'magnet': 'Para Mıknatısı',
     'dodge': 'Kaçış Ustası',
     'slowmo': 'Ağır Çekim',
-    'push': 'İtme Gücü'
-  },
+    'push': 'İtme Gücü',
+   'racer': 'Racer!' },
   'secondChance': {
     'title': 'Devam edilsin mi?',
     'body': 'Canlanıp koşuna devam etmek için kısa bir reklam izle.',
@@ -38,8 +61,8 @@ export default {
     'tiles': 'Kareler',
     'winReward': '+{n} aşama bonusu dahil',
     'double': 'Paraları ikiye katla',
-    'firstRunDouble': '2× — bugünün ilk koşusu!'
-  },
+    'firstRunDouble': '2× — bugünün ilk koşusu!',
+   'almost': 'Az kaldı! {n} kare daha.', 'retry': 'Tekrar', },
   'upgrades': {
     'title': 'Geliştirmeler',
     'subtitle': 'Kalıcı güçlenmek için para harca.',
@@ -96,8 +119,8 @@ export default {
     'title': 'Top Görünümleri',
     'subtitle': 'Yeni görünümleri açmak ve kuşanmak için para harca.',
     'equip': 'Kuşan',
-    'equipped': 'Kuşanıldı'
-  },
+    'equipped': 'Kuşanıldı',
+   'locked': 'Bölüm {n}', 'new': 'Yeni!', 'rarity': { 'common': 'Sıradan', 'rare': 'Nadir', 'epic': 'Efsanevi' }, },
   'missions': {
     'title': 'Günlük Görevler',
     'subtitle': 'Para için her gün hedefleri tamamla.',

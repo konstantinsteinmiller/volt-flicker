@@ -40,21 +40,29 @@ export const forceStopMusic = (): void => {
 }
 
 /**
- * Drive the background-music *tempo* from gameplay intensity. Callers pass a
- * 0..1 ratio (0 = calm / stage start, 1 = max ball speed) and we map it onto a
- * gentle playbackRate ramp so the track subtly quickens as the run heats up.
- * Idempotent, null-safe, and a no-op before the music element exists — the game
- * tick calls this every frame, so it must never throw or allocate.
+ * Set the background-music playback rate directly. The game tick computes a
+ * stage-aware rate from the ball's current speed (slow at stage start / under
+ * slow-mo, faster as the run heats up — see useEpicGame.step) and feeds it here
+ * each frame. Clamped to a sane band so a bad value can never warp the audio.
+ * Idempotent, null-safe, and a no-op before the music element exists, so it must
+ * never throw or allocate.
+ */
+export const setMusicRate = (rate: number): void => {
+  if (!bgMusic.value) return
+  const safe = Number.isFinite(rate) ? rate : 1
+  const clamped = Math.max(0.5, Math.min(2, safe))
+  try {
+    bgMusic.value.playbackRate = clamped
+  } catch { /* element not ready / rate unsupported */ }
+}
+
+/**
+ * Back-compat: drive tempo from a 0..1 intensity. Retained for any caller that
+ * still thinks in "intensity"; maps onto a gentle 1.0×–1.15× rate band.
  */
 export const setMusicIntensity = (intensity: number): void => {
-  if (!bgMusic.value) return
   const clamped = Math.max(0, Math.min(1, Number.isFinite(intensity) ? intensity : 0))
-  // 1.0× when calm → 1.15× at full tilt. Small enough to feel like energy, not
-  // a pitch-up gimmick.
-  const rate = 1 + clamped * 0.15
-  try {
-    bgMusic.value.playbackRate = rate
-  } catch { /* element not ready / rate unsupported */ }
+  setMusicRate(1 + clamped * 0.15)
 }
 
 export const useMusic = () => {

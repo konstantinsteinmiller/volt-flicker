@@ -26,7 +26,8 @@ export default {
     'magnet': 'Coin Magnet',
     'dodge': 'Dodge Master',
     'slowmo': 'Slow Motion',
-    'push': 'Push Force'
+    'push': 'Push Force',
+    'racer': 'Racer!'
   },
   'secondChance': {
     'title': 'Keep rolling?',
@@ -42,7 +43,40 @@ export default {
     'tiles': 'Tiles',
     'winReward': 'incl. +{n} stage bonus',
     'double': 'Double coins',
-    'firstRunDouble': '2× — first run today!'
+    'firstRunDouble': '2× — first run today!',
+    'almost': 'Almost! {n} more tiles to clear.',
+    'retry': 'Retry'
+  },
+  'ads': {
+    'watch': 'Watch',
+    'revive': 'Revive',
+    'secondChance': 'Second Chance',
+    'doubleCoins': '2× Coins',
+    'plusCoins': '+{n} coins'
+  },
+  'achievements': {
+    'title': 'Achievements',
+    'subtitle': 'Hit lifetime milestones to earn coins.',
+    'claim': 'Claim',
+    'claimed': 'Claimed',
+    'progress': '{c} / {t}',
+    'items': {
+      'tiles1k': { 'name': 'Globetrotter', 'desc': 'Travel 1,000 tiles in total.' },
+      'tiles5k': { 'name': 'Marathoner', 'desc': 'Travel 5,000 tiles in total.' },
+      'tiles10k': { 'name': 'Long Hauler', 'desc': 'Travel 10,000 tiles in total.' },
+      'tiles100k': { 'name': 'Voyager', 'desc': 'Travel 100,000 tiles in total.' },
+      'stage5': { 'name': 'Getting Started', 'desc': 'Reach stage 5.' },
+      'stage10': { 'name': 'Seasoned', 'desc': 'Reach stage 10.' },
+      'stage20': { 'name': 'Veteran', 'desc': 'Reach stage 20.' },
+      'clears25': { 'name': 'Clearing House', 'desc': 'Clear 25 stages in total.' },
+      'clears100': { 'name': 'Centurion', 'desc': 'Clear 100 stages in total.' },
+      'bestRun100': { 'name': 'Sprinter', 'desc': 'Travel 100 tiles in a single run.' },
+      'bestRun250': { 'name': 'Distance Demon', 'desc': 'Travel 250 tiles in a single run.' },
+      'coins5k': { 'name': 'Coin Collector', 'desc': 'Collect 5,000 coins in total.' },
+      'coins50k': { 'name': 'Treasurer', 'desc': 'Collect 50,000 coins in total.' },
+      'items50': { 'name': 'Unboxer', 'desc': 'Grab 50 item boxes in total.' },
+      'items250': { 'name': 'Hoarder', 'desc': 'Grab 250 item boxes in total.' }
+    }
   },
   'missions': {
     'title': 'Daily Missions',
@@ -131,7 +165,14 @@ export default {
     'title': 'Ball Skins',
     'subtitle': 'Spend coins to unlock and equip new looks.',
     'equip': 'Equip',
-    'equipped': 'Equipped'
+    'equipped': 'Equipped',
+    'locked': 'Stage {n}',
+    'new': 'New!',
+    'rarity': {
+      'common': 'Common',
+      'rare': 'Rare',
+      'epic': 'Epic'
+    }
   },
   'options': {
     'title': 'Options',

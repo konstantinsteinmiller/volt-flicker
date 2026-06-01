@@ -75,6 +75,41 @@ export const warmTileImages = async (): Promise<void> => {
 interface Geometry { halfW: number; halfH: number; offsetX: number; tileW: number; tileH: number }
 let geo: Geometry = { halfW: 40, halfH: 24, offsetX: 0, tileW: 80, tileH: 48 }
 
+// ─── Best-tile "ghost line" (roadmap #2) ────────────────────────────────────
+// A faint dashed marker across the row the personal best reached, shown on the
+// idle / lose screen so the player can see the line to beat. Score counts
+// diamonds entered going UP from r=0, so the best line sits at row -bestTiles.
+let ghostBestTiles = 0
+export const setGhostBest = (tiles: number): void => {
+  ghostBestTiles = Number.isFinite(tiles) && tiles > 0 ? Math.floor(tiles) : 0
+}
+const drawGhostLine = (
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+  camOffsetY: number
+): void => {
+  if (ghostBestTiles <= 0 || game.phase === 'playing') return
+  const y = -ghostBestTiles * geo.halfH + camOffsetY
+  if (!Number.isFinite(y) || y < -40 || y > h + 40) return
+  ctx.save()
+  ctx.globalAlpha = 0.5
+  ctx.strokeStyle = '#ffe066'
+  ctx.lineWidth = 2
+  ctx.setLineDash([10, 8])
+  ctx.beginPath()
+  ctx.moveTo(0, y)
+  ctx.lineTo(w, y)
+  ctx.stroke()
+  ctx.setLineDash([])
+  ctx.globalAlpha = 0.9
+  ctx.fillStyle = '#ffe066'
+  ctx.font = '700 12px system-ui, sans-serif'
+  ctx.textBaseline = 'bottom'
+  ctx.fillText('BEST \u00b7 ' + ghostBestTiles, 10, y - 4)
+  ctx.restore()
+}
+
 /** Recompute tile geometry for a viewport. Returns true when it changed. */
 export const configureGeometry = (w: number, h: number): boolean => {
   const halfW = Math.min((w * 0.92) / C_MAX, h * 0.11)
@@ -1180,6 +1215,7 @@ export const drawScene = (ctx: CanvasRenderingContext2D, w: number, h: number, n
     ctx.clip()
     drawBall(ctx, ballPos.x, ballPos.y, now, dropT)
     ctx.restore()
+  drawGhostLine(ctx, w, h, camOffsetY) // best-tile marker (#2)
   }
 
   // Post-teleport orientation slow-mo: dim the whole grid (~70%) EXCEPT a hole

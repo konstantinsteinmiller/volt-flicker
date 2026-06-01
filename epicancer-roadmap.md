@@ -106,16 +106,3 @@ On death, briefly auto‑magnet any coins still on screen into the run total
 larger, lifting rewarded‑ad opt‑in. Small addition to the death sequence +
 `useEpicArt` sweep VFX.
 ---
-
-## Suggested sequencing
-- **Sprint 1 (retention + flow basics):** 7, 1, 14, 16, 5
-- **Sprint 2 (habit + conversion):** 2, 11, 3, 17, 10
-- **Sprint 3 (depth + freshness):** 4, 12, 13, 6
-- **Sprint 4 (modes + events):** 9, 8, 18, 15
-
-## Measurement
-Instrument (dev‑only event names, exempt from i18n): `run_start`, `run_end`
-(cause, score, stage, duration), `revive_offered/_taken`, `item_collected`,
-`upgrade_bought`, `daily_claimed`, `twox_taken`, `stage_cleared`. Watch D1/D7
-retention, median session length, runs‑per‑session, and rewarded‑ad opt‑in
-rate as the north‑star metrics for the items above.

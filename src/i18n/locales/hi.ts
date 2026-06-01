@@ -1,4 +1,27 @@
 export default {
+  'ads': {
+    'watch': 'देखें', 'revive': 'पुनर्जीवित', 'secondChance': 'दूसरा मौका', 'doubleCoins': '2× सिक्के', 'plusCoins': '+{n} सिक्के'
+  },
+  'achievements': {
+    'title': 'उपलब्धियाँ', 'subtitle': 'सिक्के कमाने के लिए मील के पत्थर पाएँ।', 'claim': 'क्लेम', 'claimed': 'क्लेम किया', 'progress': '{c} / {t}',
+    'items': {
+      'tiles1k': { 'name': 'Globetrotter', 'desc': 'Travel 1,000 tiles in total.' },
+      'tiles5k': { 'name': 'Marathoner', 'desc': 'Travel 5,000 tiles in total.' },
+      'tiles10k': { 'name': 'Long Hauler', 'desc': 'Travel 10,000 tiles in total.' },
+      'tiles100k': { 'name': 'Voyager', 'desc': 'Travel 100,000 tiles in total.' },
+      'stage5': { 'name': 'Getting Started', 'desc': 'Reach stage 5.' },
+      'stage10': { 'name': 'Seasoned', 'desc': 'Reach stage 10.' },
+      'stage20': { 'name': 'Veteran', 'desc': 'Reach stage 20.' },
+      'clears25': { 'name': 'Clearing House', 'desc': 'Clear 25 stages in total.' },
+      'clears100': { 'name': 'Centurion', 'desc': 'Clear 100 stages in total.' },
+      'bestRun100': { 'name': 'Sprinter', 'desc': 'Travel 100 tiles in a single run.' },
+      'bestRun250': { 'name': 'Distance Demon', 'desc': 'Travel 250 tiles in a single run.' },
+      'coins5k': { 'name': 'Coin Collector', 'desc': 'Collect 5,000 coins in total.' },
+      'coins50k': { 'name': 'Treasurer', 'desc': 'Collect 50,000 coins in total.' },
+      'items50': { 'name': 'Unboxer', 'desc': 'Grab 50 item boxes in total.' },
+      'items250': { 'name': 'Hoarder', 'desc': 'Grab 250 item boxes in total.' }
+    }
+  },
   'gameName': 'Epicancer',
   'cancel': 'रद्द करें',
   'close': 'बंद करें',
@@ -14,9 +37,9 @@ export default {
   'startDesktop': 'शुरू करने के लिए क्लिक करें',
   'startSubhint': 'ऊपर की ओर लुढ़कें — गड्ढों और बाधाओं से बचने के लिए दिशा बदलें!',
   'hints': { 'tapToTurn': 'दिशा बदलने के लिए टैप करें', 'clickToTurn': 'दिशा बदलने के लिए क्लिक करें / स्पेस दबाएँ' },
-  'powerups': { 'invuln': 'अजेय', 'magnet': 'सिक्का चुंबक', 'dodge': 'चकमा माहिर', 'slowmo': 'धीमी गति', 'push': 'धक्का बल' },
+  'powerups': { 'invuln': 'अजेय', 'magnet': 'सिक्का चुंबक', 'dodge': 'चकमा माहिर', 'slowmo': 'धीमी गति', 'push': 'धक्का बल',  'racer': 'रेसर!' },
   'secondChance': { 'title': 'लुढ़कते रहें?', 'body': 'पुनर्जीवित होकर अपनी दौड़ जारी रखने के लिए एक छोटा विज्ञापन देखें।', 'watch': 'देखें और जारी रखें', 'skip': 'छोड़ें' },
-  'result': { 'win': 'चरण पूरा हुआ!', 'lose': 'खेल समाप्त', 'fell': 'आप एक गड्ढे में गिर गए!', 'crashed': 'आप एक बाधा से टकरा गए!', 'tiles': 'टाइलें', 'winReward': '+{n} चरण बोनस सहित', 'double': 'दोगुने सिक्के', 'firstRunDouble': '2× — आज की पहली दौड़!' },
+  'result': { 'win': 'चरण पूरा हुआ!', 'lose': 'खेल समाप्त', 'fell': 'आप एक गड्ढे में गिर गए!', 'crashed': 'आप एक बाधा से टकरा गए!', 'tiles': 'टाइलें', 'winReward': '+{n} चरण बोनस सहित', 'double': 'दोगुने सिक्के', 'firstRunDouble': '2× — आज की पहली दौड़!',  'almost': 'लगभग! {n} और टाइल बाकी।', 'retry': 'पुनः प्रयास', },
   'upgrades': {
     'title': 'उन्नयन',
     'subtitle': 'स्थायी रूप से शक्ति बढ़ाने के लिए सिक्के खर्च करें।',
@@ -35,8 +58,8 @@ export default {
     'title': 'बॉल स्किन',
     'subtitle': 'नए रूप अनलॉक और लैस करने के लिए सिक्के खर्च करें।',
     'equip': 'लैस करें',
-    'equipped': 'लैस'
-  },
+    'equipped': 'लैस',
+   'locked': 'स्टेज {n}', 'new': 'नया!', 'rarity': { 'common': 'सामान्य', 'rare': 'दुर्लभ', 'epic': 'महाकाव्य' }, },
   'missions': {
     'title': 'दैनिक मिशन',
     'subtitle': 'सिक्कों के लिए हर दिन लक्ष्य पूरे करें।',

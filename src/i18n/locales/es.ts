@@ -1,4 +1,27 @@
 export default {
+  'ads': {
+    'watch': 'Ver', 'revive': 'Revivir', 'secondChance': 'Segunda oportunidad', 'doubleCoins': '2× monedas', 'plusCoins': '+{n} monedas'
+  },
+  'achievements': {
+    'title': 'Logros', 'subtitle': 'Alcanza hitos para ganar monedas.', 'claim': 'Reclamar', 'claimed': 'Reclamado', 'progress': '{c} / {t}',
+    'items': {
+      'tiles1k': { 'name': 'Globetrotter', 'desc': 'Travel 1,000 tiles in total.' },
+      'tiles5k': { 'name': 'Marathoner', 'desc': 'Travel 5,000 tiles in total.' },
+      'tiles10k': { 'name': 'Long Hauler', 'desc': 'Travel 10,000 tiles in total.' },
+      'tiles100k': { 'name': 'Voyager', 'desc': 'Travel 100,000 tiles in total.' },
+      'stage5': { 'name': 'Getting Started', 'desc': 'Reach stage 5.' },
+      'stage10': { 'name': 'Seasoned', 'desc': 'Reach stage 10.' },
+      'stage20': { 'name': 'Veteran', 'desc': 'Reach stage 20.' },
+      'clears25': { 'name': 'Clearing House', 'desc': 'Clear 25 stages in total.' },
+      'clears100': { 'name': 'Centurion', 'desc': 'Clear 100 stages in total.' },
+      'bestRun100': { 'name': 'Sprinter', 'desc': 'Travel 100 tiles in a single run.' },
+      'bestRun250': { 'name': 'Distance Demon', 'desc': 'Travel 250 tiles in a single run.' },
+      'coins5k': { 'name': 'Coin Collector', 'desc': 'Collect 5,000 coins in total.' },
+      'coins50k': { 'name': 'Treasurer', 'desc': 'Collect 50,000 coins in total.' },
+      'items50': { 'name': 'Unboxer', 'desc': 'Grab 50 item boxes in total.' },
+      'items250': { 'name': 'Hoarder', 'desc': 'Grab 250 item boxes in total.' }
+    }
+  },
   'gameName': 'Epicancer',
   'cancel': 'Cancelar',
   'close': 'Cerrar',
@@ -22,8 +45,8 @@ export default {
     'magnet': 'Imán de monedas',
     'dodge': 'Maestro de esquiva',
     'slowmo': 'Cámara lenta',
-    'push': 'Fuerza de empuje'
-  },
+    'push': 'Fuerza de empuje',
+   'racer': '¡Racer!' },
   'secondChance': {
     'title': '¿Seguir rodando?',
     'body': 'Mira un breve anuncio para revivir y continuar tu partida.',
@@ -38,8 +61,8 @@ export default {
     'tiles': 'Casillas',
     'winReward': 'incl. +{n} de bonus de nivel',
     'double': 'Duplicar monedas',
-    'firstRunDouble': '2× — ¡primera partida de hoy!'
-  },
+    'firstRunDouble': '2× — ¡primera partida de hoy!',
+   'almost': '¡Casi! Faltan {n} casillas.', 'retry': 'Reintentar', },
   'upgrades': {
     'title': 'Mejoras',
     'subtitle': 'Gasta monedas para potenciarte permanentemente.',
@@ -96,8 +119,8 @@ export default {
     'title': 'Aspectos de Bola',
     'subtitle': 'Gasta monedas para desbloquear y equipar nuevos aspectos.',
     'equip': 'Equipar',
-    'equipped': 'Equipado'
-  },
+    'equipped': 'Equipado',
+   'locked': 'Nivel {n}', 'new': '¡Nuevo!', 'rarity': { 'common': 'Común', 'rare': 'Raro', 'epic': 'Épico' }, },
   'missions': {
     'title': 'Misiones diarias',
     'subtitle': 'Completa objetivos cada día para ganar monedas.',

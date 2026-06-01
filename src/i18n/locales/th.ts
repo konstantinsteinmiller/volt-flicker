@@ -1,4 +1,27 @@
 export default {
+  'ads': {
+    'watch': 'ดู', 'revive': 'ชุบชีวิต', 'secondChance': 'โอกาสที่สอง', 'doubleCoins': '2× เหรียญ', 'plusCoins': '+{n} เหรียญ'
+  },
+  'achievements': {
+    'title': 'ความสำเร็จ', 'subtitle': 'ทำเป้าหมายสะสมเพื่อรับเหรียญ', 'claim': 'รับ', 'claimed': 'รับแล้ว', 'progress': '{c} / {t}',
+    'items': {
+      'tiles1k': { 'name': 'Globetrotter', 'desc': 'Travel 1,000 tiles in total.' },
+      'tiles5k': { 'name': 'Marathoner', 'desc': 'Travel 5,000 tiles in total.' },
+      'tiles10k': { 'name': 'Long Hauler', 'desc': 'Travel 10,000 tiles in total.' },
+      'tiles100k': { 'name': 'Voyager', 'desc': 'Travel 100,000 tiles in total.' },
+      'stage5': { 'name': 'Getting Started', 'desc': 'Reach stage 5.' },
+      'stage10': { 'name': 'Seasoned', 'desc': 'Reach stage 10.' },
+      'stage20': { 'name': 'Veteran', 'desc': 'Reach stage 20.' },
+      'clears25': { 'name': 'Clearing House', 'desc': 'Clear 25 stages in total.' },
+      'clears100': { 'name': 'Centurion', 'desc': 'Clear 100 stages in total.' },
+      'bestRun100': { 'name': 'Sprinter', 'desc': 'Travel 100 tiles in a single run.' },
+      'bestRun250': { 'name': 'Distance Demon', 'desc': 'Travel 250 tiles in a single run.' },
+      'coins5k': { 'name': 'Coin Collector', 'desc': 'Collect 5,000 coins in total.' },
+      'coins50k': { 'name': 'Treasurer', 'desc': 'Collect 50,000 coins in total.' },
+      'items50': { 'name': 'Unboxer', 'desc': 'Grab 50 item boxes in total.' },
+      'items250': { 'name': 'Hoarder', 'desc': 'Grab 250 item boxes in total.' }
+    }
+  },
   'gameName': 'Epicancer',
   'cancel': 'ยกเลิก',
   'close': 'ปิด',
@@ -14,9 +37,9 @@ export default {
   'startDesktop': 'คลิกเพื่อเริ่ม',
   'startSubhint': 'กลิ้งขึ้นไป — เปลี่ยนทิศทางเพื่อหลบช่องว่างและสิ่งกีดขวาง!',
   'hints': { 'tapToTurn': 'แตะเพื่อเปลี่ยนทิศทาง', 'clickToTurn': 'คลิก / เว้นวรรค เพื่อเปลี่ยนทิศทาง' },
-  'powerups': { 'invuln': 'อมตะ', 'magnet': 'แม่เหล็กดูดเหรียญ', 'dodge': 'ราชาแห่งการหลบ', 'slowmo': 'เคลื่อนไหวช้า', 'push': 'พลังผลัก' },
+  'powerups': { 'invuln': 'อมตะ', 'magnet': 'แม่เหล็กดูดเหรียญ', 'dodge': 'ราชาแห่งการหลบ', 'slowmo': 'เคลื่อนไหวช้า', 'push': 'พลังผลัก',  'racer': 'เรเซอร์!' },
   'secondChance': { 'title': 'กลิ้งต่อไหม?', 'body': 'ดูโฆษณาสั้นๆ เพื่อฟื้นคืนชีพและเล่นต่อ', 'watch': 'ดูแล้วเล่นต่อ', 'skip': 'ข้าม' },
-  'result': { 'win': 'ผ่านด่าน!', 'lose': 'จบเกม', 'fell': 'คุณตกลงไปในช่องว่าง!', 'crashed': 'คุณชนกับสิ่งกีดขวาง!', 'tiles': 'แผ่นกระเบื้อง', 'winReward': 'รวมโบนัสด่าน +{n}', 'double': 'เหรียญสองเท่า', 'firstRunDouble': '2× — เล่นครั้งแรกของวันนี้!' },
+  'result': { 'win': 'ผ่านด่าน!', 'lose': 'จบเกม', 'fell': 'คุณตกลงไปในช่องว่าง!', 'crashed': 'คุณชนกับสิ่งกีดขวาง!', 'tiles': 'แผ่นกระเบื้อง', 'winReward': 'รวมโบนัสด่าน +{n}', 'double': 'เหรียญสองเท่า', 'firstRunDouble': '2× — เล่นครั้งแรกของวันนี้!',  'almost': 'เกือบแล้ว! อีก {n} ช่อง', 'retry': 'ลองใหม่', },
   'upgrades': {
     'title': 'อัปเกรด',
     'subtitle': 'ใช้เหรียญเพื่อเพิ่มพลังแบบถาวร',
@@ -35,8 +58,8 @@ export default {
     'title': 'สกินลูกบอล',
     'subtitle': 'ใช้เหรียญเพื่อปลดล็อกและสวมใส่รูปลักษณ์ใหม่',
     'equip': 'สวมใส่',
-    'equipped': 'สวมใส่แล้ว'
-  },
+    'equipped': 'สวมใส่แล้ว',
+   'locked': 'ด่าน {n}', 'new': 'ใหม่!', 'rarity': { 'common': 'ทั่วไป', 'rare': 'หายาก', 'epic': 'มหากาพย์' }, },
   'missions': {
     'title': 'ภารกิจประจำวัน',
     'subtitle': 'ทำเป้าหมายให้สำเร็จทุกวันเพื่อรับเหรียญ',

@@ -1,4 +1,27 @@
 export default {
+  'ads': {
+    'watch': 'Obejrzyj', 'revive': 'Wskrześ', 'secondChance': 'Druga szansa', 'doubleCoins': '2× monety', 'plusCoins': '+{n} monet'
+  },
+  'achievements': {
+    'title': 'Osiągnięcia', 'subtitle': 'Zdobywaj kamienie milowe, by zarobić monety.', 'claim': 'Odbierz', 'claimed': 'Odebrano', 'progress': '{c} / {t}',
+    'items': {
+      'tiles1k': { 'name': 'Globetrotter', 'desc': 'Travel 1,000 tiles in total.' },
+      'tiles5k': { 'name': 'Marathoner', 'desc': 'Travel 5,000 tiles in total.' },
+      'tiles10k': { 'name': 'Long Hauler', 'desc': 'Travel 10,000 tiles in total.' },
+      'tiles100k': { 'name': 'Voyager', 'desc': 'Travel 100,000 tiles in total.' },
+      'stage5': { 'name': 'Getting Started', 'desc': 'Reach stage 5.' },
+      'stage10': { 'name': 'Seasoned', 'desc': 'Reach stage 10.' },
+      'stage20': { 'name': 'Veteran', 'desc': 'Reach stage 20.' },
+      'clears25': { 'name': 'Clearing House', 'desc': 'Clear 25 stages in total.' },
+      'clears100': { 'name': 'Centurion', 'desc': 'Clear 100 stages in total.' },
+      'bestRun100': { 'name': 'Sprinter', 'desc': 'Travel 100 tiles in a single run.' },
+      'bestRun250': { 'name': 'Distance Demon', 'desc': 'Travel 250 tiles in a single run.' },
+      'coins5k': { 'name': 'Coin Collector', 'desc': 'Collect 5,000 coins in total.' },
+      'coins50k': { 'name': 'Treasurer', 'desc': 'Collect 50,000 coins in total.' },
+      'items50': { 'name': 'Unboxer', 'desc': 'Grab 50 item boxes in total.' },
+      'items250': { 'name': 'Hoarder', 'desc': 'Grab 250 item boxes in total.' }
+    }
+  },
   'gameName': 'Epicancer',
   'cancel': 'Anuluj',
   'close': 'Zamknij',
@@ -22,8 +45,8 @@ export default {
     'magnet': 'Magnes na Monety',
     'dodge': 'Mistrz Uniku',
     'slowmo': 'Zwolnione Tempo',
-    'push': 'Siła Pchnięcia'
-  },
+    'push': 'Siła Pchnięcia',
+   'racer': 'Racer!' },
   'secondChance': {
     'title': 'Toczyć dalej?',
     'body': 'Obejrzyj krótką reklamę, aby ożyć i kontynuować bieg.',
@@ -38,8 +61,8 @@ export default {
     'tiles': 'Pola',
     'winReward': 'w tym +{n} bonus za etap',
     'double': 'Podwój monety',
-    'firstRunDouble': '2× — pierwszy bieg dzisiaj!'
-  },
+    'firstRunDouble': '2× — pierwszy bieg dzisiaj!',
+   'almost': 'Prawie! Jeszcze {n} pól.', 'retry': 'Ponów', },
   'upgrades': {
     'title': 'Ulepszenia',
     'subtitle': 'Wydawaj monety, aby trwale się wzmocnić.',
@@ -96,8 +119,8 @@ export default {
     'title': 'Skórki Kuli',
     'subtitle': 'Wydawaj monety, aby odblokować i założyć nowe wyglądy.',
     'equip': 'Załóż',
-    'equipped': 'Założono'
-  },
+    'equipped': 'Założono',
+   'locked': 'Etap {n}', 'new': 'Nowość!', 'rarity': { 'common': 'Zwykły', 'rare': 'Rzadki', 'epic': 'Epicki' }, },
   'missions': {
     'title': 'Misje Dzienne',
     'subtitle': 'Wykonuj codzienne cele, aby zdobyć monety.',

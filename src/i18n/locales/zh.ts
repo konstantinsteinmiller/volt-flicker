@@ -1,4 +1,27 @@
 export default {
+  'ads': {
+    'watch': '观看', 'revive': '复活', 'secondChance': '第二次机会', 'doubleCoins': '2× 金币', 'plusCoins': '+{n} 金币'
+  },
+  'achievements': {
+    'title': '成就', 'subtitle': '达成长期里程碑赢取金币。', 'claim': '领取', 'claimed': '已领取', 'progress': '{c} / {t}',
+    'items': {
+      'tiles1k': { 'name': 'Globetrotter', 'desc': 'Travel 1,000 tiles in total.' },
+      'tiles5k': { 'name': 'Marathoner', 'desc': 'Travel 5,000 tiles in total.' },
+      'tiles10k': { 'name': 'Long Hauler', 'desc': 'Travel 10,000 tiles in total.' },
+      'tiles100k': { 'name': 'Voyager', 'desc': 'Travel 100,000 tiles in total.' },
+      'stage5': { 'name': 'Getting Started', 'desc': 'Reach stage 5.' },
+      'stage10': { 'name': 'Seasoned', 'desc': 'Reach stage 10.' },
+      'stage20': { 'name': 'Veteran', 'desc': 'Reach stage 20.' },
+      'clears25': { 'name': 'Clearing House', 'desc': 'Clear 25 stages in total.' },
+      'clears100': { 'name': 'Centurion', 'desc': 'Clear 100 stages in total.' },
+      'bestRun100': { 'name': 'Sprinter', 'desc': 'Travel 100 tiles in a single run.' },
+      'bestRun250': { 'name': 'Distance Demon', 'desc': 'Travel 250 tiles in a single run.' },
+      'coins5k': { 'name': 'Coin Collector', 'desc': 'Collect 5,000 coins in total.' },
+      'coins50k': { 'name': 'Treasurer', 'desc': 'Collect 50,000 coins in total.' },
+      'items50': { 'name': 'Unboxer', 'desc': 'Grab 50 item boxes in total.' },
+      'items250': { 'name': 'Hoarder', 'desc': 'Grab 250 item boxes in total.' }
+    }
+  },
   'gameName': 'Epicancer',
   'cancel': '取消',
   'close': '关闭',
@@ -22,8 +45,8 @@ export default {
     'magnet': '金币磁铁',
     'dodge': '闪避大师',
     'slowmo': '慢动作',
-    'push': '推力'
-  },
+    'push': '推力',
+   'racer': '冲刺!' },
   'secondChance': {
     'title': '继续滚动？',
     'body': '观看一则短广告以复活并继续。',
@@ -38,8 +61,8 @@ export default {
     'tiles': '格子',
     'winReward': '含 +{n} 关卡奖励',
     'double': '双倍金币',
-    'firstRunDouble': '2倍 — 今日首局！'
-  },
+    'firstRunDouble': '2倍 — 今日首局！',
+   'almost': '差一点！还需 {n} 格即可通关。', 'retry': '重试', },
   'upgrades': {
     'title': '升级',
     'subtitle': '花费金币永久强化。',
@@ -96,8 +119,8 @@ export default {
     'title': '球皮肤',
     'subtitle': '花费金币解锁并装备新外观。',
     'equip': '装备',
-    'equipped': '已装备'
-  },
+    'equipped': '已装备',
+   'locked': '关卡 {n}', 'new': '新!', 'rarity': { 'common': '普通', 'rare': '稀有', 'epic': '史诗' }, },
   'missions': {
     'title': '每日任务',
     'subtitle': '每天完成目标以获得金币。',

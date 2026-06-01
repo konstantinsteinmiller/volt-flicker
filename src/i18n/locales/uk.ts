@@ -1,4 +1,27 @@
 export default {
+  'ads': {
+    'watch': 'Дивитися', 'revive': 'Відродити', 'secondChance': 'Другий шанс', 'doubleCoins': '2× монет', 'plusCoins': '+{n} монет'
+  },
+  'achievements': {
+    'title': 'Досягнення', 'subtitle': 'Досягайте віх, щоб заробити монети.', 'claim': 'Забрати', 'claimed': 'Отримано', 'progress': '{c} / {t}',
+    'items': {
+      'tiles1k': { 'name': 'Globetrotter', 'desc': 'Travel 1,000 tiles in total.' },
+      'tiles5k': { 'name': 'Marathoner', 'desc': 'Travel 5,000 tiles in total.' },
+      'tiles10k': { 'name': 'Long Hauler', 'desc': 'Travel 10,000 tiles in total.' },
+      'tiles100k': { 'name': 'Voyager', 'desc': 'Travel 100,000 tiles in total.' },
+      'stage5': { 'name': 'Getting Started', 'desc': 'Reach stage 5.' },
+      'stage10': { 'name': 'Seasoned', 'desc': 'Reach stage 10.' },
+      'stage20': { 'name': 'Veteran', 'desc': 'Reach stage 20.' },
+      'clears25': { 'name': 'Clearing House', 'desc': 'Clear 25 stages in total.' },
+      'clears100': { 'name': 'Centurion', 'desc': 'Clear 100 stages in total.' },
+      'bestRun100': { 'name': 'Sprinter', 'desc': 'Travel 100 tiles in a single run.' },
+      'bestRun250': { 'name': 'Distance Demon', 'desc': 'Travel 250 tiles in a single run.' },
+      'coins5k': { 'name': 'Coin Collector', 'desc': 'Collect 5,000 coins in total.' },
+      'coins50k': { 'name': 'Treasurer', 'desc': 'Collect 50,000 coins in total.' },
+      'items50': { 'name': 'Unboxer', 'desc': 'Grab 50 item boxes in total.' },
+      'items250': { 'name': 'Hoarder', 'desc': 'Grab 250 item boxes in total.' }
+    }
+  },
   'gameName': 'Epicancer',
   'cancel': 'Скасувати',
   'close': 'Закрити',
@@ -22,8 +45,8 @@ export default {
     'magnet': 'Магніт для Монет',
     'dodge': 'Майстер Ухилення',
     'slowmo': 'Уповільнення',
-    'push': 'Сила Поштовху'
-  },
+    'push': 'Сила Поштовху',
+   'racer': 'Гонщик!' },
   'secondChance': {
     'title': 'Котитися далі?',
     'body': 'Перегляньте коротку рекламу, щоб ожити та продовжити забіг.',
@@ -38,8 +61,8 @@ export default {
     'tiles': 'Клітини',
     'winReward': 'вкл. +{n} бонус за етап',
     'double': 'Подвоїти монети',
-    'firstRunDouble': '2× — перший забіг сьогодні!'
-  },
+    'firstRunDouble': '2× — перший забіг сьогодні!',
+   'almost': 'Майже! Ще {n} клітинок.', 'retry': 'Ще раз', },
   'upgrades': {
     'title': 'Покращення',
     'subtitle': 'Витрачайте монети, щоб посилитися назавжди.',
@@ -96,8 +119,8 @@ export default {
     'title': 'Скіни М’яча',
     'subtitle': 'Витрачайте монети, щоб відкривати й вдягати нові образи.',
     'equip': 'Вдягнути',
-    'equipped': 'Вдягнено'
-  },
+    'equipped': 'Вдягнено',
+   'locked': 'Етап {n}', 'new': 'Нове!', 'rarity': { 'common': 'Звичайний', 'rare': 'Рідкісний', 'epic': 'Епічний' }, },
   'missions': {
     'title': 'Щоденні Місії',
     'subtitle': 'Виконуйте цілі щодня заради монет.',

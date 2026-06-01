@@ -245,6 +245,7 @@ export const showInterstitialPG = async (): Promise<void> => {
   if (!bridge?.advertisement?.showInterstitial) return
   return new Promise<void>((resolve) => {
     let settled = false
+    let opened = false
     const ev = bridge?.EVENT_NAME ?? {}
     const evName = ev.INTERSTITIAL_STATE_CHANGED ?? 'interstitial_state_changed'
     const finish = () => {
@@ -254,12 +255,23 @@ export const showInterstitialPG = async (): Promise<void> => {
       resolve()
     }
     const off = bridge.advertisement?.on?.(evName, (state: string) => {
+      if (state === 'loading' || state === 'opened') { opened = true; return }
       if (state === 'closed' || state === 'failed') finish()
     })
     try {
       const maybe = bridge.advertisement.showInterstitial()
       if (maybe && typeof maybe.then === 'function') {
-        maybe.then(() => finish(), () => finish())
+        // DO NOT settle when the show() promise resolves: Playgama resolves it
+        // the instant the request is DISPATCHED, before the ad opens. Settling
+        // there dropped the pause gate immediately, so music + gameplay resumed
+        // UNDERNEATH the still-open ad. The lifecycle is driven by
+        // INTERSTITIAL_STATE_CHANGED ('opened' → 'closed'/'failed'). The promise
+        // is only used to (a) catch a hard dispatch failure, and (b) detect a
+        // no-fill where the ad never opened (short grace, then finish).
+        maybe.then(
+          () => { setTimeout(() => { if (!opened) finish() }, 800) },
+          () => finish()
+        )
       }
     } catch (e) {
       console.warn('[playgama] showInterstitial threw', e)
@@ -280,6 +292,7 @@ export const showRewardedPG = async (): Promise<boolean> => {
   return new Promise<boolean>((resolve) => {
     let settled = false
     let rewarded = false
+    let opened = false
     const ev = bridge?.EVENT_NAME ?? {}
     const evName = ev.REWARDED_STATE_CHANGED ?? 'rewarded_state_changed'
     const finish = () => {
@@ -289,6 +302,7 @@ export const showRewardedPG = async (): Promise<boolean> => {
       resolve(rewarded)
     }
     const off = bridge.advertisement?.on?.(evName, (state: string) => {
+      if (state === 'loading' || state === 'opened') { opened = true; return }
       if (state === 'rewarded') {
         rewarded = true
         return
@@ -298,7 +312,18 @@ export const showRewardedPG = async (): Promise<boolean> => {
     try {
       const maybe = bridge.advertisement.showRewarded()
       if (maybe && typeof maybe.then === 'function') {
-        maybe.then(() => finish(), () => finish())
+        // DO NOT settle when the show() promise resolves: Playgama resolves it
+        // the instant the request is DISPATCHED — before the ad opens, and well
+        // before the 'rewarded' grant edge. Settling there resolved granted=false
+        // immediately and dropped the pause gate, so music + gameplay resumed
+        // UNDER the still-open ad (the bug in the log). The grant + close are
+        // driven entirely by REWARDED_STATE_CHANGED ('opened' → 'rewarded' →
+        // 'closed'/'failed'). The promise is only used to (a) catch a hard
+        // dispatch failure, and (b) detect a no-fill where the ad never opened.
+        maybe.then(
+          () => { setTimeout(() => { if (!opened) finish() }, 800) },
+          () => finish()
+        )
       }
     } catch (e) {
       console.warn('[playgama] showRewarded threw', e)

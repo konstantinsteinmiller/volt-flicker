@@ -1,4 +1,27 @@
 export default {
+  'ads': {
+    'watch': 'Смотреть', 'revive': 'Возродить', 'secondChance': 'Второй шанс', 'doubleCoins': '2× монет', 'plusCoins': '+{n} монет'
+  },
+  'achievements': {
+    'title': 'Достижения', 'subtitle': 'Достигайте вех, чтобы заработать монеты.', 'claim': 'Забрать', 'claimed': 'Получено', 'progress': '{c} / {t}',
+    'items': {
+      'tiles1k': { 'name': 'Globetrotter', 'desc': 'Travel 1,000 tiles in total.' },
+      'tiles5k': { 'name': 'Marathoner', 'desc': 'Travel 5,000 tiles in total.' },
+      'tiles10k': { 'name': 'Long Hauler', 'desc': 'Travel 10,000 tiles in total.' },
+      'tiles100k': { 'name': 'Voyager', 'desc': 'Travel 100,000 tiles in total.' },
+      'stage5': { 'name': 'Getting Started', 'desc': 'Reach stage 5.' },
+      'stage10': { 'name': 'Seasoned', 'desc': 'Reach stage 10.' },
+      'stage20': { 'name': 'Veteran', 'desc': 'Reach stage 20.' },
+      'clears25': { 'name': 'Clearing House', 'desc': 'Clear 25 stages in total.' },
+      'clears100': { 'name': 'Centurion', 'desc': 'Clear 100 stages in total.' },
+      'bestRun100': { 'name': 'Sprinter', 'desc': 'Travel 100 tiles in a single run.' },
+      'bestRun250': { 'name': 'Distance Demon', 'desc': 'Travel 250 tiles in a single run.' },
+      'coins5k': { 'name': 'Coin Collector', 'desc': 'Collect 5,000 coins in total.' },
+      'coins50k': { 'name': 'Treasurer', 'desc': 'Collect 50,000 coins in total.' },
+      'items50': { 'name': 'Unboxer', 'desc': 'Grab 50 item boxes in total.' },
+      'items250': { 'name': 'Hoarder', 'desc': 'Grab 250 item boxes in total.' }
+    }
+  },
   'gameName': 'Epicancer',
   'cancel': 'Отмена',
   'close': 'Закрыть',
@@ -22,8 +45,8 @@ export default {
     'magnet': 'Магнит монет',
     'dodge': 'Мастер уклонения',
     'slowmo': 'Замедление',
-    'push': 'Сила толчка'
-  },
+    'push': 'Сила толчка',
+   'racer': 'Гонщик!' },
   'secondChance': {
     'title': 'Продолжить?',
     'body': 'Посмотрите короткую рекламу, чтобы возродиться и продолжить.',
@@ -38,8 +61,8 @@ export default {
     'tiles': 'Плитки',
     'winReward': 'вкл. +{n} бонус за этап',
     'double': 'Удвоить монеты',
-    'firstRunDouble': '2× — первый забег сегодня!'
-  },
+    'firstRunDouble': '2× — первый забег сегодня!',
+   'almost': 'Почти! Ещё {n} клеток.', 'retry': 'Заново', },
   'upgrades': {
     'title': 'Улучшения',
     'subtitle': 'Тратьте монеты на постоянные улучшения.',
@@ -96,8 +119,8 @@ export default {
     'title': 'Скины Мяча',
     'subtitle': 'Тратьте монеты, чтобы открывать и надевать новые образы.',
     'equip': 'Надеть',
-    'equipped': 'Надето'
-  },
+    'equipped': 'Надето',
+   'locked': 'Этап {n}', 'new': 'Ново!', 'rarity': { 'common': 'Обычный', 'rare': 'Редкий', 'epic': 'Эпический' }, },
   'missions': {
     'title': 'Ежедневные Миссии',
     'subtitle': 'Выполняйте цели каждый день ради монет.',

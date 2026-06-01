@@ -1,4 +1,27 @@
 export default {
+  'ads': {
+    'watch': 'Regarder', 'revive': 'Revivre', 'secondChance': 'Seconde chance', 'doubleCoins': '2× pièces', 'plusCoins': '+{n} pièces'
+  },
+  'achievements': {
+    'title': 'Succès', 'subtitle': 'Atteignez des jalons pour gagner des pièces.', 'claim': 'Réclamer', 'claimed': 'Réclamé', 'progress': '{c} / {t}',
+    'items': {
+      'tiles1k': { 'name': 'Globetrotter', 'desc': 'Travel 1,000 tiles in total.' },
+      'tiles5k': { 'name': 'Marathoner', 'desc': 'Travel 5,000 tiles in total.' },
+      'tiles10k': { 'name': 'Long Hauler', 'desc': 'Travel 10,000 tiles in total.' },
+      'tiles100k': { 'name': 'Voyager', 'desc': 'Travel 100,000 tiles in total.' },
+      'stage5': { 'name': 'Getting Started', 'desc': 'Reach stage 5.' },
+      'stage10': { 'name': 'Seasoned', 'desc': 'Reach stage 10.' },
+      'stage20': { 'name': 'Veteran', 'desc': 'Reach stage 20.' },
+      'clears25': { 'name': 'Clearing House', 'desc': 'Clear 25 stages in total.' },
+      'clears100': { 'name': 'Centurion', 'desc': 'Clear 100 stages in total.' },
+      'bestRun100': { 'name': 'Sprinter', 'desc': 'Travel 100 tiles in a single run.' },
+      'bestRun250': { 'name': 'Distance Demon', 'desc': 'Travel 250 tiles in a single run.' },
+      'coins5k': { 'name': 'Coin Collector', 'desc': 'Collect 5,000 coins in total.' },
+      'coins50k': { 'name': 'Treasurer', 'desc': 'Collect 50,000 coins in total.' },
+      'items50': { 'name': 'Unboxer', 'desc': 'Grab 50 item boxes in total.' },
+      'items250': { 'name': 'Hoarder', 'desc': 'Grab 250 item boxes in total.' }
+    }
+  },
   'gameName': 'Epicancer',
   'cancel': 'Annuler',
   'close': 'Fermer',
@@ -22,8 +45,8 @@ export default {
     'magnet': 'Aimant à pièces',
     'dodge': "Maître de l'esquive",
     'slowmo': 'Ralenti',
-    'push': 'Force de poussée'
-  },
+    'push': 'Force de poussée',
+   'racer': 'Racer !' },
   'secondChance': {
     'title': 'Continuer à rouler ?',
     'body': 'Regardez une courte pub pour ressusciter et continuer votre partie.',
@@ -38,8 +61,8 @@ export default {
     'tiles': 'Cases',
     'winReward': 'dont +{n} bonus de niveau',
     'double': 'Doubler les pièces',
-    'firstRunDouble': '2× — première partie du jour !'
-  },
+    'firstRunDouble': '2× — première partie du jour !',
+   'almost': 'Presque ! Encore {n} cases.', 'retry': 'Réessayer', },
   'upgrades': {
     'title': 'Améliorations',
     'subtitle': 'Dépensez des pièces pour vous renforcer définitivement.',
@@ -96,8 +119,8 @@ export default {
     'title': 'Skins de Balle',
     'subtitle': 'Dépensez des pièces pour débloquer et équiper de nouveaux looks.',
     'equip': 'Équiper',
-    'equipped': 'Équipé'
-  },
+    'equipped': 'Équipé',
+   'locked': 'Niveau {n}', 'new': 'Nouveau !', 'rarity': { 'common': 'Commun', 'rare': 'Rare', 'epic': 'Épique' }, },
   'missions': {
     'title': 'Missions quotidiennes',
     'subtitle': 'Accomplissez des objectifs chaque jour pour des pièces.',

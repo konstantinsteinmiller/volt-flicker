@@ -1,4 +1,27 @@
 export default {
+  'ads': {
+    'watch': 'Көру', 'revive': 'Тірілту', 'secondChance': 'Екінші мүмкіндік', 'doubleCoins': '2× тиын', 'plusCoins': '+{n} тиын'
+  },
+  'achievements': {
+    'title': 'Жетістіктер', 'subtitle': 'Тиын табу үшін мақсаттарға жетіңіз.', 'claim': 'Алу', 'claimed': 'Алынды', 'progress': '{c} / {t}',
+    'items': {
+      'tiles1k': { 'name': 'Globetrotter', 'desc': 'Travel 1,000 tiles in total.' },
+      'tiles5k': { 'name': 'Marathoner', 'desc': 'Travel 5,000 tiles in total.' },
+      'tiles10k': { 'name': 'Long Hauler', 'desc': 'Travel 10,000 tiles in total.' },
+      'tiles100k': { 'name': 'Voyager', 'desc': 'Travel 100,000 tiles in total.' },
+      'stage5': { 'name': 'Getting Started', 'desc': 'Reach stage 5.' },
+      'stage10': { 'name': 'Seasoned', 'desc': 'Reach stage 10.' },
+      'stage20': { 'name': 'Veteran', 'desc': 'Reach stage 20.' },
+      'clears25': { 'name': 'Clearing House', 'desc': 'Clear 25 stages in total.' },
+      'clears100': { 'name': 'Centurion', 'desc': 'Clear 100 stages in total.' },
+      'bestRun100': { 'name': 'Sprinter', 'desc': 'Travel 100 tiles in a single run.' },
+      'bestRun250': { 'name': 'Distance Demon', 'desc': 'Travel 250 tiles in a single run.' },
+      'coins5k': { 'name': 'Coin Collector', 'desc': 'Collect 5,000 coins in total.' },
+      'coins50k': { 'name': 'Treasurer', 'desc': 'Collect 50,000 coins in total.' },
+      'items50': { 'name': 'Unboxer', 'desc': 'Grab 50 item boxes in total.' },
+      'items250': { 'name': 'Hoarder', 'desc': 'Grab 250 item boxes in total.' }
+    }
+  },
   'gameName': 'Epicancer',
   'cancel': 'Бас тарту',
   'close': 'Жабу',
@@ -14,9 +37,9 @@ export default {
   'startDesktop': 'Бастау үшін басыңыз',
   'startSubhint': 'Жоғары қарай домалаңыз — саңылаулар мен кедергілерден жалтару үшін бағытты өзгертіңіз!',
   'hints': { 'tapToTurn': 'Бағытты өзгерту үшін түртіңіз', 'clickToTurn': 'Бағытты өзгерту үшін басыңыз / Бос орын' },
-  'powerups': { 'invuln': 'Жеңілмейтін', 'magnet': 'Монета магниті', 'dodge': 'Жалтару шебері', 'slowmo': 'Баяу қозғалыс', 'push': 'Итеру күші' },
+  'powerups': { 'invuln': 'Жеңілмейтін', 'magnet': 'Монета магниті', 'dodge': 'Жалтару шебері', 'slowmo': 'Баяу қозғалыс', 'push': 'Итеру күші',  'racer': 'Жарысшы!' },
   'secondChance': { 'title': 'Домалауды жалғастырасыз ба?', 'body': 'Қайта тіріліп, жүгірісіңізді жалғастыру үшін қысқа жарнаманы көріңіз.', 'watch': 'Көру және жалғастыру', 'skip': 'Өткізіп жіберу' },
-  'result': { 'win': 'КЕЗЕҢ ӨТТІ!', 'lose': 'ОЙЫН АЯҚТАЛДЫ', 'fell': 'Сіз саңылауға құлап түстіңіз!', 'crashed': 'Сіз кедергіге соғылдыңыз!', 'tiles': 'Тақтайшалар', 'winReward': 'қоса +{n} кезең бонусы', 'double': 'Қос монета', 'firstRunDouble': '2× — бүгінгі алғашқы ойын!' },
+  'result': { 'win': 'КЕЗЕҢ ӨТТІ!', 'lose': 'ОЙЫН АЯҚТАЛДЫ', 'fell': 'Сіз саңылауға құлап түстіңіз!', 'crashed': 'Сіз кедергіге соғылдыңыз!', 'tiles': 'Тақтайшалар', 'winReward': 'қоса +{n} кезең бонусы', 'double': 'Қос монета', 'firstRunDouble': '2× — бүгінгі алғашқы ойын!',  'almost': 'Аз қалды! Тағы {n} тор.', 'retry': 'Қайталау', },
   'upgrades': {
     'title': 'Жетілдірулер',
     'subtitle': 'Тұрақты күшею үшін монеталарды жұмсаңыз.',
@@ -35,8 +58,8 @@ export default {
     'title': 'Доп Скиндері',
     'subtitle': 'Жаңа сыртқы түрлерді ашу және кию үшін монета жұмсаңыз.',
     'equip': 'Кию',
-    'equipped': 'Киілген'
-  },
+    'equipped': 'Киілген',
+   'locked': 'Кезең {n}', 'new': 'Жаңа!', 'rarity': { 'common': 'Қарапайым', 'rare': 'Сирек', 'epic': 'Эпик' }, },
   'missions': {
     'title': 'Күнделікті тапсырмалар',
     'subtitle': 'Монета алу үшін күн сайын мақсаттарды орындаңыз.',
