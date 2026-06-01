@@ -162,7 +162,7 @@ const plattformText = computed(() => getPlattformText())
     RouterView
 
   div.relative.w-full.h-full(v-else-if="isGlitchDenied")
-    h1.absolute.text-red-500(class="left-1/2 -translate-x-[50%] top-1/2 -translate-y-[50%] text-3xl") Access Denied: Please purchase a license.
+    h1.absolute.text-red-500(class="left-1/2 -translate-x-[50%] top-1/2 -translate-y-[50%] text-3xl") {{ t('license.denied') }}
 
 
   div.relative.w-full.h-full(v-else-if="showOnlyAvailableText")

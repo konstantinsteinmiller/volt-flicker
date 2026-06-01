@@ -5,21 +5,21 @@ export default {
   'achievements': {
     'title': 'Succès', 'subtitle': 'Atteignez des jalons pour gagner des pièces.', 'claim': 'Réclamer', 'claimed': 'Réclamé', 'progress': '{c} / {t}',
     'items': {
-      'tiles1k': { 'name': 'Globetrotter', 'desc': 'Travel 1,000 tiles in total.' },
-      'tiles5k': { 'name': 'Marathoner', 'desc': 'Travel 5,000 tiles in total.' },
-      'tiles10k': { 'name': 'Long Hauler', 'desc': 'Travel 10,000 tiles in total.' },
-      'tiles100k': { 'name': 'Voyager', 'desc': 'Travel 100,000 tiles in total.' },
-      'stage5': { 'name': 'Getting Started', 'desc': 'Reach stage 5.' },
-      'stage10': { 'name': 'Seasoned', 'desc': 'Reach stage 10.' },
-      'stage20': { 'name': 'Veteran', 'desc': 'Reach stage 20.' },
-      'clears25': { 'name': 'Clearing House', 'desc': 'Clear 25 stages in total.' },
-      'clears100': { 'name': 'Centurion', 'desc': 'Clear 100 stages in total.' },
-      'bestRun100': { 'name': 'Sprinter', 'desc': 'Travel 100 tiles in a single run.' },
-      'bestRun250': { 'name': 'Distance Demon', 'desc': 'Travel 250 tiles in a single run.' },
-      'coins5k': { 'name': 'Coin Collector', 'desc': 'Collect 5,000 coins in total.' },
-      'coins50k': { 'name': 'Treasurer', 'desc': 'Collect 50,000 coins in total.' },
-      'items50': { 'name': 'Unboxer', 'desc': 'Grab 50 item boxes in total.' },
-      'items250': { 'name': 'Hoarder', 'desc': 'Grab 250 item boxes in total.' }
+      'tiles1k': { 'name': 'Globe-trotteur', 'desc': 'Parcourez 1 000 cases au total.' },
+      'tiles5k': { 'name': 'Marathonien', 'desc': 'Parcourez 5 000 cases au total.' },
+      'tiles10k': { 'name': 'Coureur de fond', 'desc': 'Parcourez 10 000 cases au total.' },
+      'tiles100k': { 'name': 'Voyageur', 'desc': 'Parcourez 100 000 cases au total.' },
+      'stage5': { 'name': 'Premiers pas', 'desc': 'Atteignez le niveau 5.' },
+      'stage10': { 'name': 'Aguerri', 'desc': 'Atteignez le niveau 10.' },
+      'stage20': { 'name': 'Vétéran', 'desc': 'Atteignez le niveau 20.' },
+      'clears25': { 'name': 'Nettoyeur', 'desc': 'Terminez 25 niveaux au total.' },
+      'clears100': { 'name': 'Centurion', 'desc': 'Terminez 100 niveaux au total.' },
+      'bestRun100': { 'name': 'Sprinteur', 'desc': 'Parcourez 100 cases en une seule partie.' },
+      'bestRun250': { 'name': 'Démon de la distance', 'desc': 'Parcourez 250 cases en une seule partie.' },
+      'coins5k': { 'name': 'Collectionneur de pièces', 'desc': 'Collectez 5 000 pièces au total.' },
+      'coins50k': { 'name': 'Trésorier', 'desc': 'Collectez 50 000 pièces au total.' },
+      'items50': { 'name': 'Déballeur', 'desc': 'Attrapez 50 boîtes d\'objets au total.' },
+      'items250': { 'name': 'Accumulateur', 'desc': 'Attrapez 250 boîtes d\'objets au total.' }
     }
   },
   'gameName': 'Epicancer',
@@ -172,5 +172,27 @@ export default {
       'medium': 'Le rythme équilibré par défaut.',
       'hard': 'Vitesse accrue — timing plus précis requis.'
     }
+  },
+  'adsBlocked': {
+    'title': 'Impossible d\'afficher la pub',
+    'body': 'Nous avons essayé de vous montrer une vidéo pour gagner votre récompense, mais quelque chose dans votre navigateur bloque les pubs.',
+    'allowPrefix': 'Veuillez autoriser les pubs sur',
+    'allowSuffix': '(ou suspendez votre bloqueur de pub pour ce jeu) et réessayez.',
+    'gotIt': 'Compris'
+  },
+  'saveStatus': {
+    'restoredTitle': 'Sauvegarde cloud restaurée',
+    'restoredBody': '+{n} pièces bonus pour la récupération',
+    'tap': 'toucher',
+    'pausedTitle': 'Synchronisation cloud en pause',
+    'pausedBody': 'Jeu hors ligne. Votre progression est sauvegardée ici.',
+    'retry': 'Réessayer',
+    'dismiss': 'fermer'
+  },
+  'loading': {
+    'tooLong': 'Le chargement est trop long ? Désactivez votre bloqueur de pub et actualisez.'
+  },
+  'license': {
+    'denied': 'Accès refusé : veuillez acheter une licence.'
   }
 }

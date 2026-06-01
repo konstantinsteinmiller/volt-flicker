@@ -26,16 +26,18 @@
           span(class="percentage-text text-shadow font-mono text-amber-500") {{ Math.round(progress) }}%
 
         Transition(name="hint-fade")
-          div.stuck-hint.mt-4(v-if="showStuckHint")
-            | Loading taking too long? Try disabling your ad blocker and refresh.
+          div.stuck-hint.mt-4(v-if="showStuckHint") {{ t('loading.tooLong') }}
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import useAssets from '@/use/useAssets'
 import { prependBaseUrl } from '@/utils/function'
 import { stopLoading } from '@/use/useCrazyGames'
 import { armFirstLoadInterstitial, notifySplashGone } from '@/use/useFirstLoadInterstitial'
+
+const { t } = useI18n()
 
 const logoSrc = prependBaseUrl('images/logo/logo_256x256.webp')
 

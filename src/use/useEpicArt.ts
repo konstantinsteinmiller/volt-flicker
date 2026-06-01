@@ -39,10 +39,15 @@ const LIBERTY_CAT_SRC = 'images/props/liberty-cat.webp'
 const BALL_SKIN_SRC = 'images/models/ball-eye-texture.webp'
 const WINGS_SRC = 'images/props/wings_260x108.webp'
 
+// Gameplay sprites drawn in the renderer's per-frame hot path — decoded before
+// first paint so the field never flashes a procedural fallback. The ball SKIN
+// is NOT here: only the player's currently-equipped skin is hot-path critical
+// (warmed separately by the asset preloader); the rest decode in the background
+// after sounds. `BALL_SKIN_SRC` stays as the renderer's default-fallback src.
 const TILE_SRCS = [
   ...FLOOR_VARIANTS, ...SPECIAL_VARIANTS,
   COIN_SRC, BOX_SRC, BOULDER_SRC, ITEM_BOX_SRC, ITEM_SPARKLE_SRC, VORTEX_SRC, LAVA_SRC, SPIKE_SRC, LIBERTY_CAT_SRC,
-  BALL_SKIN_SRC, WINGS_SRC
+  WINGS_SRC
 ]
 
 const getImg = (src: string): HTMLImageElement => {
@@ -65,9 +70,17 @@ const loadImage = (src: string): Promise<void> =>
     img.addEventListener('error', done, { once: true })
   })
 
-/** Decode every grid-tile + coin sprite before first paint (asset preloader). */
+/** Decode every grid-tile + gameplay prop before first paint (asset preloader). */
 export const warmTileImages = async (): Promise<void> => {
   await Promise.allSettled(TILE_SRCS.map(loadImage))
+}
+
+/** Decode arbitrary images THROUGH the renderer's own cache (raw-src keyed, the
+ *  same key `getImg` reads), so a warmed sprite is actually a cache HIT when the
+ *  renderer draws it. Used by the asset preloader to warm the selected ball skin
+ *  in the hot path and the remaining skins in the background. */
+export const warmImages = async (srcs: ReadonlyArray<string>): Promise<void> => {
+  await Promise.allSettled(srcs.map(loadImage))
 }
 
 // ─── Geometry ───────────────────────────────────────────────────────────────

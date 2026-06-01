@@ -5,21 +5,21 @@ export default {
   'achievements': {
     'title': 'Досягнення', 'subtitle': 'Досягайте віх, щоб заробити монети.', 'claim': 'Забрати', 'claimed': 'Отримано', 'progress': '{c} / {t}',
     'items': {
-      'tiles1k': { 'name': 'Globetrotter', 'desc': 'Travel 1,000 tiles in total.' },
-      'tiles5k': { 'name': 'Marathoner', 'desc': 'Travel 5,000 tiles in total.' },
-      'tiles10k': { 'name': 'Long Hauler', 'desc': 'Travel 10,000 tiles in total.' },
-      'tiles100k': { 'name': 'Voyager', 'desc': 'Travel 100,000 tiles in total.' },
-      'stage5': { 'name': 'Getting Started', 'desc': 'Reach stage 5.' },
-      'stage10': { 'name': 'Seasoned', 'desc': 'Reach stage 10.' },
-      'stage20': { 'name': 'Veteran', 'desc': 'Reach stage 20.' },
-      'clears25': { 'name': 'Clearing House', 'desc': 'Clear 25 stages in total.' },
-      'clears100': { 'name': 'Centurion', 'desc': 'Clear 100 stages in total.' },
-      'bestRun100': { 'name': 'Sprinter', 'desc': 'Travel 100 tiles in a single run.' },
-      'bestRun250': { 'name': 'Distance Demon', 'desc': 'Travel 250 tiles in a single run.' },
-      'coins5k': { 'name': 'Coin Collector', 'desc': 'Collect 5,000 coins in total.' },
-      'coins50k': { 'name': 'Treasurer', 'desc': 'Collect 50,000 coins in total.' },
-      'items50': { 'name': 'Unboxer', 'desc': 'Grab 50 item boxes in total.' },
-      'items250': { 'name': 'Hoarder', 'desc': 'Grab 250 item boxes in total.' }
+      'tiles1k': { 'name': 'Мандрівник світом', 'desc': 'Пройдіть загалом 1 000 клітин.' },
+      'tiles5k': { 'name': 'Марафонець', 'desc': 'Пройдіть загалом 5 000 клітин.' },
+      'tiles10k': { 'name': 'Далекобійник', 'desc': 'Пройдіть загалом 10 000 клітин.' },
+      'tiles100k': { 'name': 'Подорожній', 'desc': 'Пройдіть загалом 100 000 клітин.' },
+      'stage5': { 'name': 'Перші кроки', 'desc': 'Досягніть етапу 5.' },
+      'stage10': { 'name': 'Досвідчений', 'desc': 'Досягніть етапу 10.' },
+      'stage20': { 'name': 'Ветеран', 'desc': 'Досягніть етапу 20.' },
+      'clears25': { 'name': 'Прибиральник', 'desc': 'Пройдіть загалом 25 етапів.' },
+      'clears100': { 'name': 'Центуріон', 'desc': 'Пройдіть загалом 100 етапів.' },
+      'bestRun100': { 'name': 'Спринтер', 'desc': 'Пройдіть 100 клітин за один забіг.' },
+      'bestRun250': { 'name': 'Демон дистанції', 'desc': 'Пройдіть 250 клітин за один забіг.' },
+      'coins5k': { 'name': 'Збирач монет', 'desc': 'Зберіть загалом 5 000 монет.' },
+      'coins50k': { 'name': 'Скарбник', 'desc': 'Зберіть загалом 50 000 монет.' },
+      'items50': { 'name': 'Розпакувальник', 'desc': 'Зберіть загалом 50 скринь з предметами.' },
+      'items250': { 'name': 'Накопичувач', 'desc': 'Зберіть загалом 250 скринь з предметами.' }
     }
   },
   'gameName': 'Epicancer',
@@ -172,5 +172,27 @@ export default {
       'medium': 'Стандартний збалансований темп.',
       'hard': 'Швидше — потрібен точніший тайминг.'
     }
+  },
+  'adsBlocked': {
+    'title': 'Не вдалося показати рекламу',
+    'body': 'Ми намагалися показати вам відео, щоб ви отримали нагороду, але щось у вашому браузері блокує рекламу.',
+    'allowPrefix': 'Дозвольте рекламу на',
+    'allowSuffix': '(або призупиніть блокувальник реклами для цієї гри) і спробуйте ще раз.',
+    'gotIt': 'Зрозуміло'
+  },
+  'saveStatus': {
+    'restoredTitle': 'Хмарне збереження відновлено',
+    'restoredBody': '+{n} бонусних монет за відновлення',
+    'tap': 'торкніться',
+    'pausedTitle': 'Хмарну синхронізацію призупинено',
+    'pausedBody': 'Гра офлайн. Ваш прогрес зберігається тут.',
+    'retry': 'Ще раз',
+    'dismiss': 'закрити'
+  },
+  'loading': {
+    'tooLong': 'Завантаження триває занадто довго? Вимкніть блокувальник реклами та оновіть сторінку.'
+  },
+  'license': {
+    'denied': 'Доступ заборонено: будь ласка, придбайте ліцензію.'
   }
 }

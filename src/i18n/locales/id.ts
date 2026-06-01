@@ -5,21 +5,21 @@ export default {
   'achievements': {
     'title': 'Pencapaian', 'subtitle': 'Raih tonggak seumur hidup untuk koin.', 'claim': 'Klaim', 'claimed': 'Diklaim', 'progress': '{c} / {t}',
     'items': {
-      'tiles1k': { 'name': 'Globetrotter', 'desc': 'Travel 1,000 tiles in total.' },
-      'tiles5k': { 'name': 'Marathoner', 'desc': 'Travel 5,000 tiles in total.' },
-      'tiles10k': { 'name': 'Long Hauler', 'desc': 'Travel 10,000 tiles in total.' },
-      'tiles100k': { 'name': 'Voyager', 'desc': 'Travel 100,000 tiles in total.' },
-      'stage5': { 'name': 'Getting Started', 'desc': 'Reach stage 5.' },
-      'stage10': { 'name': 'Seasoned', 'desc': 'Reach stage 10.' },
-      'stage20': { 'name': 'Veteran', 'desc': 'Reach stage 20.' },
-      'clears25': { 'name': 'Clearing House', 'desc': 'Clear 25 stages in total.' },
-      'clears100': { 'name': 'Centurion', 'desc': 'Clear 100 stages in total.' },
-      'bestRun100': { 'name': 'Sprinter', 'desc': 'Travel 100 tiles in a single run.' },
-      'bestRun250': { 'name': 'Distance Demon', 'desc': 'Travel 250 tiles in a single run.' },
-      'coins5k': { 'name': 'Coin Collector', 'desc': 'Collect 5,000 coins in total.' },
-      'coins50k': { 'name': 'Treasurer', 'desc': 'Collect 50,000 coins in total.' },
-      'items50': { 'name': 'Unboxer', 'desc': 'Grab 50 item boxes in total.' },
-      'items250': { 'name': 'Hoarder', 'desc': 'Grab 250 item boxes in total.' }
+      'tiles1k': { 'name': 'Penjelajah Dunia', 'desc': 'Tempuh total 1.000 ubin.' },
+      'tiles5k': { 'name': 'Pelari Maraton', 'desc': 'Tempuh total 5.000 ubin.' },
+      'tiles10k': { 'name': 'Pelari Jarak Jauh', 'desc': 'Tempuh total 10.000 ubin.' },
+      'tiles100k': { 'name': 'Pengembara', 'desc': 'Tempuh total 100.000 ubin.' },
+      'stage5': { 'name': 'Langkah Awal', 'desc': 'Capai tahap 5.' },
+      'stage10': { 'name': 'Berpengalaman', 'desc': 'Capai tahap 10.' },
+      'stage20': { 'name': 'Veteran', 'desc': 'Capai tahap 20.' },
+      'clears25': { 'name': 'Pembersih', 'desc': 'Selesaikan total 25 tahap.' },
+      'clears100': { 'name': 'Centurion', 'desc': 'Selesaikan total 100 tahap.' },
+      'bestRun100': { 'name': 'Pelari Cepat', 'desc': 'Tempuh 100 ubin dalam satu permainan.' },
+      'bestRun250': { 'name': 'Iblis Jarak', 'desc': 'Tempuh 250 ubin dalam satu permainan.' },
+      'coins5k': { 'name': 'Pengumpul Koin', 'desc': 'Kumpulkan total 5.000 koin.' },
+      'coins50k': { 'name': 'Bendahara', 'desc': 'Kumpulkan total 50.000 koin.' },
+      'items50': { 'name': 'Pembuka Kotak', 'desc': 'Ambil total 50 kotak item.' },
+      'items250': { 'name': 'Penimbun', 'desc': 'Ambil total 250 kotak item.' }
     }
   },
   'gameName': 'Epicancer',
@@ -95,5 +95,27 @@ export default {
     'title': 'Opsi', 'general': 'Umum', 'audio': 'Audio', 'language': 'Bahasa', 'difficulty': 'Kesulitan', 'soundEffects': 'Efek Suara', 'music': 'Musik', 'musicTrack': 'Trek Musik', 'musicTracks': { 'cozy': 'Harmoni Nyaman', 'trance': 'Terowongan Trance' }, 'close': 'Simpan & Tutup',
     'difficulties': { 'easy': 'Mudah', 'medium': 'Sedang', 'hard': 'Sulit' },
     'difficultyHints': { 'easy': 'Kecepatan gerak lebih lambat — lebih banyak waktu untuk bereaksi.', 'medium': 'Kecepatan standar yang seimbang.', 'hard': 'Kecepatan gerak lebih cepat — waktu yang lebih ketat dan presisi.' }
+  },
+  'adsBlocked': {
+    'title': 'Tidak dapat menampilkan iklan',
+    'body': 'Kami mencoba menampilkan video agar kamu bisa mendapatkan hadiahmu, tetapi sesuatu di browsermu memblokir iklan.',
+    'allowPrefix': 'Izinkan iklan di',
+    'allowSuffix': '(atau jeda pemblokir iklanmu untuk game ini) dan coba lagi.',
+    'gotIt': 'Mengerti'
+  },
+  'saveStatus': {
+    'restoredTitle': 'Simpanan cloud dipulihkan',
+    'restoredBody': '+{n} koin bonus untuk pemulihan',
+    'tap': 'ketuk',
+    'pausedTitle': 'Sinkronisasi cloud dijeda',
+    'pausedBody': 'Bermain offline. Progresmu disimpan di sini.',
+    'retry': 'Coba lagi',
+    'dismiss': 'tutup'
+  },
+  'loading': {
+    'tooLong': 'Pemuatan terlalu lama? Nonaktifkan pemblokir iklan dan segarkan.'
+  },
+  'license': {
+    'denied': 'Akses ditolak: silakan beli lisensi.'
   }
 }

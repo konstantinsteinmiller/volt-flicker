@@ -5,21 +5,21 @@ export default {
   'achievements': {
     'title': 'Osiągnięcia', 'subtitle': 'Zdobywaj kamienie milowe, by zarobić monety.', 'claim': 'Odbierz', 'claimed': 'Odebrano', 'progress': '{c} / {t}',
     'items': {
-      'tiles1k': { 'name': 'Globetrotter', 'desc': 'Travel 1,000 tiles in total.' },
-      'tiles5k': { 'name': 'Marathoner', 'desc': 'Travel 5,000 tiles in total.' },
-      'tiles10k': { 'name': 'Long Hauler', 'desc': 'Travel 10,000 tiles in total.' },
-      'tiles100k': { 'name': 'Voyager', 'desc': 'Travel 100,000 tiles in total.' },
-      'stage5': { 'name': 'Getting Started', 'desc': 'Reach stage 5.' },
-      'stage10': { 'name': 'Seasoned', 'desc': 'Reach stage 10.' },
-      'stage20': { 'name': 'Veteran', 'desc': 'Reach stage 20.' },
-      'clears25': { 'name': 'Clearing House', 'desc': 'Clear 25 stages in total.' },
-      'clears100': { 'name': 'Centurion', 'desc': 'Clear 100 stages in total.' },
-      'bestRun100': { 'name': 'Sprinter', 'desc': 'Travel 100 tiles in a single run.' },
-      'bestRun250': { 'name': 'Distance Demon', 'desc': 'Travel 250 tiles in a single run.' },
-      'coins5k': { 'name': 'Coin Collector', 'desc': 'Collect 5,000 coins in total.' },
-      'coins50k': { 'name': 'Treasurer', 'desc': 'Collect 50,000 coins in total.' },
-      'items50': { 'name': 'Unboxer', 'desc': 'Grab 50 item boxes in total.' },
-      'items250': { 'name': 'Hoarder', 'desc': 'Grab 250 item boxes in total.' }
+      'tiles1k': { 'name': 'Globtroter', 'desc': 'Pokonaj łącznie 1 000 pól.' },
+      'tiles5k': { 'name': 'Maratończyk', 'desc': 'Pokonaj łącznie 5 000 pól.' },
+      'tiles10k': { 'name': 'Długodystansowiec', 'desc': 'Pokonaj łącznie 10 000 pól.' },
+      'tiles100k': { 'name': 'Podróżnik', 'desc': 'Pokonaj łącznie 100 000 pól.' },
+      'stage5': { 'name': 'Pierwsze kroki', 'desc': 'Osiągnij etap 5.' },
+      'stage10': { 'name': 'Doświadczony', 'desc': 'Osiągnij etap 10.' },
+      'stage20': { 'name': 'Weteran', 'desc': 'Osiągnij etap 20.' },
+      'clears25': { 'name': 'Porządkowy', 'desc': 'Ukończ łącznie 25 etapów.' },
+      'clears100': { 'name': 'Centurion', 'desc': 'Ukończ łącznie 100 etapów.' },
+      'bestRun100': { 'name': 'Sprinter', 'desc': 'Pokonaj 100 pól w jednym biegu.' },
+      'bestRun250': { 'name': 'Demon dystansu', 'desc': 'Pokonaj 250 pól w jednym biegu.' },
+      'coins5k': { 'name': 'Kolekcjoner monet', 'desc': 'Zbierz łącznie 5 000 monet.' },
+      'coins50k': { 'name': 'Skarbnik', 'desc': 'Zbierz łącznie 50 000 monet.' },
+      'items50': { 'name': 'Rozpakowywacz', 'desc': 'Złap łącznie 50 skrzyń z przedmiotami.' },
+      'items250': { 'name': 'Zbieracz', 'desc': 'Złap łącznie 250 skrzyń z przedmiotami.' }
     }
   },
   'gameName': 'Epicancer',
@@ -172,5 +172,27 @@ export default {
       'medium': 'Standardowe, zrównoważone tempo.',
       'hard': 'Szybsze tempo — wymaga precyzyjniejszego czasu.'
     }
+  },
+  'adsBlocked': {
+    'title': 'Nie można wyświetlić reklamy',
+    'body': 'Próbowaliśmy pokazać Ci film, abyś mógł zdobyć nagrodę, ale coś w Twojej przeglądarce blokuje reklamy.',
+    'allowPrefix': 'Zezwól na reklamy w',
+    'allowSuffix': '(lub wstrzymaj blokowanie reklam dla tej gry) i spróbuj ponownie.',
+    'gotIt': 'Rozumiem'
+  },
+  'saveStatus': {
+    'restoredTitle': 'Przywrócono zapis w chmurze',
+    'restoredBody': '+{n} monet bonusowych za odzyskanie',
+    'tap': 'dotknij',
+    'pausedTitle': 'Synchronizacja w chmurze wstrzymana',
+    'pausedBody': 'Grasz offline. Twój postęp jest zapisywany tutaj.',
+    'retry': 'Ponów',
+    'dismiss': 'zamknij'
+  },
+  'loading': {
+    'tooLong': 'Ładowanie trwa zbyt długo? Wyłącz blokadę reklam i odśwież.'
+  },
+  'license': {
+    'denied': 'Odmowa dostępu: kup licencję.'
   }
 }

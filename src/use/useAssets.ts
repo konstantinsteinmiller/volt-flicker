@@ -245,28 +245,67 @@ const decodeImage = (src: string): Promise<void> => {
   })
 }
 
+// ─── Off-hot-path background warm-up ───────────────────────────────────────
+// Runs ONCE, only after the splash has hidden (hot path fully done + first
+// paint). Strict priority order so the hot path is never contended:
+//   1. gameplay SFX decode (sounds are NOT in the hot path — they decode on
+//      first play anyway; this just warms them so the first burst is smooth),
+//   2. the parchment-ribbon result-screen bitmap (needed before any win/lose
+//      screen, but never on the first frame), then
+//   3. the remaining (non-selected) ball skins — lowest priority, since the
+//      player only sees them if they open the Skin shop.
+// All dynamic-imported so none of this is linked into the entry chunk.
+let backgroundWarmStarted = false
+const RIBBON_SRC = 'images/bg/parchment-ribbon_553x188.webp'
+
+const runBackgroundWarmup = (): void => {
+  if (backgroundWarmStarted) return
+  backgroundWarmStarted = true
+  void (async () => {
+    try {
+      // 1. Sounds first — bg music still streams lazily on first use (not here).
+      const sp = await import('@/use/useSoundPreload')
+      await sp.preloadGameplaySounds()
+    } catch { /* non-critical */ }
+
+    let art: typeof import('@/use/useEpicArt') | null = null
+    try { art = await import('@/use/useEpicArt') } catch { /* non-critical */ }
+
+    // 2. Parchment ribbon — before the (already-deferred) remaining skins.
+    try { await art?.warmImages?.([RIBBON_SRC]) } catch { /* non-critical */ }
+
+    // 3. Every other ball skin (the selected one was warmed in the hot path).
+    try {
+      const skins = await import('@/use/useEpicSkins')
+      const selected = skins.selectedSkinId.value
+      const rest = skins.SKINS.filter((s) => s.id !== selected).map((s) => s.src)
+      await art?.warmImages?.(rest)
+    } catch { /* non-critical */ }
+  })()
+}
+
 export default () => {
   const preloadAssets = async (): Promise<void> => {
     loadingProgress.value = 0
     areAllAssetsLoaded.value = false
-    // Stage build runs in parallel with the critical-image decode.
-    // Without this, the splash hides as soon as the bitmaps land but the
-    // first frame still has to wait on the procedural stage build, which
-    // can spike ~30-80 ms on mid-tier mobile. We block on the stage the
-    // player will actually see — `currentStageId` (saved progress, may be
-    // 1 for first-timers or N for resumes).
+    // ── HOT PATH ── Only what the FIRST gameplay frame needs: the grid /
+    // prop sprites and the player's CURRENTLY-EQUIPPED ball skin. No sounds,
+    // no bg-music, no non-selected skins, no result-screen art — those all
+    // warm in `runBackgroundWarmup()` after the splash hides.
     //
-    // The dynamic import keeps the gameplay-code chunk off the entry
-    // bundle. The shared chunk that contains useMawCampaign / useMawArt /
-    // useMawGame loads in PARALLEL with the static splash render — so the
-    // player sees the bg-tile and animated logo immediately while the
-    // gameplay bytes stream in. `useStageBuilder` is a second-level lazy
-    // chunk (dynamic-imported by `useMawCampaign.ensureStage`) so the
-    // procedural build code is its own ~10 kB chunk.
+    // The dynamic import keeps the renderer chunk off the entry bundle; it
+    // streams in PARALLEL with the static splash render, so the player sees the
+    // animated logo immediately while the gameplay bytes arrive.
     const stageTask = (async () => {
       try {
         const art = await import('@/use/useEpicArt')
         await art.warmTileImages?.()
+        // Warm ONLY the selected skin in the hot path (it's drawn on the ball
+        // from the first frame). The rest defer to the background warm-up.
+        try {
+          const skins = await import('@/use/useEpicSkins')
+          await art.warmImages?.([skins.skinById(skins.selectedSkinId.value).src])
+        } catch { /* selected skin falls back to the default ball texture */ }
       } catch { /* non-critical: renderer falls back to procedural tiles */ }
     })()
     // Kick decoding in parallel; resolve when every critical sprite is
@@ -284,6 +323,9 @@ export default () => {
     await Promise.allSettled(tasks)
     loadingProgress.value = 100
     areAllAssetsLoaded.value = true
+    // Hot path done + splash about to hide → kick the off-path warm-up on the
+    // first idle slot so it never competes with first-frame work.
+    scheduleBackgroundWarmup()
   }
 
   return {
@@ -292,4 +334,15 @@ export default () => {
     preloadAssets,
     resourceCache
   }
+}
+
+/** Schedule the off-hot-path warm-up on the first idle slot (rIC), falling back
+ *  to a short timeout. Runs after the current frame so first paint isn't hit. */
+const scheduleBackgroundWarmup = (): void => {
+  if (typeof window === 'undefined') { runBackgroundWarmup(); return }
+  const ric = (window as any).requestIdleCallback as
+    | ((cb: () => void, opts?: { timeout: number }) => number)
+    | undefined
+  if (typeof ric === 'function') ric(() => runBackgroundWarmup(), { timeout: 3000 })
+  else setTimeout(runBackgroundWarmup, 0)
 }

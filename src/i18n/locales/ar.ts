@@ -5,21 +5,21 @@ export default {
   'achievements': {
     'title': 'الإنجازات', 'subtitle': 'حقّق إنجازات مدى الحياة لكسب العملات.', 'claim': 'استلام', 'claimed': 'تم الاستلام', 'progress': '{c} / {t}',
     'items': {
-      'tiles1k': { 'name': 'Globetrotter', 'desc': 'Travel 1,000 tiles in total.' },
-      'tiles5k': { 'name': 'Marathoner', 'desc': 'Travel 5,000 tiles in total.' },
-      'tiles10k': { 'name': 'Long Hauler', 'desc': 'Travel 10,000 tiles in total.' },
-      'tiles100k': { 'name': 'Voyager', 'desc': 'Travel 100,000 tiles in total.' },
-      'stage5': { 'name': 'Getting Started', 'desc': 'Reach stage 5.' },
-      'stage10': { 'name': 'Seasoned', 'desc': 'Reach stage 10.' },
-      'stage20': { 'name': 'Veteran', 'desc': 'Reach stage 20.' },
-      'clears25': { 'name': 'Clearing House', 'desc': 'Clear 25 stages in total.' },
-      'clears100': { 'name': 'Centurion', 'desc': 'Clear 100 stages in total.' },
-      'bestRun100': { 'name': 'Sprinter', 'desc': 'Travel 100 tiles in a single run.' },
-      'bestRun250': { 'name': 'Distance Demon', 'desc': 'Travel 250 tiles in a single run.' },
-      'coins5k': { 'name': 'Coin Collector', 'desc': 'Collect 5,000 coins in total.' },
-      'coins50k': { 'name': 'Treasurer', 'desc': 'Collect 50,000 coins in total.' },
-      'items50': { 'name': 'Unboxer', 'desc': 'Grab 50 item boxes in total.' },
-      'items250': { 'name': 'Hoarder', 'desc': 'Grab 250 item boxes in total.' }
+      'tiles1k': { 'name': 'جوّاب الآفاق', 'desc': 'اقطع 1,000 بلاطة إجمالاً.' },
+      'tiles5k': { 'name': 'عدّاء الماراثون', 'desc': 'اقطع 5,000 بلاطة إجمالاً.' },
+      'tiles10k': { 'name': 'عدّاء المسافات الطويلة', 'desc': 'اقطع 10,000 بلاطة إجمالاً.' },
+      'tiles100k': { 'name': 'رحّالة', 'desc': 'اقطع 100,000 بلاطة إجمالاً.' },
+      'stage5': { 'name': 'البداية', 'desc': 'صِل إلى المرحلة 5.' },
+      'stage10': { 'name': 'محنّك', 'desc': 'صِل إلى المرحلة 10.' },
+      'stage20': { 'name': 'خبير', 'desc': 'صِل إلى المرحلة 20.' },
+      'clears25': { 'name': 'المنظِّف', 'desc': 'أكمل 25 مرحلة إجمالاً.' },
+      'clears100': { 'name': 'قائد المئة', 'desc': 'أكمل 100 مرحلة إجمالاً.' },
+      'bestRun100': { 'name': 'عدّاء السرعة', 'desc': 'اقطع 100 بلاطة في جولة واحدة.' },
+      'bestRun250': { 'name': 'شيطان المسافات', 'desc': 'اقطع 250 بلاطة في جولة واحدة.' },
+      'coins5k': { 'name': 'جامع العملات', 'desc': 'اجمع 5,000 عملة إجمالاً.' },
+      'coins50k': { 'name': 'أمين الخزينة', 'desc': 'اجمع 50,000 عملة إجمالاً.' },
+      'items50': { 'name': 'فاتح الصناديق', 'desc': 'احصل على 50 صندوق عناصر إجمالاً.' },
+      'items250': { 'name': 'المكتنز', 'desc': 'احصل على 250 صندوق عناصر إجمالاً.' }
     }
   },
   'gameName': 'Epicancer',
@@ -95,5 +95,27 @@ export default {
     'title': 'الخيارات', 'general': 'عام', 'audio': 'الصوت', 'language': 'اللغة', 'difficulty': 'الصعوبة', 'soundEffects': 'المؤثرات الصوتية', 'music': 'الموسيقى', 'musicTrack': 'المقطوعة الموسيقية', 'musicTracks': { 'cozy': 'لحن دافئ', 'trance': 'نفق الترانس' }, 'close': 'حفظ وإغلاق',
     'difficulties': { 'easy': 'سهل', 'medium': 'متوسط', 'hard': 'صعب' },
     'difficultyHints': { 'easy': 'سرعة حركة أبطأ — وقت أطول للتفاعل.', 'medium': 'الإيقاع القياسي المتوازن.', 'hard': 'سرعة حركة أسرع — توقيت أدق وأكثر إحكامًا.' }
+  },
+  'adsBlocked': {
+    'title': 'تعذّر عرض الإعلان',
+    'body': 'حاولنا عرض مقطع فيديو لتحصل على مكافأتك، لكن شيئًا ما في متصفحك يحجب الإعلانات.',
+    'allowPrefix': 'يرجى السماح بالإعلانات على',
+    'allowSuffix': '(أو أوقف مانع الإعلانات مؤقتًا لهذه اللعبة) ثم حاول مجددًا.',
+    'gotIt': 'حسنًا'
+  },
+  'saveStatus': {
+    'restoredTitle': 'تمت استعادة الحفظ السحابي',
+    'restoredBody': '+{n} عملة إضافية مقابل الاستعادة',
+    'tap': 'اضغط',
+    'pausedTitle': 'تم إيقاف المزامنة السحابية مؤقتًا',
+    'pausedBody': 'تلعب دون اتصال. يتم حفظ تقدمك هنا.',
+    'retry': 'إعادة',
+    'dismiss': 'إغلاق'
+  },
+  'loading': {
+    'tooLong': 'هل يستغرق التحميل وقتًا طويلاً؟ عطّل مانع الإعلانات وأعد التحميل.'
+  },
+  'license': {
+    'denied': 'تم رفض الوصول: يرجى شراء ترخيص.'
   }
 }

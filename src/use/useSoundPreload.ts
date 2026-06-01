@@ -40,20 +40,20 @@ const GAMEPLAY_SFX: ReadonlyArray<string> = [
 ]
 
 let preloadStarted = false
+let preloadDone: Promise<void> | null = null
 
 /** Kick off background decode of every gameplay SFX. Idempotent; calling
- *  twice is a no-op after the first invocation. Caller is responsible
- *  for scheduling this off the critical path — typically inside an
- *  `onMounted` + `requestIdleCallback` from MawScene. */
-export const preloadGameplaySounds = (): void => {
-  if (preloadStarted) return
+ *  twice returns the SAME promise (resolves once every decode has settled), so
+ *  callers can sequence work AFTER the sounds finish (e.g. warm the remaining
+ *  ball skins only once audio is decoded). Off the critical path — the asset
+ *  preloader runs it only after the hot-path art + first paint are done. */
+export const preloadGameplaySounds = (): Promise<void> => {
+  if (preloadDone) return preloadDone
   preloadStarted = true
-  for (const name of GAMEPLAY_SFX) {
-    // Fire-and-forget; the individual promise rejection is swallowed by
-    // `loadAudioBuffer`. No `Promise.allSettled` needed — we don't have
-    // a join point, the cache hits land as they finish.
-    void loadAudioBuffer(prependBaseUrl(`audio/sfx/${name}.ogg`))
-  }
+  preloadDone = Promise.allSettled(
+    GAMEPLAY_SFX.map((name) => loadAudioBuffer(prependBaseUrl(`audio/sfx/${name}.ogg`)))
+  ).then(() => undefined)
+  return preloadDone
 }
 
 /** Schedule `preloadGameplaySounds()` on the first available idle slot.

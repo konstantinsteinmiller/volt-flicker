@@ -20,7 +20,10 @@
 // reward". Adult-audience games can swap copy via a simple text edit.
 
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { dismissAdsBlockedModal, isAdsBlockedModalShown } from '@/use/useAds'
+
+const { t } = useI18n()
 
 // Hostname surfaced to the player so they know which site to allowlist.
 // Falls back gracefully when running in a non-browser context (SSR,
@@ -62,19 +65,17 @@ const host = computed(() => {
           @click.stop
         )
           div.mb-2.text-5xl 🛡️
-          h2.text-2xl.font-bold.mb-2 Couldn't show ad
-          p.text-base.mb-4(class="text-slate-200")
-            | We tried to show you a video so you could earn your reward, but
-            | something on your browser is blocking ads.
+          h2.text-2xl.font-bold.mb-2 {{ t('adsBlocked.title') }}
+          p.text-base.mb-4(class="text-slate-200") {{ t('adsBlocked.body') }}
           p.text-sm.mb-5(class="text-slate-300")
-            | Please allow ads on
+            | {{ t('adsBlocked.allowPrefix') }}
             |
             span.font-mono.font-bold(class="text-amber-300") {{ host }}
             |
-            | (or pause your ad-blocker for this game) and try again.
+            | {{ t('adsBlocked.allowSuffix') }}
 
           button.w-full.rounded-lg.font-bold.text-lg.text-white.shadow-lg(
             class="bg-amber-500 hover:bg-amber-400 active:translate-y-px py-3"
             @click="dismissAdsBlockedModal"
-          ) Got it
+          ) {{ t('adsBlocked.gotIt') }}
 </template>

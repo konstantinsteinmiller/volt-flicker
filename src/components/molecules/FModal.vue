@@ -77,6 +77,7 @@ const handleTabChange = (val: string | number) => {
         v-if="modelValue"
         v-bind="$attrs"
         class="modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4"
+        :class="{ 'fmodal-landscape': isMobileLandscape }"
         :style="{\
           paddingTop: 'calc(1rem + env(safe-area-inset-top, 0px))',\
           paddingBottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))',\
@@ -182,28 +183,35 @@ const handleTabChange = (val: string | number) => {
 
 // ─── Landscape mobile: tighter chrome ────────────────────────────────────────
 //
-// Cap the overlay padding so the modal can use almost the full short-axis
-// height. The flex-column inside still scrolls anything that overflows.
-@media (orientation: landscape) and (max-height: 500px)
-  .modal-overlay
-    padding: 0.4rem
-    align-items: stretch
+// Driven by the JS `isMobileLandscape` flag (mobileCheck + landscape) applied
+// as `.fmodal-landscape` on the overlay — NOT a `max-height` media query, which
+// disagreed with the flag on tall landscape phones and left the modal centred
+// with a big empty gap above the header (issue in the report screenshots).
+//
+// `align-items: stretch` + `max-height: 100%` make the modal claim the full
+// short-axis height so the header/tabs are never pushed off-screen and the top
+// dead-space collapses. The flex-column inside still scrolls on overflow.
+.fmodal-landscape
+  padding: 0.3rem !important
+  align-items: stretch
 
   .model-container
-    max-width: 42rem
+    max-width: 46rem
     max-height: 100%
 
   .modal-frame
     border-width: 3px
     border-radius: 1rem
 
-  // Pull the content slot's top padding back so the smaller header
-  // (scale-80) doesn't leave a gaping margin under the ribbon.
+  // Pull the content slot's padding back so the smaller header (scale-80)
+  // doesn't leave a gaping margin under the ribbon, and so more rows fit.
   .modal-content-slot
-    padding-top: 0.5rem
-    padding-bottom: 0.25rem
+    padding-top: 0.4rem
+    padding-bottom: 0.2rem
+    padding-left: 0.6rem
+    padding-right: 0.6rem
 
   .modal-footer-slot
-    padding-bottom: 0.25rem
+    padding-bottom: 0.2rem
     gap: 0.25rem
 </style>

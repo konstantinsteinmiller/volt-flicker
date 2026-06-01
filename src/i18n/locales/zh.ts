@@ -5,21 +5,21 @@ export default {
   'achievements': {
     'title': '成就', 'subtitle': '达成长期里程碑赢取金币。', 'claim': '领取', 'claimed': '已领取', 'progress': '{c} / {t}',
     'items': {
-      'tiles1k': { 'name': 'Globetrotter', 'desc': 'Travel 1,000 tiles in total.' },
-      'tiles5k': { 'name': 'Marathoner', 'desc': 'Travel 5,000 tiles in total.' },
-      'tiles10k': { 'name': 'Long Hauler', 'desc': 'Travel 10,000 tiles in total.' },
-      'tiles100k': { 'name': 'Voyager', 'desc': 'Travel 100,000 tiles in total.' },
-      'stage5': { 'name': 'Getting Started', 'desc': 'Reach stage 5.' },
-      'stage10': { 'name': 'Seasoned', 'desc': 'Reach stage 10.' },
-      'stage20': { 'name': 'Veteran', 'desc': 'Reach stage 20.' },
-      'clears25': { 'name': 'Clearing House', 'desc': 'Clear 25 stages in total.' },
-      'clears100': { 'name': 'Centurion', 'desc': 'Clear 100 stages in total.' },
-      'bestRun100': { 'name': 'Sprinter', 'desc': 'Travel 100 tiles in a single run.' },
-      'bestRun250': { 'name': 'Distance Demon', 'desc': 'Travel 250 tiles in a single run.' },
-      'coins5k': { 'name': 'Coin Collector', 'desc': 'Collect 5,000 coins in total.' },
-      'coins50k': { 'name': 'Treasurer', 'desc': 'Collect 50,000 coins in total.' },
-      'items50': { 'name': 'Unboxer', 'desc': 'Grab 50 item boxes in total.' },
-      'items250': { 'name': 'Hoarder', 'desc': 'Grab 250 item boxes in total.' }
+      'tiles1k': { 'name': '环球旅行者', 'desc': '累计前进 1,000 格。' },
+      'tiles5k': { 'name': '马拉松选手', 'desc': '累计前进 5,000 格。' },
+      'tiles10k': { 'name': '长途跋涉者', 'desc': '累计前进 10,000 格。' },
+      'tiles100k': { 'name': '旅行者', 'desc': '累计前进 100,000 格。' },
+      'stage5': { 'name': '初出茅庐', 'desc': '到达第 5 关。' },
+      'stage10': { 'name': '老练', 'desc': '到达第 10 关。' },
+      'stage20': { 'name': '老兵', 'desc': '到达第 20 关。' },
+      'clears25': { 'name': '清关高手', 'desc': '累计通关 25 关。' },
+      'clears100': { 'name': '百夫长', 'desc': '累计通关 100 关。' },
+      'bestRun100': { 'name': '短跑健将', 'desc': '单局前进 100 格。' },
+      'bestRun250': { 'name': '距离恶魔', 'desc': '单局前进 250 格。' },
+      'coins5k': { 'name': '金币收藏家', 'desc': '累计收集 5,000 金币。' },
+      'coins50k': { 'name': '司库', 'desc': '累计收集 50,000 金币。' },
+      'items50': { 'name': '开箱者', 'desc': '累计获取 50 个道具箱。' },
+      'items250': { 'name': '囤积者', 'desc': '累计获取 250 个道具箱。' }
     }
   },
   'gameName': 'Epicancer',
@@ -172,5 +172,27 @@ export default {
       'medium': '标准平衡节奏。',
       'hard': '移动速度更快——需要更精准的时机。'
     }
+  },
+  'adsBlocked': {
+    'title': '无法显示广告',
+    'body': '我们想为你播放一段视频以便你获得奖励，但你浏览器中的某些设置正在拦截广告。',
+    'allowPrefix': '请在以下网站允许广告：',
+    'allowSuffix': '（或为本游戏暂停你的广告拦截器）然后重试。',
+    'gotIt': '知道了'
+  },
+  'saveStatus': {
+    'restoredTitle': '云存档已恢复',
+    'restoredBody': '恢复奖励 +{n} 金币',
+    'tap': '点击',
+    'pausedTitle': '云同步已暂停',
+    'pausedBody': '正在离线游玩。你的进度已保存在此处。',
+    'retry': '重试',
+    'dismiss': '关闭'
+  },
+  'loading': {
+    'tooLong': '加载太久？请关闭广告拦截器并刷新。'
+  },
+  'license': {
+    'denied': '访问被拒绝：请购买许可证。'
   }
 }

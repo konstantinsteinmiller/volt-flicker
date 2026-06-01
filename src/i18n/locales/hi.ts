@@ -5,21 +5,21 @@ export default {
   'achievements': {
     'title': 'उपलब्धियाँ', 'subtitle': 'सिक्के कमाने के लिए मील के पत्थर पाएँ।', 'claim': 'क्लेम', 'claimed': 'क्लेम किया', 'progress': '{c} / {t}',
     'items': {
-      'tiles1k': { 'name': 'Globetrotter', 'desc': 'Travel 1,000 tiles in total.' },
-      'tiles5k': { 'name': 'Marathoner', 'desc': 'Travel 5,000 tiles in total.' },
-      'tiles10k': { 'name': 'Long Hauler', 'desc': 'Travel 10,000 tiles in total.' },
-      'tiles100k': { 'name': 'Voyager', 'desc': 'Travel 100,000 tiles in total.' },
-      'stage5': { 'name': 'Getting Started', 'desc': 'Reach stage 5.' },
-      'stage10': { 'name': 'Seasoned', 'desc': 'Reach stage 10.' },
-      'stage20': { 'name': 'Veteran', 'desc': 'Reach stage 20.' },
-      'clears25': { 'name': 'Clearing House', 'desc': 'Clear 25 stages in total.' },
-      'clears100': { 'name': 'Centurion', 'desc': 'Clear 100 stages in total.' },
-      'bestRun100': { 'name': 'Sprinter', 'desc': 'Travel 100 tiles in a single run.' },
-      'bestRun250': { 'name': 'Distance Demon', 'desc': 'Travel 250 tiles in a single run.' },
-      'coins5k': { 'name': 'Coin Collector', 'desc': 'Collect 5,000 coins in total.' },
-      'coins50k': { 'name': 'Treasurer', 'desc': 'Collect 50,000 coins in total.' },
-      'items50': { 'name': 'Unboxer', 'desc': 'Grab 50 item boxes in total.' },
-      'items250': { 'name': 'Hoarder', 'desc': 'Grab 250 item boxes in total.' }
+      'tiles1k': { 'name': 'विश्व यात्री', 'desc': 'कुल 1,000 टाइलें तय करें।' },
+      'tiles5k': { 'name': 'मैराथन धावक', 'desc': 'कुल 5,000 टाइलें तय करें।' },
+      'tiles10k': { 'name': 'लंबी दूरी का धावक', 'desc': 'कुल 10,000 टाइलें तय करें।' },
+      'tiles100k': { 'name': 'यात्री', 'desc': 'कुल 100,000 टाइलें तय करें।' },
+      'stage5': { 'name': 'शुरुआत', 'desc': 'चरण 5 तक पहुँचें।' },
+      'stage10': { 'name': 'अनुभवी', 'desc': 'चरण 10 तक पहुँचें।' },
+      'stage20': { 'name': 'दिग्गज', 'desc': 'चरण 20 तक पहुँचें।' },
+      'clears25': { 'name': 'सफाईकर्ता', 'desc': 'कुल 25 चरण पूरे करें।' },
+      'clears100': { 'name': 'शतकवीर', 'desc': 'कुल 100 चरण पूरे करें।' },
+      'bestRun100': { 'name': 'फर्राटा धावक', 'desc': 'एक ही दौड़ में 100 टाइलें तय करें।' },
+      'bestRun250': { 'name': 'दूरी का दानव', 'desc': 'एक ही दौड़ में 250 टाइलें तय करें।' },
+      'coins5k': { 'name': 'सिक्का संग्राहक', 'desc': 'कुल 5,000 सिक्के इकट्ठा करें।' },
+      'coins50k': { 'name': 'कोषाध्यक्ष', 'desc': 'कुल 50,000 सिक्के इकट्ठा करें।' },
+      'items50': { 'name': 'अनबॉक्सर', 'desc': 'कुल 50 आइटम बक्से पकड़ें।' },
+      'items250': { 'name': 'जमाखोर', 'desc': 'कुल 250 आइटम बक्से पकड़ें।' }
     }
   },
   'gameName': 'Epicancer',
@@ -95,5 +95,27 @@ export default {
     'title': 'विकल्प', 'general': 'सामान्य', 'audio': 'ऑडियो', 'language': 'भाषा', 'difficulty': 'कठिनाई', 'soundEffects': 'ध्वनि प्रभाव', 'music': 'संगीत', 'musicTrack': 'संगीत ट्रैक', 'musicTracks': { 'cozy': 'आरामदायक धुन', 'trance': 'ट्रांस टनल' }, 'close': 'सहेजें और बंद करें',
     'difficulties': { 'easy': 'आसान', 'medium': 'मध्यम', 'hard': 'कठिन' },
     'difficultyHints': { 'easy': 'धीमी गति — प्रतिक्रिया करने के लिए अधिक समय।', 'medium': 'मानक, संतुलित गति।', 'hard': 'तेज़ गति — सटीक और बारीक समय।' }
+  },
+  'adsBlocked': {
+    'title': 'विज्ञापन नहीं दिखा सके',
+    'body': 'हमने आपको इनाम दिलाने के लिए एक वीडियो दिखाने की कोशिश की, लेकिन आपके ब्राउज़र में कोई चीज़ विज्ञापनों को रोक रही है।',
+    'allowPrefix': 'कृपया इस पर विज्ञापनों की अनुमति दें',
+    'allowSuffix': '(या इस गेम के लिए अपना ऐड-ब्लॉकर रोकें) और फिर से कोशिश करें।',
+    'gotIt': 'समझ गया'
+  },
+  'saveStatus': {
+    'restoredTitle': 'क्लाउड सेव बहाल किया गया',
+    'restoredBody': 'बहाली के लिए +{n} बोनस सिक्के',
+    'tap': 'टैप करें',
+    'pausedTitle': 'क्लाउड सिंक रोका गया',
+    'pausedBody': 'ऑफ़लाइन खेल रहे हैं। आपकी प्रगति यहाँ सहेजी जाती है।',
+    'retry': 'पुनः प्रयास',
+    'dismiss': 'बंद करें'
+  },
+  'loading': {
+    'tooLong': 'लोडिंग में बहुत समय लग रहा है? अपना ऐड-ब्लॉकर बंद करें और रीफ़्रेश करें।'
+  },
+  'license': {
+    'denied': 'पहुँच अस्वीकृत: कृपया लाइसेंस खरीदें।'
   }
 }

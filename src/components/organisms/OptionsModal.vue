@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import useUser from '@/use/useUser'
+import useUser, { isMobileLandscape } from '@/use/useUser'
 import { setI18nLocale } from '@/i18n'
 import FModal from '@/components/molecules/FModal.vue'
 import FButton from '@/components/atoms/FButton.vue'
@@ -90,8 +90,11 @@ const musicTrackList = computed(() => [
     @update:model-value="emit('close')"
   )
     div(v-if="currentTab === 'general'")
-      div(class="flex flex-col gap-2 p-2")
-        div(class="z-[20] flex flex-col gap-2 scale-80 sm:scale-100")
+      //- Landscape mobile lays the controls out in 2 columns so all of them
+      //- (language, difficulty + hint, the two sliders, music track) fit the
+      //- short viewport without the SAVE & CLOSE footer overlapping them.
+      div(:class="isMobileLandscape ? 'grid grid-cols-2 gap-x-4 gap-y-1 p-1 items-start' : 'flex flex-col gap-2 p-2'")
+        div(class="z-[20] flex flex-col gap-2" :class="{ 'scale-80 sm:scale-100': !isMobileLandscape }")
           FSelect(
             class="!text-[10px] md:text-[12px]"
             :label="t('options.language')"
@@ -99,7 +102,7 @@ const musicTrackList = computed(() => [
             :model-value="userLanguage"
             @update:model-value="setSettingValue('language', $event)"
           )
-        div(class="z-[10] flex flex-col gap-1 scale-80 sm:scale-100")
+        div(class="z-[10] flex flex-col gap-1" :class="{ 'scale-80 sm:scale-100': !isMobileLandscape }")
           FSelect(
             class="!text-[10px] md:text-[12px]"
             :label="t('options.difficulty')"
@@ -108,10 +111,10 @@ const musicTrackList = computed(() => [
             @update:model-value="setSettingValue('difficulty', $event)"
           )
           p.text-white.game-text.opacity-70.leading-tight.px-1(class="text-[10px] md:text-xs") {{ difficultyHint }}
-        hr(class="border-slate-600 my-1 md:my-2 pt-0")
+        hr(v-if="!isMobileLandscape" class="border-slate-600 my-1 md:my-2 pt-0")
         FSlider.px-4(class="!py-1 !pb-3 !max-w-[300px]" :model-value="userSoundVolume" @update:modelValue="setSettingValue('sound', $event)" :label="t('options.soundEffects')" :min="0" :max="1" :step="0.01")
         FSlider.px-4(class="!py-1 !pb-2 !max-w-[300px]" :model-value="userMusicVolume" @update:modelValue="setSettingValue('music', $event)" :label="t('options.music')" :min="0" :max="1" :step="0.01")
-        div(class="z-[5] flex flex-col gap-1 scale-80 sm:scale-100")
+        div(class="z-[5] flex flex-col gap-1" :class="{ 'scale-80 sm:scale-100': !isMobileLandscape }")
           FSelect(
             class="!text-[10px] md:text-[12px]"
             :label="t('options.musicTrack')"

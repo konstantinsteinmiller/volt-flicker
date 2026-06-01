@@ -5,21 +5,21 @@ export default {
   'achievements': {
     'title': '実績', 'subtitle': '生涯マイルストーンを達成してコイン獲得。', 'claim': '受取', 'claimed': '受取済', 'progress': '{c} / {t}',
     'items': {
-      'tiles1k': { 'name': 'Globetrotter', 'desc': 'Travel 1,000 tiles in total.' },
-      'tiles5k': { 'name': 'Marathoner', 'desc': 'Travel 5,000 tiles in total.' },
-      'tiles10k': { 'name': 'Long Hauler', 'desc': 'Travel 10,000 tiles in total.' },
-      'tiles100k': { 'name': 'Voyager', 'desc': 'Travel 100,000 tiles in total.' },
-      'stage5': { 'name': 'Getting Started', 'desc': 'Reach stage 5.' },
-      'stage10': { 'name': 'Seasoned', 'desc': 'Reach stage 10.' },
-      'stage20': { 'name': 'Veteran', 'desc': 'Reach stage 20.' },
-      'clears25': { 'name': 'Clearing House', 'desc': 'Clear 25 stages in total.' },
-      'clears100': { 'name': 'Centurion', 'desc': 'Clear 100 stages in total.' },
-      'bestRun100': { 'name': 'Sprinter', 'desc': 'Travel 100 tiles in a single run.' },
-      'bestRun250': { 'name': 'Distance Demon', 'desc': 'Travel 250 tiles in a single run.' },
-      'coins5k': { 'name': 'Coin Collector', 'desc': 'Collect 5,000 coins in total.' },
-      'coins50k': { 'name': 'Treasurer', 'desc': 'Collect 50,000 coins in total.' },
-      'items50': { 'name': 'Unboxer', 'desc': 'Grab 50 item boxes in total.' },
-      'items250': { 'name': 'Hoarder', 'desc': 'Grab 250 item boxes in total.' }
+      'tiles1k': { 'name': '世界の旅人', 'desc': '合計1,000マス進む。' },
+      'tiles5k': { 'name': 'マラソンランナー', 'desc': '合計5,000マス進む。' },
+      'tiles10k': { 'name': '長距離ランナー', 'desc': '合計10,000マス進む。' },
+      'tiles100k': { 'name': '旅人', 'desc': '合計100,000マス進む。' },
+      'stage5': { 'name': 'はじめの一歩', 'desc': 'ステージ5に到達する。' },
+      'stage10': { 'name': '熟練者', 'desc': 'ステージ10に到達する。' },
+      'stage20': { 'name': 'ベテラン', 'desc': 'ステージ20に到達する。' },
+      'clears25': { 'name': 'クリア請負人', 'desc': '合計25ステージをクリアする。' },
+      'clears100': { 'name': '百人隊長', 'desc': '合計100ステージをクリアする。' },
+      'bestRun100': { 'name': 'スプリンター', 'desc': '1プレイで100マス進む。' },
+      'bestRun250': { 'name': '距離の鬼', 'desc': '1プレイで250マス進む。' },
+      'coins5k': { 'name': 'コインコレクター', 'desc': '合計5,000コインを集める。' },
+      'coins50k': { 'name': '会計係', 'desc': '合計50,000コインを集める。' },
+      'items50': { 'name': '開封者', 'desc': '合計50個のアイテムボックスを取る。' },
+      'items250': { 'name': '収集家', 'desc': '合計250個のアイテムボックスを取る。' }
     }
   },
   'gameName': 'Epicancer',
@@ -172,5 +172,27 @@ export default {
       'medium': '標準のバランスの取れたペース。',
       'hard': '移動速度が速く、より正確なタイミングが必要。'
     }
+  },
+  'adsBlocked': {
+    'title': '広告を表示できませんでした',
+    'body': '報酬を獲得できるよう動画を表示しようとしましたが、お使いのブラウザの何かが広告をブロックしています。',
+    'allowPrefix': '次のサイトで広告を許可してください:',
+    'allowSuffix': '（またはこのゲームの広告ブロッカーを一時停止して）もう一度お試しください。',
+    'gotIt': 'OK'
+  },
+  'saveStatus': {
+    'restoredTitle': 'クラウドセーブを復元しました',
+    'restoredBody': '復元ボーナスとして+{n}コイン',
+    'tap': 'タップ',
+    'pausedTitle': 'クラウド同期を一時停止中',
+    'pausedBody': 'オフラインでプレイ中。進行状況はここに保存されます。',
+    'retry': 'リトライ',
+    'dismiss': '閉じる'
+  },
+  'loading': {
+    'tooLong': '読み込みに時間がかかっていますか？広告ブロッカーを無効にして再読み込みしてください。'
+  },
+  'license': {
+    'denied': 'アクセスが拒否されました。ライセンスを購入してください。'
   }
 }

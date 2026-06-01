@@ -5,21 +5,21 @@ export default {
   'achievements': {
     'title': '업적', 'subtitle': '평생 이정표를 달성해 코인을 받으세요.', 'claim': '수령', 'claimed': '수령함', 'progress': '{c} / {t}',
     'items': {
-      'tiles1k': { 'name': 'Globetrotter', 'desc': 'Travel 1,000 tiles in total.' },
-      'tiles5k': { 'name': 'Marathoner', 'desc': 'Travel 5,000 tiles in total.' },
-      'tiles10k': { 'name': 'Long Hauler', 'desc': 'Travel 10,000 tiles in total.' },
-      'tiles100k': { 'name': 'Voyager', 'desc': 'Travel 100,000 tiles in total.' },
-      'stage5': { 'name': 'Getting Started', 'desc': 'Reach stage 5.' },
-      'stage10': { 'name': 'Seasoned', 'desc': 'Reach stage 10.' },
-      'stage20': { 'name': 'Veteran', 'desc': 'Reach stage 20.' },
-      'clears25': { 'name': 'Clearing House', 'desc': 'Clear 25 stages in total.' },
-      'clears100': { 'name': 'Centurion', 'desc': 'Clear 100 stages in total.' },
-      'bestRun100': { 'name': 'Sprinter', 'desc': 'Travel 100 tiles in a single run.' },
-      'bestRun250': { 'name': 'Distance Demon', 'desc': 'Travel 250 tiles in a single run.' },
-      'coins5k': { 'name': 'Coin Collector', 'desc': 'Collect 5,000 coins in total.' },
-      'coins50k': { 'name': 'Treasurer', 'desc': 'Collect 50,000 coins in total.' },
-      'items50': { 'name': 'Unboxer', 'desc': 'Grab 50 item boxes in total.' },
-      'items250': { 'name': 'Hoarder', 'desc': 'Grab 250 item boxes in total.' }
+      'tiles1k': { 'name': '세계 여행자', 'desc': '총 1,000타일을 이동하세요.' },
+      'tiles5k': { 'name': '마라토너', 'desc': '총 5,000타일을 이동하세요.' },
+      'tiles10k': { 'name': '장거리 주자', 'desc': '총 10,000타일을 이동하세요.' },
+      'tiles100k': { 'name': '여행자', 'desc': '총 100,000타일을 이동하세요.' },
+      'stage5': { 'name': '첫걸음', 'desc': '스테이지 5에 도달하세요.' },
+      'stage10': { 'name': '숙련자', 'desc': '스테이지 10에 도달하세요.' },
+      'stage20': { 'name': '베테랑', 'desc': '스테이지 20에 도달하세요.' },
+      'clears25': { 'name': '청소부', 'desc': '총 25스테이지를 클리어하세요.' },
+      'clears100': { 'name': '백부장', 'desc': '총 100스테이지를 클리어하세요.' },
+      'bestRun100': { 'name': '단거리 주자', 'desc': '한 판에 100타일을 이동하세요.' },
+      'bestRun250': { 'name': '거리의 악마', 'desc': '한 판에 250타일을 이동하세요.' },
+      'coins5k': { 'name': '코인 수집가', 'desc': '총 5,000코인을 모으세요.' },
+      'coins50k': { 'name': '회계 담당', 'desc': '총 50,000코인을 모으세요.' },
+      'items50': { 'name': '개봉자', 'desc': '총 50개의 아이템 상자를 획득하세요.' },
+      'items250': { 'name': '수집광', 'desc': '총 250개의 아이템 상자를 획득하세요.' }
     }
   },
   'gameName': 'Epicancer',
@@ -172,5 +172,27 @@ export default {
       'medium': '표준 균형 속도.',
       'hard': '이동 속도가 빨라져 더 정밀한 타이밍이 필요합니다.'
     }
+  },
+  'adsBlocked': {
+    'title': '광고를 표시할 수 없습니다',
+    'body': '보상을 받을 수 있도록 동영상을 보여드리려 했지만, 브라우저의 무언가가 광고를 차단하고 있습니다.',
+    'allowPrefix': '다음에서 광고를 허용해 주세요:',
+    'allowSuffix': '(또는 이 게임에 대한 광고 차단기를 일시 중지하고) 다시 시도하세요.',
+    'gotIt': '확인'
+  },
+  'saveStatus': {
+    'restoredTitle': '클라우드 저장 복원됨',
+    'restoredBody': '복구 보너스로 +{n} 코인',
+    'tap': '탭',
+    'pausedTitle': '클라우드 동기화 일시 중지됨',
+    'pausedBody': '오프라인으로 플레이 중입니다. 진행 상황은 여기에 저장됩니다.',
+    'retry': '다시 시도',
+    'dismiss': '닫기'
+  },
+  'loading': {
+    'tooLong': '로딩이 너무 오래 걸리나요? 광고 차단기를 끄고 새로고침하세요.'
+  },
+  'license': {
+    'denied': '접근이 거부되었습니다. 라이선스를 구매하세요.'
   }
 }

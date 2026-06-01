@@ -5,21 +5,21 @@ export default {
   'achievements': {
     'title': 'Başarımlar', 'subtitle': 'Para kazanmak için kalıcı hedeflere ulaş.', 'claim': 'Al', 'claimed': 'Alındı', 'progress': '{c} / {t}',
     'items': {
-      'tiles1k': { 'name': 'Globetrotter', 'desc': 'Travel 1,000 tiles in total.' },
-      'tiles5k': { 'name': 'Marathoner', 'desc': 'Travel 5,000 tiles in total.' },
-      'tiles10k': { 'name': 'Long Hauler', 'desc': 'Travel 10,000 tiles in total.' },
-      'tiles100k': { 'name': 'Voyager', 'desc': 'Travel 100,000 tiles in total.' },
-      'stage5': { 'name': 'Getting Started', 'desc': 'Reach stage 5.' },
-      'stage10': { 'name': 'Seasoned', 'desc': 'Reach stage 10.' },
-      'stage20': { 'name': 'Veteran', 'desc': 'Reach stage 20.' },
-      'clears25': { 'name': 'Clearing House', 'desc': 'Clear 25 stages in total.' },
-      'clears100': { 'name': 'Centurion', 'desc': 'Clear 100 stages in total.' },
-      'bestRun100': { 'name': 'Sprinter', 'desc': 'Travel 100 tiles in a single run.' },
-      'bestRun250': { 'name': 'Distance Demon', 'desc': 'Travel 250 tiles in a single run.' },
-      'coins5k': { 'name': 'Coin Collector', 'desc': 'Collect 5,000 coins in total.' },
-      'coins50k': { 'name': 'Treasurer', 'desc': 'Collect 50,000 coins in total.' },
-      'items50': { 'name': 'Unboxer', 'desc': 'Grab 50 item boxes in total.' },
-      'items250': { 'name': 'Hoarder', 'desc': 'Grab 250 item boxes in total.' }
+      'tiles1k': { 'name': 'Dünya Gezgini', 'desc': 'Toplam 1.000 kare ilerle.' },
+      'tiles5k': { 'name': 'Maratoncu', 'desc': 'Toplam 5.000 kare ilerle.' },
+      'tiles10k': { 'name': 'Uzun Mesafeci', 'desc': 'Toplam 10.000 kare ilerle.' },
+      'tiles100k': { 'name': 'Gezgin', 'desc': 'Toplam 100.000 kare ilerle.' },
+      'stage5': { 'name': 'İlk Adımlar', 'desc': '5. aşamaya ulaş.' },
+      'stage10': { 'name': 'Tecrübeli', 'desc': '10. aşamaya ulaş.' },
+      'stage20': { 'name': 'Veteran', 'desc': '20. aşamaya ulaş.' },
+      'clears25': { 'name': 'Temizlikçi', 'desc': 'Toplam 25 aşama tamamla.' },
+      'clears100': { 'name': 'Centurion', 'desc': 'Toplam 100 aşama tamamla.' },
+      'bestRun100': { 'name': 'Sprinter', 'desc': 'Tek koşuda 100 kare ilerle.' },
+      'bestRun250': { 'name': 'Mesafe Canavarı', 'desc': 'Tek koşuda 250 kare ilerle.' },
+      'coins5k': { 'name': 'Para Koleksiyoncusu', 'desc': 'Toplam 5.000 para topla.' },
+      'coins50k': { 'name': 'Hazinedar', 'desc': 'Toplam 50.000 para topla.' },
+      'items50': { 'name': 'Kutu Açıcı', 'desc': 'Toplam 50 eşya kutusu yakala.' },
+      'items250': { 'name': 'İstifçi', 'desc': 'Toplam 250 eşya kutusu yakala.' }
     }
   },
   'gameName': 'Epicancer',
@@ -172,5 +172,27 @@ export default {
       'medium': 'Standart, dengeli tempo.',
       'hard': 'Daha hızlı — daha hassas zamanlama gerekir.'
     }
+  },
+  'adsBlocked': {
+    'title': 'Reklam gösterilemedi',
+    'body': 'Ödülünü kazanman için sana bir video göstermeye çalıştık, ama tarayıcındaki bir şey reklamları engelliyor.',
+    'allowPrefix': 'Lütfen şu adreste reklamlara izin ver:',
+    'allowSuffix': '(veya bu oyun için reklam engelleyiciyi duraklat) ve tekrar dene.',
+    'gotIt': 'Anladım'
+  },
+  'saveStatus': {
+    'restoredTitle': 'Bulut kaydı geri yüklendi',
+    'restoredBody': 'Kurtarma için +{n} bonus para',
+    'tap': 'dokun',
+    'pausedTitle': 'Bulut eşitlemesi duraklatıldı',
+    'pausedBody': 'Çevrimdışı oynuyorsun. İlerlemen burada kaydediliyor.',
+    'retry': 'Tekrar',
+    'dismiss': 'kapat'
+  },
+  'loading': {
+    'tooLong': 'Yükleme çok mu uzun sürüyor? Reklam engelleyiciyi kapat ve sayfayı yenile.'
+  },
+  'license': {
+    'denied': 'Erişim reddedildi: lütfen bir lisans satın al.'
   }
 }

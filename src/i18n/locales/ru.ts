@@ -5,21 +5,21 @@ export default {
   'achievements': {
     'title': 'Достижения', 'subtitle': 'Достигайте вех, чтобы заработать монеты.', 'claim': 'Забрать', 'claimed': 'Получено', 'progress': '{c} / {t}',
     'items': {
-      'tiles1k': { 'name': 'Globetrotter', 'desc': 'Travel 1,000 tiles in total.' },
-      'tiles5k': { 'name': 'Marathoner', 'desc': 'Travel 5,000 tiles in total.' },
-      'tiles10k': { 'name': 'Long Hauler', 'desc': 'Travel 10,000 tiles in total.' },
-      'tiles100k': { 'name': 'Voyager', 'desc': 'Travel 100,000 tiles in total.' },
-      'stage5': { 'name': 'Getting Started', 'desc': 'Reach stage 5.' },
-      'stage10': { 'name': 'Seasoned', 'desc': 'Reach stage 10.' },
-      'stage20': { 'name': 'Veteran', 'desc': 'Reach stage 20.' },
-      'clears25': { 'name': 'Clearing House', 'desc': 'Clear 25 stages in total.' },
-      'clears100': { 'name': 'Centurion', 'desc': 'Clear 100 stages in total.' },
-      'bestRun100': { 'name': 'Sprinter', 'desc': 'Travel 100 tiles in a single run.' },
-      'bestRun250': { 'name': 'Distance Demon', 'desc': 'Travel 250 tiles in a single run.' },
-      'coins5k': { 'name': 'Coin Collector', 'desc': 'Collect 5,000 coins in total.' },
-      'coins50k': { 'name': 'Treasurer', 'desc': 'Collect 50,000 coins in total.' },
-      'items50': { 'name': 'Unboxer', 'desc': 'Grab 50 item boxes in total.' },
-      'items250': { 'name': 'Hoarder', 'desc': 'Grab 250 item boxes in total.' }
+      'tiles1k': { 'name': 'Путешественник', 'desc': 'Пройдите всего 1 000 плиток.' },
+      'tiles5k': { 'name': 'Марафонец', 'desc': 'Пройдите всего 5 000 плиток.' },
+      'tiles10k': { 'name': 'Дальнобойщик', 'desc': 'Пройдите всего 10 000 плиток.' },
+      'tiles100k': { 'name': 'Странник', 'desc': 'Пройдите всего 100 000 плиток.' },
+      'stage5': { 'name': 'Первые шаги', 'desc': 'Достигните этапа 5.' },
+      'stage10': { 'name': 'Опытный', 'desc': 'Достигните этапа 10.' },
+      'stage20': { 'name': 'Ветеран', 'desc': 'Достигните этапа 20.' },
+      'clears25': { 'name': 'Уборщик', 'desc': 'Пройдите всего 25 этапов.' },
+      'clears100': { 'name': 'Центурион', 'desc': 'Пройдите всего 100 этапов.' },
+      'bestRun100': { 'name': 'Спринтер', 'desc': 'Пройдите 100 плиток за один забег.' },
+      'bestRun250': { 'name': 'Демон дистанции', 'desc': 'Пройдите 250 плиток за один забег.' },
+      'coins5k': { 'name': 'Собиратель монет', 'desc': 'Соберите всего 5 000 монет.' },
+      'coins50k': { 'name': 'Казначей', 'desc': 'Соберите всего 50 000 монет.' },
+      'items50': { 'name': 'Распаковщик', 'desc': 'Соберите всего 50 ящиков с предметами.' },
+      'items250': { 'name': 'Накопитель', 'desc': 'Соберите всего 250 ящиков с предметами.' }
     }
   },
   'gameName': 'Epicancer',
@@ -172,5 +172,27 @@ export default {
       'medium': 'Стандартный сбалансированный темп.',
       'hard': 'Быстрее — нужен более точный тайминг.'
     }
+  },
+  'adsBlocked': {
+    'title': 'Не удалось показать рекламу',
+    'body': 'Мы пытались показать вам видео, чтобы вы получили награду, но что-то в вашем браузере блокирует рекламу.',
+    'allowPrefix': 'Разрешите рекламу на',
+    'allowSuffix': '(или приостановите блокировщик рекламы для этой игры) и попробуйте снова.',
+    'gotIt': 'Понятно'
+  },
+  'saveStatus': {
+    'restoredTitle': 'Облачное сохранение восстановлено',
+    'restoredBody': '+{n} бонусных монет за восстановление',
+    'tap': 'нажмите',
+    'pausedTitle': 'Облачная синхронизация приостановлена',
+    'pausedBody': 'Игра офлайн. Ваш прогресс сохраняется здесь.',
+    'retry': 'Заново',
+    'dismiss': 'закрыть'
+  },
+  'loading': {
+    'tooLong': 'Загрузка идёт слишком долго? Отключите блокировщик рекламы и обновите страницу.'
+  },
+  'license': {
+    'denied': 'Доступ запрещён: пожалуйста, приобретите лицензию.'
   }
 }

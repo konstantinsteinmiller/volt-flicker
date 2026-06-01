@@ -9,6 +9,7 @@
 //
 // Tap-to-dismiss for both states. Mounted from App.vue.
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import {
   acknowledgeBonus,
   bonusCoinsAwarded,
@@ -17,6 +18,8 @@ import {
   retryInFlight,
   retrySync
 } from '@/use/useSaveStatus'
+
+const { t } = useI18n()
 
 const dismissed = ref(false)
 
@@ -69,9 +72,9 @@ watch(hasBonusToShow, (on) => {
     )
       span.text-xl 🎉
       div.flex-1
-        div.font-bold Cloud save restored
-        div.text-xs(class="text-emerald-100") +{{ bonusCoinsAwarded }} bonus coins for the recovery
-      span.text-xs(class="text-emerald-100/80") tap
+        div.font-bold {{ t('saveStatus.restoredTitle') }}
+        div.text-xs(class="text-emerald-100") {{ t('saveStatus.restoredBody', { n: bonusCoinsAwarded }) }}
+      span.text-xs(class="text-emerald-100/80") {{ t('saveStatus.tap') }}
 
     //- Offline banner — amber / informational
     div.pointer-events-auto.rounded-lg.shadow-lg.text-white.text-sm.flex.items-center.gap-3(
@@ -80,16 +83,16 @@ watch(hasBonusToShow, (on) => {
     )
       span.text-xl ☁️
       div.flex-1
-        div.font-bold Cloud sync paused
-        div.text-xs(class="text-amber-100") Playing offline. Your progress is saved here.
+        div.font-bold {{ t('saveStatus.pausedTitle') }}
+        div.text-xs(class="text-amber-100") {{ t('saveStatus.pausedBody') }}
       button.text-xs.font-bold.rounded.bg-white.text-amber-800(
         class="px-2 py-1 disabled:opacity-50"
         :disabled="retryInFlight"
         @click="onRetry"
-      ) {{ retryInFlight ? '…' : 'Retry' }}
+      ) {{ retryInFlight ? '…' : t('saveStatus.retry') }}
       button.text-lg.font-bold.px-1(
         class="text-amber-100/80"
         @click="onDismissOffline"
-        aria-label="dismiss"
+        :aria-label="t('saveStatus.dismiss')"
       ) ×
 </template>

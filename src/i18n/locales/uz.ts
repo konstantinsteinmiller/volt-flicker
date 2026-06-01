@@ -5,21 +5,21 @@ export default {
   'achievements': {
     'title': 'Yutuqlar', 'subtitle': 'Tanga olish uchun bosqichlarga erishing.', 'claim': 'Olish', 'claimed': 'Olingan', 'progress': '{c} / {t}',
     'items': {
-      'tiles1k': { 'name': 'Globetrotter', 'desc': 'Travel 1,000 tiles in total.' },
-      'tiles5k': { 'name': 'Marathoner', 'desc': 'Travel 5,000 tiles in total.' },
-      'tiles10k': { 'name': 'Long Hauler', 'desc': 'Travel 10,000 tiles in total.' },
-      'tiles100k': { 'name': 'Voyager', 'desc': 'Travel 100,000 tiles in total.' },
-      'stage5': { 'name': 'Getting Started', 'desc': 'Reach stage 5.' },
-      'stage10': { 'name': 'Seasoned', 'desc': 'Reach stage 10.' },
-      'stage20': { 'name': 'Veteran', 'desc': 'Reach stage 20.' },
-      'clears25': { 'name': 'Clearing House', 'desc': 'Clear 25 stages in total.' },
-      'clears100': { 'name': 'Centurion', 'desc': 'Clear 100 stages in total.' },
-      'bestRun100': { 'name': 'Sprinter', 'desc': 'Travel 100 tiles in a single run.' },
-      'bestRun250': { 'name': 'Distance Demon', 'desc': 'Travel 250 tiles in a single run.' },
-      'coins5k': { 'name': 'Coin Collector', 'desc': 'Collect 5,000 coins in total.' },
-      'coins50k': { 'name': 'Treasurer', 'desc': 'Collect 50,000 coins in total.' },
-      'items50': { 'name': 'Unboxer', 'desc': 'Grab 50 item boxes in total.' },
-      'items250': { 'name': 'Hoarder', 'desc': 'Grab 250 item boxes in total.' }
+      'tiles1k': { 'name': 'Sayyoh', 'desc': 'Jami 1 000 plitadan o\'ting.' },
+      'tiles5k': { 'name': 'Marafonchi', 'desc': 'Jami 5 000 plitadan o\'ting.' },
+      'tiles10k': { 'name': 'Uzoq masofa yuguruvchisi', 'desc': 'Jami 10 000 plitadan o\'ting.' },
+      'tiles100k': { 'name': 'Sayohatchi', 'desc': 'Jami 100 000 plitadan o\'ting.' },
+      'stage5': { 'name': 'Birinchi qadamlar', 'desc': '5-bosqichga yeting.' },
+      'stage10': { 'name': 'Tajribali', 'desc': '10-bosqichga yeting.' },
+      'stage20': { 'name': 'Faxriy', 'desc': '20-bosqichga yeting.' },
+      'clears25': { 'name': 'Tozalovchi', 'desc': 'Jami 25 bosqichni tugating.' },
+      'clears100': { 'name': 'Senturion', 'desc': 'Jami 100 bosqichni tugating.' },
+      'bestRun100': { 'name': 'Sprinter', 'desc': 'Bir yugurishda 100 plitadan o\'ting.' },
+      'bestRun250': { 'name': 'Masofa jini', 'desc': 'Bir yugurishda 250 plitadan o\'ting.' },
+      'coins5k': { 'name': 'Tanga yig\'uvchi', 'desc': 'Jami 5 000 tanga to\'plang.' },
+      'coins50k': { 'name': 'Xazinachi', 'desc': 'Jami 50 000 tanga to\'plang.' },
+      'items50': { 'name': 'Ochuvchi', 'desc': 'Jami 50 ta buyum qutisini oling.' },
+      'items250': { 'name': 'Yig\'uvchi', 'desc': 'Jami 250 ta buyum qutisini oling.' }
     }
   },
   'gameName': 'Epicancer',
@@ -172,5 +172,27 @@ export default {
       'medium': "Standart, muvozanatli sur'at.",
       'hard': "Tezroq harakat tezligi — qatʼiyroq, aniqroq vaqt."
     }
+  },
+  'adsBlocked': {
+    'title': 'Reklamani ko\'rsatib bo\'lmadi',
+    'body': 'Mukofotingizni olishingiz uchun sizga video ko\'rsatmoqchi bo\'ldik, lekin brauzeringizdagi nimadir reklamani to\'sib turibdi.',
+    'allowPrefix': 'Reklamaga ruxsat bering:',
+    'allowSuffix': '(yoki ushbu o\'yin uchun reklama to\'suvchini vaqtincha o\'chiring) va qayta urinib ko\'ring.',
+    'gotIt': 'Tushunarli'
+  },
+  'saveStatus': {
+    'restoredTitle': 'Bulutli saqlash tiklandi',
+    'restoredBody': 'Tiklash uchun +{n} bonus tanga',
+    'tap': 'bosing',
+    'pausedTitle': 'Bulutli sinxronlash to\'xtatildi',
+    'pausedBody': 'Oflayn o\'ynayapsiz. Sizning yutug\'ingiz shu yerda saqlanadi.',
+    'retry': 'Qayta',
+    'dismiss': 'yopish'
+  },
+  'loading': {
+    'tooLong': 'Yuklash juda uzoq davom etyaptimi? Reklama to\'suvchini o\'chiring va sahifani yangilang.'
+  },
+  'license': {
+    'denied': 'Kirish rad etildi: iltimos, litsenziya sotib oling.'
   }
 }

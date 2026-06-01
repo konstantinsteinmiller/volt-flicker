@@ -18,7 +18,7 @@ import { useMusic } from '@/use/useSound'
 import useSounds from '@/use/useSound'
 import { useScreenshake } from '@/use/useScreenshake'
 import { isGamePaused } from '@/use/useGamePause'
-import { isMobilePortrait } from '@/use/useUser'
+import { isMobilePortrait, isMobileLandscape } from '@/use/useUser'
 import { spawnCoinExplosion } from '@/use/useCoinExplosion'
 import {
   isInterstitialReady,
@@ -26,6 +26,7 @@ import {
   showMidgameAd,
   showRewardedAd
 } from '@/use/useAds'
+import { startGameplay, stopGameplay } from '@/use/useCrazyGames'
 
 import StageBadge from '@/components/StageBadge.vue'
 import ScoreBadge from '@/components/atoms/ScoreBadge.vue'
@@ -237,6 +238,22 @@ const onSkipContinue = (): void => {
   void presentLoseScreen()
 }
 
+// Interstitial delay (ms) after the win/lose result screen appears, before the
+// ad is requested — gives the result stinger a beat to land first. The ad call
+// flips `isAdShowing`, which the universal pause gate (`useGamePauseAudio`)
+// turns into a synchronous full audio suspend (bg-music + every SFX), and the
+// gate drops — resuming audio — only after the ad finishes / fails / no-fills.
+const RESULT_INTERSTITIAL_DELAY_MS = 600
+
+/** Show a result-screen interstitial after the standard delay, iff one is
+ *  loaded. Safe no-op when no interstitial is ready (no-fill / cooldown). */
+const presentResultInterstitial = async (): Promise<void> => {
+  await wait(RESULT_INTERSTITIAL_DELAY_MS)
+  if (isInterstitialReady.value) {
+    await showMidgameAd()
+  }
+}
+
 const presentLoseScreen = async (): Promise<void> => {
   twoXUsed.value = false
   finishRun(false)
@@ -245,12 +262,9 @@ const presentLoseScreen = async (): Promise<void> => {
   // Game-Over sting as the lose screen appears (distinct from the crash SFX).
   playSound('lose', 0.08)
   // Keep the bg music silent for the whole result screen — it resumes only when
-  // the player continues (onResultContinue). 500ms in, request the interstitial.
+  // the player continues (onResultContinue). 600ms in, request the interstitial.
   stopBattleMusic()
-  await wait(500)
-  if (isInterstitialReady.value) {
-    await showMidgameAd()
-  }
+  await presentResultInterstitial()
 }
 
 const onWin = async (): Promise<void> => {
@@ -269,6 +283,8 @@ const onWin = async (): Promise<void> => {
   }
   showResult.value = true
   void grantRunCoins()
+  // Endless win lands directly on the result screen → 600ms-delayed interstitial.
+  void presentResultInterstitial()
 }
 
 const onTwoX = async (): Promise<void> => {
@@ -330,6 +346,9 @@ const onChooseBoon = (boon: BoonId): void => {
   showBoon.value = false
   showResult.value = true
   void grantRunCoins()
+  // The win/reward screen has now appeared (after the boon pick) → fire the
+  // 600ms-delayed interstitial, same as the lose/endless paths.
+  void presentResultInterstitial()
 }
 
 const toggleEndless = (): void => {
@@ -350,6 +369,14 @@ watch(phase, (p, prev) => {
   if (p === 'playing' && prev !== 'playing') startBattleMusic()
   if (p === 'dead' && prev === 'playing') void onDeath()
   if (p === 'won' && prev === 'playing') void onWin()
+  // CrazyGames gameplay lifecycle: tell the SDK the player is in a live run
+  // only while `playing`. Entering ANY non-playing state (dead → ContinueModal
+  // / Lose screen, won → Win screen, idle → menu) ends gameplay. Both calls are
+  // idempotent in the CG module, so a revive (dead → playing) cleanly restarts
+  // it, and `onAcceptContinue`'s `revive()` flips phase back to 'playing' which
+  // re-fires gameplayStart here. No-op on non-CG builds (stubbed).
+  if (p === 'playing') startGameplay()
+  else stopGameplay()
 })
 
 // Push the equipped ball skin to the renderer now and whenever it changes
@@ -411,31 +438,24 @@ onUnmounted(() => {
         )
         CoinBadge(ref="coinBadgeRef")
 
-      //- Center-top big score
-      div.absolute.left-0.right-0.flex.justify-center(
+      //- Center-top stack: big score, then the combo multiplier, then the Racer
+      //- banner — all in ONE flex column so the combo/racer always sit directly
+      //- under the (variable-height) score with a fixed gap, never overlapping it
+      //- regardless of how the score scales across viewports. The combo is white
+      //- → orange at 2× → golden at the 3× cap (roadmap #6).
+      div.absolute.left-0.right-0.flex.flex-col.items-center.z-10(
         class="z-[5]"
         :style="{ top: 'calc(3.2rem + env(safe-area-inset-top, 0px))' }"
       )
         ScoreBadge(v-if="phase === 'playing' || phase === 'dead'" :score="score")
-
-      //- Coin-combo multiplier chain (roadmap #6): a rising ×-multiplier badge
-      //- under the score. White → orange from 2× → golden at the 3× cap.
-      div.pointer-events-none.absolute.left-0.right-0.flex.justify-center.z-10(
-        v-show="phase === 'playing' && combo > 1.05"
-        :style="{ top: 'calc(5rem + env(safe-area-inset-top, 0px))' }"
-      )
-        div.font-black.game-text.italic.animate-pulse(
-          class="text-xl sm:text-3xl -mb-2"
+        div.pointer-events-none.font-black.game-text.italic.animate-pulse(
+          v-show="phase === 'playing' && combo > 1.05"
+          :class="isMobileLandscape ? 'text-base mt-0.5' : 'text-xl sm:text-3xl mt-1'"
           :style="{ color: combo >= 3 ? '#ffd23c' : (combo >= 2 ? '#ff9a3c' : '#ffffff'), textShadow: '2px 2px 0 #000' }"
         ) ×{{ combo.toFixed(2) }}
-
-      //- Racer dash banner: hands-off 5× sprint indicator.
-      div.pointer-events-none.absolute.left-0.right-0.flex.justify-center.z-10(
-        v-show="racerActive"
-        :style="{ top: 'calc(7rem + env(safe-area-inset-top, 0px))' }"
-      )
-        div.font-black.game-text.italic.uppercase.tracking-widest.animate-pulse(
-          class="text-2xl sm:text-4xl"
+        div.pointer-events-none.font-black.game-text.italic.uppercase.tracking-widest.animate-pulse(
+          v-show="racerActive"
+          :class="isMobileLandscape ? 'text-lg mt-0.5' : 'text-2xl sm:text-4xl mt-1'"
           :style="{ color: '#ff3df0', textShadow: '2px 2px 0 #000' }"
         ) {{ t('powerups.racer') }}
 
@@ -604,39 +624,54 @@ onUnmounted(() => {
     )
       template(#ribbon)
         span.text-white.font-black.uppercase.italic.game-text(class="sm:text-2xl") {{ t('rewards') }}
-      div.flex.flex-col.items-center.gap-4
-        div.font-black.uppercase.tracking-wider.game-text(
-          class="text-3xl sm:text-5xl"
-          :class="gameResult === 'win' ? 'text-green-400' : 'text-red-400'"
-        ) {{ gameResult === 'win' ? t('result.win') : t('result.lose') }}
-        div.text-white.game-text.text-center.opacity-80(
-          v-if="gameResult === 'lose'"
-          class="text-sm sm:text-base"
-        ) {{ lossCause === 'hole' ? t('result.fell') : t('result.crashed') }}
-        //- "Almost!" near-miss nudge — only when the player was genuinely close.
-        div.text-yellow-200.game-text.text-center.font-black.animate-pulse(
-          v-if="nearMissTiles > 0"
-          class="text-sm sm:text-base"
-        ) {{ t('result.almost', { n: nearMissTiles }) }}
-        //- Tiles travelled this run
-        div.flex.items-center.gap-2.text-white.game-text(class="text-base sm:text-lg")
-          span.opacity-70.uppercase.tracking-wider.text-xs {{ t('result.tiles') }}
-          span.font-black.text-yellow-200(class="text-xl sm:text-2xl") {{ score }}
-        //- Coins collected (+ win reward)
-        div.flex.flex-col.items-center.gap-1(ref="rewardCoinRef")
-          div.flex.items-center.gap-3
-            IconCoin(class="w-8 h-8 text-yellow-300")
-            span.text-yellow-400.font-black.game-text(class="text-2xl sm:text-4xl") +{{ runTotalCoins }}
-          div.text-white.game-text.opacity-70(v-if="gameResult === 'win'" class="text-xs") {{ t('result.winReward', { n: lastWinReward }) }}
-        //- 2× rewarded button
-        button.cursor-pointer.transition-transform.flex.items-center.justify-center.gap-2(
-          v-if="twoXAvailable"
-          class="px-5 py-2 rounded-xl bg-gradient-to-b from-[#ffcd00] to-[#f7a000] border-2 border-[#0f1a30] text-white font-black uppercase game-text hover:scale-[103%] active:scale-95 disabled:opacity-50"
-          :disabled="isAdInFlight"
-          @click="onTwoX"
-        )
-          IconMovie(class="w-5 h-5 shrink-0")
-          span {{ firstRunBonusActive ? t('result.firstRunDouble') : t('result.double') }}
+      //- Result body. Landscape mobile uses a 2-column layout (title/message +
+      //- tiles on the left, coins + 2× button on the right) with smaller type so
+      //- nothing overlaps in the short viewport; portrait/desktop stay a single
+      //- centred column.
+      div(
+        :class="isMobileLandscape \
+          ? 'grid grid-cols-2 items-center gap-x-6 gap-y-1 px-2' \
+          : 'flex flex-col items-center gap-4'"
+      )
+        //- ── Left column (landscape) / top (portrait): outcome + tiles ──
+        div.flex.flex-col.items-center(:class="isMobileLandscape ? 'gap-1' : 'gap-4 contents'")
+          div.font-black.uppercase.tracking-wider.game-text(
+            class="text-3xl sm:text-5xl"
+            :class="[gameResult === 'win' ? 'text-green-400' : 'text-red-400', { '!text-2xl': isMobileLandscape }]"
+          ) {{ gameResult === 'win' ? t('result.win') : t('result.lose') }}
+          div.text-white.game-text.text-center.opacity-80(
+            v-if="gameResult === 'lose'"
+            class="text-sm sm:text-base"
+            :class="{ '!text-xs leading-tight': isMobileLandscape }"
+          ) {{ lossCause === 'hole' ? t('result.fell') : t('result.crashed') }}
+          //- "Almost!" near-miss nudge — only when the player was genuinely close.
+          div.text-yellow-200.game-text.text-center.font-black.animate-pulse(
+            v-if="nearMissTiles > 0"
+            class="text-sm sm:text-base"
+            :class="{ '!text-xs leading-tight': isMobileLandscape }"
+          ) {{ t('result.almost', { n: nearMissTiles }) }}
+          //- Tiles travelled this run
+          div.flex.items-center.gap-2.text-white.game-text(class="text-base sm:text-lg")
+            span.opacity-70.uppercase.tracking-wider.text-xs {{ t('result.tiles') }}
+            span.font-black.text-yellow-200(class="text-xl sm:text-2xl" :class="{ '!text-lg': isMobileLandscape }") {{ score }}
+        //- ── Right column (landscape) / continues below (portrait): coins + 2× ──
+        div.flex.flex-col.items-center(:class="isMobileLandscape ? 'gap-1' : 'gap-4 contents'")
+          //- Coins collected (+ win reward)
+          div.flex.flex-col.items-center.gap-1(ref="rewardCoinRef")
+            div.flex.items-center.gap-3
+              IconCoin(:class="isMobileLandscape ? 'w-6 h-6 text-yellow-300' : 'w-8 h-8 text-yellow-300'")
+              span.text-yellow-400.font-black.game-text(class="text-2xl sm:text-4xl" :class="{ '!text-2xl': isMobileLandscape }") +{{ runTotalCoins }}
+            div.text-white.game-text.opacity-70(v-if="gameResult === 'win'" class="text-xs") {{ t('result.winReward', { n: lastWinReward }) }}
+          //- 2× rewarded button
+          button.cursor-pointer.transition-transform.flex.items-center.justify-center.gap-2(
+            v-if="twoXAvailable"
+            class="rounded-xl bg-gradient-to-b from-[#ffcd00] to-[#f7a000] border-2 border-[#0f1a30] text-white font-black uppercase game-text hover:scale-[103%] active:scale-95 disabled:opacity-50"
+            :class="isMobileLandscape ? 'px-4 py-1.5 text-xs' : 'px-5 py-2'"
+            :disabled="isAdInFlight"
+            @click="onTwoX"
+          )
+            IconMovie(class="w-5 h-5 shrink-0")
+            span {{ firstRunBonusActive ? t('result.firstRunDouble') : t('result.double') }}
 
     //- Stage-clear boon picker (roadmap #13): pick one of three for next stage.
     Transition(name="fade")

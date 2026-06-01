@@ -5,21 +5,21 @@ export default {
   'achievements': {
     'title': 'Thành tựu', 'subtitle': 'Đạt cột mốc trọn đời để kiếm xu.', 'claim': 'Nhận', 'claimed': 'Đã nhận', 'progress': '{c} / {t}',
     'items': {
-      'tiles1k': { 'name': 'Globetrotter', 'desc': 'Travel 1,000 tiles in total.' },
-      'tiles5k': { 'name': 'Marathoner', 'desc': 'Travel 5,000 tiles in total.' },
-      'tiles10k': { 'name': 'Long Hauler', 'desc': 'Travel 10,000 tiles in total.' },
-      'tiles100k': { 'name': 'Voyager', 'desc': 'Travel 100,000 tiles in total.' },
-      'stage5': { 'name': 'Getting Started', 'desc': 'Reach stage 5.' },
-      'stage10': { 'name': 'Seasoned', 'desc': 'Reach stage 10.' },
-      'stage20': { 'name': 'Veteran', 'desc': 'Reach stage 20.' },
-      'clears25': { 'name': 'Clearing House', 'desc': 'Clear 25 stages in total.' },
-      'clears100': { 'name': 'Centurion', 'desc': 'Clear 100 stages in total.' },
-      'bestRun100': { 'name': 'Sprinter', 'desc': 'Travel 100 tiles in a single run.' },
-      'bestRun250': { 'name': 'Distance Demon', 'desc': 'Travel 250 tiles in a single run.' },
-      'coins5k': { 'name': 'Coin Collector', 'desc': 'Collect 5,000 coins in total.' },
-      'coins50k': { 'name': 'Treasurer', 'desc': 'Collect 50,000 coins in total.' },
-      'items50': { 'name': 'Unboxer', 'desc': 'Grab 50 item boxes in total.' },
-      'items250': { 'name': 'Hoarder', 'desc': 'Grab 250 item boxes in total.' }
+      'tiles1k': { 'name': 'Người du hành thế giới', 'desc': 'Đi tổng cộng 1.000 ô.' },
+      'tiles5k': { 'name': 'Vận động viên marathon', 'desc': 'Đi tổng cộng 5.000 ô.' },
+      'tiles10k': { 'name': 'Người chạy đường dài', 'desc': 'Đi tổng cộng 10.000 ô.' },
+      'tiles100k': { 'name': 'Lữ khách', 'desc': 'Đi tổng cộng 100.000 ô.' },
+      'stage5': { 'name': 'Khởi đầu', 'desc': 'Đạt màn 5.' },
+      'stage10': { 'name': 'Lão luyện', 'desc': 'Đạt màn 10.' },
+      'stage20': { 'name': 'Kỳ cựu', 'desc': 'Đạt màn 20.' },
+      'clears25': { 'name': 'Người dọn dẹp', 'desc': 'Hoàn thành tổng cộng 25 màn.' },
+      'clears100': { 'name': 'Bách phu trưởng', 'desc': 'Hoàn thành tổng cộng 100 màn.' },
+      'bestRun100': { 'name': 'Vận động viên nước rút', 'desc': 'Đi 100 ô trong một lượt chơi.' },
+      'bestRun250': { 'name': 'Quỷ khoảng cách', 'desc': 'Đi 250 ô trong một lượt chơi.' },
+      'coins5k': { 'name': 'Nhà sưu tầm xu', 'desc': 'Thu thập tổng cộng 5.000 xu.' },
+      'coins50k': { 'name': 'Thủ quỹ', 'desc': 'Thu thập tổng cộng 50.000 xu.' },
+      'items50': { 'name': 'Người mở hộp', 'desc': 'Lấy tổng cộng 50 hộp vật phẩm.' },
+      'items250': { 'name': 'Kẻ tích trữ', 'desc': 'Lấy tổng cộng 250 hộp vật phẩm.' }
     }
   },
   'gameName': 'Epicancer',
@@ -176,5 +176,27 @@ export default {
       'medium': 'Nhịp độ tiêu chuẩn, cân bằng.',
       'hard': 'Tốc độ di chuyển nhanh hơn — căng thẳng, đòi hỏi căn thời gian chính xác hơn.'
     }
+  },
+  'adsBlocked': {
+    'title': 'Không thể hiển thị quảng cáo',
+    'body': 'Chúng tôi đã cố hiển thị video để bạn nhận phần thưởng, nhưng có thứ gì đó trên trình duyệt của bạn đang chặn quảng cáo.',
+    'allowPrefix': 'Vui lòng cho phép quảng cáo trên',
+    'allowSuffix': '(hoặc tạm dừng trình chặn quảng cáo cho trò chơi này) và thử lại.',
+    'gotIt': 'Đã hiểu'
+  },
+  'saveStatus': {
+    'restoredTitle': 'Đã khôi phục lưu trên đám mây',
+    'restoredBody': '+{n} xu thưởng cho việc khôi phục',
+    'tap': 'chạm',
+    'pausedTitle': 'Đã tạm dừng đồng bộ đám mây',
+    'pausedBody': 'Đang chơi ngoại tuyến. Tiến trình của bạn được lưu tại đây.',
+    'retry': 'Thử lại',
+    'dismiss': 'đóng'
+  },
+  'loading': {
+    'tooLong': 'Tải quá lâu? Hãy tắt trình chặn quảng cáo và làm mới.'
+  },
+  'license': {
+    'denied': 'Truy cập bị từ chối: vui lòng mua giấy phép.'
   }
 }

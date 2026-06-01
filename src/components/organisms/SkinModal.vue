@@ -5,6 +5,7 @@ import FModal from '@/components/molecules/FModal.vue'
 import IconCoin from '@/components/icons/IconCoin.vue'
 import useEpicSkins, { SKINS, skinCost, type SkinRarity } from '@/use/useEpicSkins'
 import { prependBaseUrl } from '@/utils/function'
+import { isMobileLandscape } from '@/use/useUser'
 import useSounds from '@/use/useSound'
 
 const props = defineProps<{ modelValue: boolean }>()
@@ -76,14 +77,19 @@ const onCardAction = (id: string): void => {
 
 <template lang="pug">
   FModal(v-model="isOpen" :title="t('skins.title')")
-    div.flex.flex-col.gap-2.p-2
-      p.text-center.text-white.game-text.opacity-80(class="text-xs sm:text-sm") {{ t('skins.subtitle') }}
-      div.grid.gap-2(class="grid-cols-2 sm:grid-cols-3")
-        div.skin-card.relative.flex.flex-col.items-center.gap-1.rounded-xl.border-2.p-2(
+    div.flex.flex-col(:class="isMobileLandscape ? 'gap-1 p-1' : 'gap-2 p-2'")
+      p.text-center.text-white.game-text.opacity-80(
+        v-if="!isMobileLandscape"
+        class="text-xs sm:text-sm"
+      ) {{ t('skins.subtitle') }}
+      //- Landscape mobile fits 4 columns of smaller cards so more skins are
+      //- visible without scrolling; portrait/desktop keep 2/3 columns.
+      div.grid(:class="isMobileLandscape ? 'grid-cols-4 gap-1.5' : 'grid-cols-2 sm:grid-cols-3 gap-2'")
+        div.skin-card.relative.flex.flex-col.items-center.gap-1.rounded-xl.border-2(
           v-for="card in cards"
           :key="card.id"
           class="bg-black/30"
-          :class="card.selected ? 'border-yellow-300' : RARITY_BORDER[card.rarity]"
+          :class="[card.selected ? 'border-yellow-300' : RARITY_BORDER[card.rarity], isMobileLandscape ? 'p-1' : 'p-2']"
         )
           //- "NEW!" flag for a freshly-unlocked / never-seen skin.
           div.absolute.z-10.rounded-full.border.font-black.game-text.text-white.uppercase(
@@ -101,7 +107,7 @@ const onCardAction = (id: string): void => {
           //- overlaps the skin instead of being cut off. (Slash-opacity utilities
           //- like `border-black/40` must live in `class=""` — Pug's dot-class
           //- shorthand chokes on the `/` and dumps the rest as literal text.)
-          div.relative(class="w-14 h-14 sm:w-16 sm:h-16")
+          div.relative(:class="isMobileLandscape ? 'w-11 h-11' : 'w-14 h-14 sm:w-16 sm:h-16'")
             div.rounded-full.overflow-hidden.border-2.w-full.h-full(class="border-black/40")
               img.w-full.h-full.object-cover(:src="card.preview" alt="" :class="card.locked ? 'grayscale' : ''")
             //- Stage-lock overlay: grey scrim + padlock until the gate is met.

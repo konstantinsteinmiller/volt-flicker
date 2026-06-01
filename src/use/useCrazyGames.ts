@@ -455,14 +455,20 @@ export const showRewardedAd = (): Promise<boolean> => {
     }
 
     // CrazyGames recommends pausing gameplay while an ad plays so that
-    // sounds + timers don't run behind the video. We explicitly restart
-    // gameplay on both the success and error paths so we never leave the
-    // game stuck in a paused state.
-    const resumeAfterAd = () => startGameplay()
+    // sounds + timers don't run behind the video. Only resume gameplay if it
+    // was active BEFORE the ad — rewarded ads fire from menus too (AdRewardButton,
+    // DailyRewards, BattlePass, the Second-Chance "Watch & Continue"), and
+    // calling gameplayStart() afterwards would falsely tell CG the player is in
+    // a match while they're on a menu / result screen.
+    let wasGameplayActive = false
+    const resumeAfterAd = () => {
+      if (wasGameplayActive) startGameplay()
+    }
 
     try {
       sdk.ad?.requestAd?.('rewarded', {
         adStarted: () => {
+          wasGameplayActive = gameplayActive
           stopGameplay()
         },
         adFinished: () => {
@@ -503,12 +509,18 @@ export const showMidgameAd = (): Promise<void> => {
     }
 
     // Pause gameplay while the ad plays so sounds and timers don't run
-    // behind the video, and always resume on both success and error paths.
-    const resumeAfterAd = () => startGameplay()
+    // behind the video. Only resume if gameplay was active before the ad — a
+    // midgame ad fired from the result screen (our 600ms-delayed win/lose
+    // interstitial) must NOT flip CG into "in match" state afterwards.
+    let wasGameplayActive = false
+    const resumeAfterAd = () => {
+      if (wasGameplayActive) startGameplay()
+    }
 
     try {
       sdk.ad?.requestAd?.('midgame', {
         adStarted: () => {
+          wasGameplayActive = gameplayActive
           stopGameplay()
         },
         adFinished: () => {

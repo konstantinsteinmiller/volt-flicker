@@ -1,10 +1,10 @@
 <template lang="pug">
   Transition(name="fade")
     //- Ensure classes with special characters are in parentheses
-    div.fixed.inset-0.flex.flex-col.items-center.justify-center.backdrop-blur-md.p-4.touch-none.cursor-pointer(
+    div.fixed.inset-0.flex.flex-col.items-center.justify-center.backdrop-blur-md.touch-none.cursor-pointer(
       v-if="modelValue"
       class="bg-black/60"
-      :class="isAdShowing ? 'z-0' : 'z-[100]'"
+      :class="[isAdShowing ? 'z-0' : 'z-[100]', isMobileLandscape ? 'p-2' : 'p-4']"
       :style="{\
         paddingTop: 'calc(1rem + env(safe-area-inset-top, 0px))',\
         paddingBottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))',\
@@ -17,24 +17,34 @@
       //- responsive wrap; the slot content (or a fallback "Rewards"
       //- label) renders on top of the ribbon, centred horizontally and
       //- biased above the bottom curl so the tails stay visible.
-      div.ribbon-wrap.relative.mb-10(
+      div.ribbon-wrap.relative.mb-10.shrink-0(
         v-if="$slots.ribbon"
-        :class="{ '!mb-2 -mt-2': isMobileLandscape, 'is-desktop': !isMobileLandscape && !isMobilePortrait }"
+        :class="{ '!mb-1 -mt-1 scale-90': isMobileLandscape, 'is-desktop': !isMobileLandscape && !isMobilePortrait }"
       )
         div.ribbon-banner
           div.ribbon-content
             slot(name="ribbon")
               span.text-white.font-black.uppercase.italic.game-text {{ t('rewards') }}
 
-      div.relative.w-full.h-full.flex.flex-col.items-center.justify-center
+      //- Content area. In landscape it scrolls inside the remaining height
+      //- (min-h-0) so a tall reward block never collides with the inline
+      //- "tap to continue" footer below; elsewhere it stays vertically centred.
+      div.relative.w-full.flex.flex-col.items-center.justify-center(
+        :class="isMobileLandscape ? 'flex-1 min-h-0 overflow-y-auto py-1' : 'h-full'"
+      )
         slot
 
+      //- Tap-to-continue hint. In landscape it sits INLINE in the flow (shrink-0)
+      //- so it can never overlap the centred reward content; otherwise it floats
+      //- at the bottom of the viewport as before.
       Transition(name="fade")
-        div.absolute.bottom-8.left-0.right-0.flex.justify-center.animate-pulse.pointer-events-none(
+        div.flex.justify-center.animate-pulse.pointer-events-none(
           v-if="showContinue"
-          class="sm:bottom-12"
+          :class="isMobileLandscape ? 'shrink-0 pt-1 pb-1' : 'absolute bottom-8 left-0 right-0 sm:bottom-12'"
         )
-          div.text-sm.text-center.text-white.font-black.uppercase.italic.tracking-widest.brawl-text(class="md:text-2xl")
+          div.text-white.font-black.uppercase.italic.tracking-widest.brawl-text(
+            :class="isMobileLandscape ? 'text-xs' : 'text-sm md:text-2xl'"
+          )
             | {{ isMobile ? t('tapToContinue') : t('clickToContinue') }}
 </template>
 

@@ -198,5 +198,27 @@ export default {
       'medium': 'The standard, balanced pace.',
       'hard': 'Faster travel speed — tighter, more precise timing.'
     }
+  },
+  'adsBlocked': {
+    'title': "Couldn't show ad",
+    'body': 'We tried to show you a video so you could earn your reward, but something on your browser is blocking ads.',
+    'allowPrefix': 'Please allow ads on',
+    'allowSuffix': '(or pause your ad-blocker for this game) and try again.',
+    'gotIt': 'Got it'
+  },
+  'saveStatus': {
+    'restoredTitle': 'Cloud save restored',
+    'restoredBody': '+{n} bonus coins for the recovery',
+    'tap': 'tap',
+    'pausedTitle': 'Cloud sync paused',
+    'pausedBody': 'Playing offline. Your progress is saved here.',
+    'retry': 'Retry',
+    'dismiss': 'dismiss'
+  },
+  'loading': {
+    'tooLong': 'Loading taking too long? Try disabling your ad blocker and refresh.'
+  },
+  'license': {
+    'denied': 'Access Denied: Please purchase a license.'
   }
 }

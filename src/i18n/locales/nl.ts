@@ -5,21 +5,21 @@ export default {
   'achievements': {
     'title': 'Prestaties', 'subtitle': 'Behaal mijlpalen om munten te verdienen.', 'claim': 'Claim', 'claimed': 'Geclaimd', 'progress': '{c} / {t}',
     'items': {
-      'tiles1k': { 'name': 'Globetrotter', 'desc': 'Travel 1,000 tiles in total.' },
-      'tiles5k': { 'name': 'Marathoner', 'desc': 'Travel 5,000 tiles in total.' },
-      'tiles10k': { 'name': 'Long Hauler', 'desc': 'Travel 10,000 tiles in total.' },
-      'tiles100k': { 'name': 'Voyager', 'desc': 'Travel 100,000 tiles in total.' },
-      'stage5': { 'name': 'Getting Started', 'desc': 'Reach stage 5.' },
-      'stage10': { 'name': 'Seasoned', 'desc': 'Reach stage 10.' },
-      'stage20': { 'name': 'Veteran', 'desc': 'Reach stage 20.' },
-      'clears25': { 'name': 'Clearing House', 'desc': 'Clear 25 stages in total.' },
-      'clears100': { 'name': 'Centurion', 'desc': 'Clear 100 stages in total.' },
-      'bestRun100': { 'name': 'Sprinter', 'desc': 'Travel 100 tiles in a single run.' },
-      'bestRun250': { 'name': 'Distance Demon', 'desc': 'Travel 250 tiles in a single run.' },
-      'coins5k': { 'name': 'Coin Collector', 'desc': 'Collect 5,000 coins in total.' },
-      'coins50k': { 'name': 'Treasurer', 'desc': 'Collect 50,000 coins in total.' },
-      'items50': { 'name': 'Unboxer', 'desc': 'Grab 50 item boxes in total.' },
-      'items250': { 'name': 'Hoarder', 'desc': 'Grab 250 item boxes in total.' }
+      'tiles1k': { 'name': 'Wereldreiziger', 'desc': 'Leg in totaal 1.000 tegels af.' },
+      'tiles5k': { 'name': 'Marathonloper', 'desc': 'Leg in totaal 5.000 tegels af.' },
+      'tiles10k': { 'name': 'Langeafstandsloper', 'desc': 'Leg in totaal 10.000 tegels af.' },
+      'tiles100k': { 'name': 'Reiziger', 'desc': 'Leg in totaal 100.000 tegels af.' },
+      'stage5': { 'name': 'Eerste stappen', 'desc': 'Bereik level 5.' },
+      'stage10': { 'name': 'Doorgewinterd', 'desc': 'Bereik level 10.' },
+      'stage20': { 'name': 'Veteraan', 'desc': 'Bereik level 20.' },
+      'clears25': { 'name': 'Opruimer', 'desc': 'Voltooi in totaal 25 levels.' },
+      'clears100': { 'name': 'Centurion', 'desc': 'Voltooi in totaal 100 levels.' },
+      'bestRun100': { 'name': 'Sprinter', 'desc': 'Leg 100 tegels af in één run.' },
+      'bestRun250': { 'name': 'Afstandsduivel', 'desc': 'Leg 250 tegels af in één run.' },
+      'coins5k': { 'name': 'Muntenverzamelaar', 'desc': 'Verzamel in totaal 5.000 munten.' },
+      'coins50k': { 'name': 'Penningmeester', 'desc': 'Verzamel in totaal 50.000 munten.' },
+      'items50': { 'name': 'Uitpakker', 'desc': 'Pak in totaal 50 itemkisten.' },
+      'items250': { 'name': 'Hamsteraar', 'desc': 'Pak in totaal 250 itemkisten.' }
     }
   },
   'gameName': 'Epicancer',
@@ -172,5 +172,27 @@ export default {
       'medium': 'Het standaard, gebalanceerde tempo.',
       'hard': 'Sneller tempo — strakkere, preciezere timing.'
     }
+  },
+  'adsBlocked': {
+    'title': 'Kan advertentie niet tonen',
+    'body': 'We probeerden je een video te tonen zodat je je beloning kon verdienen, maar iets in je browser blokkeert advertenties.',
+    'allowPrefix': 'Sta advertenties toe op',
+    'allowSuffix': '(of pauzeer je adblocker voor dit spel) en probeer het opnieuw.',
+    'gotIt': 'Begrepen'
+  },
+  'saveStatus': {
+    'restoredTitle': 'Cloud-opslag hersteld',
+    'restoredBody': '+{n} bonusmunten voor het herstel',
+    'tap': 'tik',
+    'pausedTitle': 'Cloud-synchronisatie gepauzeerd',
+    'pausedBody': 'Je speelt offline. Je voortgang wordt hier opgeslagen.',
+    'retry': 'Opnieuw',
+    'dismiss': 'sluiten'
+  },
+  'loading': {
+    'tooLong': 'Duurt het laden te lang? Schakel je adblocker uit en vernieuw.'
+  },
+  'license': {
+    'denied': 'Toegang geweigerd: koop een licentie.'
   }
 }

@@ -5,21 +5,21 @@ export default {
   'achievements': {
     'title': 'Жетістіктер', 'subtitle': 'Тиын табу үшін мақсаттарға жетіңіз.', 'claim': 'Алу', 'claimed': 'Алынды', 'progress': '{c} / {t}',
     'items': {
-      'tiles1k': { 'name': 'Globetrotter', 'desc': 'Travel 1,000 tiles in total.' },
-      'tiles5k': { 'name': 'Marathoner', 'desc': 'Travel 5,000 tiles in total.' },
-      'tiles10k': { 'name': 'Long Hauler', 'desc': 'Travel 10,000 tiles in total.' },
-      'tiles100k': { 'name': 'Voyager', 'desc': 'Travel 100,000 tiles in total.' },
-      'stage5': { 'name': 'Getting Started', 'desc': 'Reach stage 5.' },
-      'stage10': { 'name': 'Seasoned', 'desc': 'Reach stage 10.' },
-      'stage20': { 'name': 'Veteran', 'desc': 'Reach stage 20.' },
-      'clears25': { 'name': 'Clearing House', 'desc': 'Clear 25 stages in total.' },
-      'clears100': { 'name': 'Centurion', 'desc': 'Clear 100 stages in total.' },
-      'bestRun100': { 'name': 'Sprinter', 'desc': 'Travel 100 tiles in a single run.' },
-      'bestRun250': { 'name': 'Distance Demon', 'desc': 'Travel 250 tiles in a single run.' },
-      'coins5k': { 'name': 'Coin Collector', 'desc': 'Collect 5,000 coins in total.' },
-      'coins50k': { 'name': 'Treasurer', 'desc': 'Collect 50,000 coins in total.' },
-      'items50': { 'name': 'Unboxer', 'desc': 'Grab 50 item boxes in total.' },
-      'items250': { 'name': 'Hoarder', 'desc': 'Grab 250 item boxes in total.' }
+      'tiles1k': { 'name': 'Әлем кезуші', 'desc': 'Барлығы 1 000 тақтайшадан өтіңіз.' },
+      'tiles5k': { 'name': 'Марафоншы', 'desc': 'Барлығы 5 000 тақтайшадан өтіңіз.' },
+      'tiles10k': { 'name': 'Алыс қашықтыққа жүгіруші', 'desc': 'Барлығы 10 000 тақтайшадан өтіңіз.' },
+      'tiles100k': { 'name': 'Саяхатшы', 'desc': 'Барлығы 100 000 тақтайшадан өтіңіз.' },
+      'stage5': { 'name': 'Алғашқы қадамдар', 'desc': '5-кезеңге жетіңіз.' },
+      'stage10': { 'name': 'Тәжірибелі', 'desc': '10-кезеңге жетіңіз.' },
+      'stage20': { 'name': 'Ардагер', 'desc': '20-кезеңге жетіңіз.' },
+      'clears25': { 'name': 'Тазалаушы', 'desc': 'Барлығы 25 кезеңді өтіңіз.' },
+      'clears100': { 'name': 'Центурион', 'desc': 'Барлығы 100 кезеңді өтіңіз.' },
+      'bestRun100': { 'name': 'Спринтер', 'desc': 'Бір жүгірісте 100 тақтайшадан өтіңіз.' },
+      'bestRun250': { 'name': 'Қашықтық жыны', 'desc': 'Бір жүгірісте 250 тақтайшадан өтіңіз.' },
+      'coins5k': { 'name': 'Тиын жинаушы', 'desc': 'Барлығы 5 000 тиын жинаңыз.' },
+      'coins50k': { 'name': 'Қазынашы', 'desc': 'Барлығы 50 000 тиын жинаңыз.' },
+      'items50': { 'name': 'Ашушы', 'desc': 'Барлығы 50 зат жәшігін алыңыз.' },
+      'items250': { 'name': 'Жинаушы', 'desc': 'Барлығы 250 зат жәшігін алыңыз.' }
     }
   },
   'gameName': 'Epicancer',
@@ -95,5 +95,27 @@ export default {
     'title': 'Параметрлер', 'general': 'Жалпы', 'audio': 'Дыбыс', 'language': 'Тіл', 'difficulty': 'Қиындық', 'soundEffects': 'Дыбыс әсерлері', 'music': 'Музыка', 'musicTrack': 'Музыка тректі', 'musicTracks': { 'cozy': 'Жайлы әуен', 'trance': 'Транс туннелі' }, 'close': 'Сақтау және жабу',
     'difficulties': { 'easy': 'Оңай', 'medium': 'Орташа', 'hard': 'Қиын' },
     'difficultyHints': { 'easy': 'Баяу жылдамдық — әрекет етуге көбірек уақыт.', 'medium': 'Стандартты, теңдестірілген қарқын.', 'hard': 'Жоғары жылдамдық — қатаңырақ, дәлірек уақыт.' }
+  },
+  'adsBlocked': {
+    'title': 'Жарнаманы көрсету мүмкін болмады',
+    'body': 'Біз сізге сыйлық алу үшін бейне көрсетпек болдық, бірақ браузеріңіздегі бірдеңе жарнаманы бөгеп тұр.',
+    'allowPrefix': 'Жарнамаға рұқсат беріңіз:',
+    'allowSuffix': '(немесе осы ойын үшін жарнама бөгеушіні уақытша өшіріңіз) және қайталап көріңіз.',
+    'gotIt': 'Түсінікті'
+  },
+  'saveStatus': {
+    'restoredTitle': 'Бұлттық сақтау қалпына келтірілді',
+    'restoredBody': 'Қалпына келтіру үшін +{n} бонустық тиын',
+    'tap': 'түртіңіз',
+    'pausedTitle': 'Бұлттық синхрондау кідіртілді',
+    'pausedBody': 'Желіден тыс ойнап жатырсыз. Прогресіңіз осында сақталады.',
+    'retry': 'Қайталау',
+    'dismiss': 'жабу'
+  },
+  'loading': {
+    'tooLong': 'Жүктеу тым ұзаққа созылып жатыр ма? Жарнама бөгеушіні өшіріп, бетті жаңартыңыз.'
+  },
+  'license': {
+    'denied': 'Кіруге тыйым салынды: лицензия сатып алыңыз.'
   }
 }

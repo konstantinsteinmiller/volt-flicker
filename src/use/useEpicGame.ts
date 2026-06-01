@@ -282,9 +282,14 @@ const useEpicGame = () => {
   const dodgeCooldownMs = (level: number): number => Math.max(0, 10 - (level - 1) * 0.5) * 1000
 
   /** An obstacle the ball can barrel through instead of dying on:
-   *  • the Push Force power-up clears small obstacles (box + stone), and
+   *  • the Push Force power-up clears small obstacles (box + stone + wall), and
    *  • the permanent Rolling Boulder upgrade lets it roll through boxes.
-   *  Both award coins and shatter the prop (see the obstacle handling below). */
+   *  Both award coins and shatter the prop (see the obstacle handling below).
+   *
+   *  Takes an `ObstacleKind` and is ONLY ever consulted inside the
+   *  `cell.kind === 'obstacle'` branch — so this can never apply to lava
+   *  (`kind: 'lava'`) or holes (`kind: 'hole'`). Push Force must NOT clear lava:
+   *  lava always kills (or is survived by invuln / Second Chance), never pushed. */
   const isPassableObstacle = (o: ObstacleKind | undefined): boolean =>
     (powerups.isActive('push') && isSmall(o)) ||
     (progress.levelOf('rollingBoulder') > 0 && o === 'box')
@@ -543,6 +548,11 @@ const useEpicGame = () => {
     score.value += 1
     // Queue an item box for the upcoming generation every 10 tiles travelled.
     if (score.value % 10 === 0) game.pendingItem = true
+    // Endless: bank the best LIVE as it's beaten (debounced disk write, no flush
+    // per tile) so the high score survives ANY exit — a Retry from the
+    // ContinueModal, a tab close, an ad, or a crash before `die()` runs. `die()`
+    // still does a final flush. (Campaign best is recorded on the result screen.)
+    if (gameMode.value === 'endless') recordEndlessBest(false)
     const cell = game.cells.get(cellKey(c, r))
 
     // Win check.
@@ -893,12 +903,15 @@ const useEpicGame = () => {
     void flushSaveNow()
   }
 
-  /** Persist a new endless best (tiles) if this run beat it. */
-  const recordEndlessBest = (): void => {
+  /** Persist a new endless best (tiles) if this run beat it. `flush` forces an
+   *  immediate disk write (used on death); the live per-tile calls pass false so
+   *  they only update the in-memory blob + schedule the debounced write — the
+   *  best is still safe because the blob is what every save path reads. */
+  const recordEndlessBest = (flush = true): void => {
     if (score.value <= bestEndless.value) return
     bestEndless.value = score.value
     setState(BEST_ENDLESS_KEY, score.value)
-    void flushSaveNow()
+    if (flush) void flushSaveNow()
   }
 
   /** Revive at the current spot: clear the hazard that killed the player and
@@ -972,7 +985,19 @@ const useEpicGame = () => {
     // Endless: a gentle distance ramp with no goal (roadmap #9).
     let speed: number
     if (gameMode.value === 'endless') {
-      const ramp = Math.min(0.6, score.value * 0.006) // +0.6%/tile, capped +60%
+      // Endless distance ramp, piecewise so speed keeps creeping up over a long
+      // run instead of flat-lining early (the old `min(0.6, tiles*0.006)` capped
+      // at +60% by tile 100, so tiles 200-800 all felt identical):
+      //   • 0-200 tiles  : +0% → +60%   (the original early ramp)
+      //   • 200-500 tiles: +60% → +80%  (another +20% over this band)
+      //   • 500-1000 tiles: +80% → +90% (another +10% over this band)
+      //   • 1000+ tiles  : held at +90%
+      const tiles = score.value
+      let ramp: number
+      if (tiles <= 200) ramp = (tiles / 200) * 0.6
+      else if (tiles <= 500) ramp = 0.6 + ((tiles - 200) / 300) * 0.2
+      else if (tiles <= 1000) ramp = 0.8 + ((tiles - 500) / 500) * 0.1
+      else ramp = 0.9
       speed = Math.min(MAX_SPEED, BASE_SPEED * (1 + ramp))
     } else {
       const stage = progress.stage.value

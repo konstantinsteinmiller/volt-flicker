@@ -5,21 +5,21 @@ export default {
   'achievements': {
     'title': 'ความสำเร็จ', 'subtitle': 'ทำเป้าหมายสะสมเพื่อรับเหรียญ', 'claim': 'รับ', 'claimed': 'รับแล้ว', 'progress': '{c} / {t}',
     'items': {
-      'tiles1k': { 'name': 'Globetrotter', 'desc': 'Travel 1,000 tiles in total.' },
-      'tiles5k': { 'name': 'Marathoner', 'desc': 'Travel 5,000 tiles in total.' },
-      'tiles10k': { 'name': 'Long Hauler', 'desc': 'Travel 10,000 tiles in total.' },
-      'tiles100k': { 'name': 'Voyager', 'desc': 'Travel 100,000 tiles in total.' },
-      'stage5': { 'name': 'Getting Started', 'desc': 'Reach stage 5.' },
-      'stage10': { 'name': 'Seasoned', 'desc': 'Reach stage 10.' },
-      'stage20': { 'name': 'Veteran', 'desc': 'Reach stage 20.' },
-      'clears25': { 'name': 'Clearing House', 'desc': 'Clear 25 stages in total.' },
-      'clears100': { 'name': 'Centurion', 'desc': 'Clear 100 stages in total.' },
-      'bestRun100': { 'name': 'Sprinter', 'desc': 'Travel 100 tiles in a single run.' },
-      'bestRun250': { 'name': 'Distance Demon', 'desc': 'Travel 250 tiles in a single run.' },
-      'coins5k': { 'name': 'Coin Collector', 'desc': 'Collect 5,000 coins in total.' },
-      'coins50k': { 'name': 'Treasurer', 'desc': 'Collect 50,000 coins in total.' },
-      'items50': { 'name': 'Unboxer', 'desc': 'Grab 50 item boxes in total.' },
-      'items250': { 'name': 'Hoarder', 'desc': 'Grab 250 item boxes in total.' }
+      'tiles1k': { 'name': 'นักท่องโลก', 'desc': 'เดินทางรวม 1,000 แผ่นกระเบื้อง' },
+      'tiles5k': { 'name': 'นักวิ่งมาราธอน', 'desc': 'เดินทางรวม 5,000 แผ่นกระเบื้อง' },
+      'tiles10k': { 'name': 'นักวิ่งทางไกล', 'desc': 'เดินทางรวม 10,000 แผ่นกระเบื้อง' },
+      'tiles100k': { 'name': 'นักเดินทาง', 'desc': 'เดินทางรวม 100,000 แผ่นกระเบื้อง' },
+      'stage5': { 'name': 'ก้าวแรก', 'desc': 'ไปถึงด่าน 5' },
+      'stage10': { 'name': 'ช่ำชอง', 'desc': 'ไปถึงด่าน 10' },
+      'stage20': { 'name': 'เซียน', 'desc': 'ไปถึงด่าน 20' },
+      'clears25': { 'name': 'นักเคลียร์', 'desc': 'ผ่านรวม 25 ด่าน' },
+      'clears100': { 'name': 'ร้อยเอก', 'desc': 'ผ่านรวม 100 ด่าน' },
+      'bestRun100': { 'name': 'นักวิ่งเร็ว', 'desc': 'เดินทาง 100 แผ่นกระเบื้องในรอบเดียว' },
+      'bestRun250': { 'name': 'ปีศาจระยะทาง', 'desc': 'เดินทาง 250 แผ่นกระเบื้องในรอบเดียว' },
+      'coins5k': { 'name': 'นักสะสมเหรียญ', 'desc': 'เก็บรวม 5,000 เหรียญ' },
+      'coins50k': { 'name': 'ขุนคลัง', 'desc': 'เก็บรวม 50,000 เหรียญ' },
+      'items50': { 'name': 'นักเปิดกล่อง', 'desc': 'เก็บกล่องไอเทมรวม 50 กล่อง' },
+      'items250': { 'name': 'นักกักตุน', 'desc': 'เก็บกล่องไอเทมรวม 250 กล่อง' }
     }
   },
   'gameName': 'Epicancer',
@@ -95,5 +95,27 @@ export default {
     'title': 'ตัวเลือก', 'general': 'ทั่วไป', 'audio': 'เสียง', 'language': 'ภาษา', 'difficulty': 'ระดับความยาก', 'soundEffects': 'เสียงเอฟเฟกต์', 'music': 'เพลง', 'musicTrack': 'แทร็กเพลง', 'musicTracks': { 'cozy': 'ทำนองอบอุ่น', 'trance': 'อุโมงค์แทรนซ์' }, 'close': 'บันทึกและปิด',
     'difficulties': { 'easy': 'ง่าย', 'medium': 'ปานกลาง', 'hard': 'ยาก' },
     'difficultyHints': { 'easy': 'ความเร็วการเคลื่อนที่ช้าลง — มีเวลาตอบสนองมากขึ้น', 'medium': 'จังหวะมาตรฐานที่สมดุล', 'hard': 'ความเร็วการเคลื่อนที่เร็วขึ้น — จับจังหวะให้แม่นยำและกระชับขึ้น' }
+  },
+  'adsBlocked': {
+    'title': 'ไม่สามารถแสดงโฆษณาได้',
+    'body': 'เราพยายามแสดงวิดีโอเพื่อให้คุณได้รับรางวัล แต่มีบางอย่างในเบราว์เซอร์ของคุณกำลังบล็อกโฆษณา',
+    'allowPrefix': 'โปรดอนุญาตโฆษณาบน',
+    'allowSuffix': '(หรือหยุดตัวบล็อกโฆษณาสำหรับเกมนี้ชั่วคราว) แล้วลองอีกครั้ง',
+    'gotIt': 'เข้าใจแล้ว'
+  },
+  'saveStatus': {
+    'restoredTitle': 'กู้คืนการบันทึกบนคลาวด์แล้ว',
+    'restoredBody': '+{n} เหรียญโบนัสสำหรับการกู้คืน',
+    'tap': 'แตะ',
+    'pausedTitle': 'หยุดซิงค์คลาวด์ชั่วคราว',
+    'pausedBody': 'กำลังเล่นแบบออฟไลน์ ความคืบหน้าของคุณถูกบันทึกไว้ที่นี่',
+    'retry': 'ลองใหม่',
+    'dismiss': 'ปิด'
+  },
+  'loading': {
+    'tooLong': 'โหลดนานเกินไปใช่ไหม? ปิดตัวบล็อกโฆษณาแล้วรีเฟรช'
+  },
+  'license': {
+    'denied': 'การเข้าถึงถูกปฏิเสธ: โปรดซื้อใบอนุญาต'
   }
 }
