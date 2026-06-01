@@ -16,6 +16,8 @@
     "build:gamepix": "vite build --mode gamepix --base=./ && cd dist && tar -a -cf ../epicancer-gamepix.zip * && cd .. && move epicancer-gamepix.zip dist\\",
     "build:gamemonetize": "vite build --mode gamemonetize --base=./ && cd dist && tar -a -cf ../epicancer-gamemonetize.zip * && cd .. && move epicancer-gamemonetize.zip dist\\",
     "build:yandex": "vite build --mode yandex --base=./ && cd dist && tar -a -cf ../epicancer-yandex.zip * && cd .. && move epicancer-yandex.zip dist\\",
+    "build-github-main": "VITE_APP_PVP_ENABLED=true vite build --base=/chaos-arena/ --outDir=dist",
+    "build-github-develop": "vite build --base=/chaos-arena/develop/ --outDir=dist/develop",
     "deploy": "vite build && surge dist/ --domain epicancer.surge.sh",
     "validated-build": "vue-tsc -b && vite build",
     "type-check": "vue-tsc --build",
