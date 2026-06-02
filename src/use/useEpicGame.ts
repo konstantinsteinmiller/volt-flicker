@@ -11,7 +11,7 @@ import { flushSaveNow } from '@/use/useSaveStatus'
 import { triggerBallDropIn } from '@/use/useEpicArt'
 
 /**
- * Core game loop for Epicancer.
+ * Core game loop for Epicrolla.
  *
  * A ball rolls UP an isometric diamond grid, hopping diamond-to-diamond along
  * the diamond edges. Each hop goes one row up and one column left or right; a
@@ -29,7 +29,7 @@ export type Phase = 'idle' | 'playing' | 'dead' | 'won'
 export type GameResult = '' | 'win' | 'lose'
 export type LossCause = '' | 'hole' | 'crash'
 
-export type ObstacleKind = 'box' | 'pyramid' | 'stone' | 'wall' | 'libertyCat'
+export type ObstacleKind = 'box' | 'pyramid' | 'stone' | 'wall' | 'libertyCat' | 'crate'
 export type CellKind = 'floor' | 'hole' | 'obstacle' | 'coin' | 'item' | 'portal' | 'lava'
 
 export interface Cell {
@@ -42,6 +42,12 @@ export interface Cell {
   /** Item box only: a rare "lucky" box that grants a double-duration power-up.
    *  The renderer draws it with a distinct golden glow to telegraph the drop. */
   lucky?: boolean
+  /** Crate-pile member: a 2×2 destructible pile spanning four diamonds. Every one
+   *  of the four cells carries the SAME bottom-front anchor coords (crateBC,
+   *  crateBR). The renderer draws ONE pile sprite from the anchor cell and skips
+   *  the rest; destroying any member clears all four together (acts like a box). */
+  crateBC?: number
+  crateBR?: number
 }
 
 export interface FxEvent {
@@ -76,7 +82,7 @@ const START_RUNWAY = 7          // rows of guaranteed-safe floor at the start
 // with the SAME box sprite as `box` (see useEpicArt `obstacleSrc`) — to the
 // player it IS a wooden box, so Push Force must clear it too, otherwise the
 // power-up "fails" on a hazard that looks identical to a pushable one.
-const SMALL_OBSTACLES: ObstacleKind[] = ['box', 'stone', 'wall']
+const SMALL_OBSTACLES: ObstacleKind[] = ['box', 'stone', 'wall', 'crate']
 
 /** How long (ms) the ball spends sinking into a hole before death registers.
  *  Read by the renderer to drive the drop visual. */
@@ -118,7 +124,7 @@ export const bestEndless: Ref<number> = ref(Math.max(0, Number(getState<number>(
 // the player most has its spawn weight reduced for upcoming runs (decays as
 // they survive), keeping strugglers in flow without dumbing the game down for
 // everyone. Not persisted — resets on reload.
-type HazardKey = 'hole' | 'lava' | 'box' | 'stone' | 'pyramid' | 'wall' | 'libertyCat'
+type HazardKey = 'hole' | 'lava' | 'box' | 'stone' | 'pyramid' | 'wall' | 'libertyCat' | 'crate'
 const hazardDeaths = new Map<HazardKey, number>()
 /** What killed the player on the current run (for the director + adaptive UI). */
 let lastKillerKind: HazardKey | null = null
@@ -200,7 +206,14 @@ export const game = {
   dodgeReadyAt: 0,
   // Game-clock ms at which a Second Chance was just spent — the renderer reads
   // a fresh (changed) value to spawn the angel-wings tear-apart shatter. 0 = none.
-  wingsBreakAt: 0
+  wingsBreakAt: 0,
+  // Racer auto-pilot dash: tiles left in the hands-off 5× sprint, then a short
+  // exit-runway guard that keeps clearing safe ground as control hands back.
+  racerTilesLeft: 0,
+  racerExitGuard: 0,
+  // Game-clock ms at which a power-up / Racer was just picked up — the renderer
+  // reads a fresh (changed) non-zero value to fire the chromatic pickup pulse.
+  powerupFlashAt: 0
 }
 
 /** Duration (ms) of the post-teleport orientation slow-motion. */
@@ -292,7 +305,31 @@ const useEpicGame = () => {
    *  lava always kills (or is survived by invuln / Second Chance), never pushed. */
   const isPassableObstacle = (o: ObstacleKind | undefined): boolean =>
     (powerups.isActive('push') && isSmall(o)) ||
-    (progress.levelOf('rollingBoulder') > 0 && o === 'box')
+    (progress.levelOf('rollingBoulder') > 0 && (o === 'box' || o === 'crate'))
+
+  // ─── Crate-pile (2×2 destructible cluster) ────────────────────────────────
+  //
+  // A crate-pile occupies four diamonds forming a larger diamond: the bottom
+  // (front) anchor cell, the two mid cells flanking it, and the top (back) cell.
+  // It behaves exactly like a box — Push Force / Rolling Boulder / invuln smash
+  // it, and a bare contact crashes — but as ONE unit: hitting any member bursts
+  // the whole pile.
+
+  /** The four diamond cells of a crate-pile, given its bottom-front anchor
+   *  (bc, br): bottom, mid-left, mid-right, top. */
+  const cratePileCells = (bc: number, br: number): ReadonlyArray<readonly [number, number]> =>
+    [[bc, br], [bc - 1, br - 1], [bc + 1, br - 1], [bc, br - 2]] as const
+
+  /** Remove every crate cell of the pile `cell` belongs to and burst it once. */
+  const destroyCratePile = (cell: Cell): void => {
+    const bc = cell.crateBC ?? cell.c
+    const br = cell.crateBR ?? cell.r
+    for (const [cc, rr] of cratePileCells(bc, br)) {
+      if (game.cells.get(cellKey(cc, rr))?.obstacle === 'crate') game.cells.delete(cellKey(cc, rr))
+    }
+    // One shatter burst at the bottom-front cell reads as the whole pile bursting.
+    emitFx('shatter', bc, br, undefined, 'crate')
+  }
 
   // ─── Procedural generation ────────────────────────────────────────────────
 
@@ -358,6 +395,59 @@ const useEpicGame = () => {
     return pool
   }
 
+  /** Stage from which the 2×2 crate-pile starts appearing (after walls at 4). */
+  const CRATE_PILE_STAGE = 5
+  /** Per-row chance to attempt a crate-pile once unlocked — deliberately rare so
+   *  the cluster stays a special sight rather than a wall of dodging. */
+  const CRATE_PILE_CHANCE = 0.02
+
+  /** Clear a single cell for a crate-pile go-around lane: deletes a deadly hazard
+   *  (hole / lava / obstacle) but leaves coins & item boxes. If the cell is part
+   *  of ANOTHER crate-pile, the whole of that pile is removed so no invisible
+   *  member is left behind. Coins/items are passable, so they never trap. */
+  const clearForCrateGoAround = (cc: number, rr: number): void => {
+    const k = game.cells.get(cellKey(cc, rr))
+    if (!k) return
+    if (k.kind === 'obstacle' && k.obstacle === 'crate') {
+      const bc = k.crateBC ?? k.c
+      const br = k.crateBR ?? k.r
+      for (const [x, y] of cratePileCells(bc, br)) game.cells.delete(cellKey(x, y))
+    } else if (k.kind === 'hole' || k.kind === 'lava' || k.kind === 'obstacle') {
+      game.cells.delete(cellKey(cc, rr))
+    }
+  }
+
+  /** Try to drop a 2×2 crate-pile with its TOP diamond on row `r`, extending DOWN
+   *  into the two already-generated rows below it (r+1, r+2). Returns the top
+   *  column on success (so the row generator can keep hazards clear of it), else
+   *  -1. The four target cells must be empty; flanking cells are cleared so the
+   *  ball always has a way around (preserving the "always solvable" guarantee). */
+  const tryPlaceCratePile = (r: number): number => {
+    // Keep a 3-column margin from each edge so a go-around lane always exists.
+    const cand: number[] = []
+    for (let c = 3; c <= C_MAX - 3; c++) if (((c + r) & 1) === 0) cand.push(c)
+    for (let i = cand.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1))
+      ;[cand[i], cand[j]] = [cand[j]!, cand[i]!]
+    }
+    for (const c of cand) {
+      const bc = c
+      const br = r + 2 // bottom-front anchor (two rows below the top)
+      const cells = cratePileCells(bc, br)
+      if (cells.some(([cc, rr]) => game.cells.has(cellKey(cc, rr)))) continue
+      for (const [cc, rr] of cells) {
+        game.cells.set(cellKey(cc, rr), { c: cc, r: rr, kind: 'obstacle', obstacle: 'crate', crateBC: bc, crateBR: br })
+      }
+      // Guarantee a go-around: clear the flank cells whose only safe up-neighbour
+      // would otherwise be the pile.
+      for (const [cc, rr] of [[c - 2, r + 2], [c + 2, r + 2], [c - 3, r + 1], [c + 3, r + 1]] as const) {
+        clearForCrateGoAround(cc, rr)
+      }
+      return c
+    }
+    return -1
+  }
+
   /** Generate one row `r` of diamonds (valid `c` share parity with `r`). The
    *  "no two adjacent diamonds both hazardous" rule guarantees the ball always
    *  has at least one safe up-neighbour, so the run is always solvable. */
@@ -373,8 +463,17 @@ const useEpicGame = () => {
     for (let c = 0; c <= C_MAX; c++) {
       if (((c + r) & 1) === 0) cols.push(c)
     }
+    // Rare 2×2 crate-pile (stage 5+): commit it first, then keep the row's other
+    // hazards clear of its top column so nothing sits adjacent to the pile.
+    let pileTopC = -99
+    if (!safeRunway && stage >= CRATE_PILE_STAGE && Math.random() < CRATE_PILE_CHANCE) {
+      pileTopC = tryPlaceCratePile(r)
+    }
     let prevHazard = false
     for (const c of cols) {
+      // Skip the pile's top column and its in-row neighbours (already placed /
+      // must stay clear so no hazard ends up adjacent to the crate-pile).
+      if (pileTopC >= 0 && Math.abs(c - pileTopC) <= 2) { prevHazard = false; continue }
       let kind: CellKind = 'floor'
       let obstacle: ObstacleKind | undefined
       if (!safeRunway && !prevHazard && Math.random() < pHazard) {
@@ -476,7 +575,12 @@ const useEpicGame = () => {
     game.target = { c: nc, r }
     // Clear anything lethal/blocking on the landing cell so the sprint is safe.
     const k = kindAt(nc)
-    if (k && k !== 'floor' && k !== 'coin') game.cells.delete(cellKey(nc, r))
+    if (k && k !== 'floor' && k !== 'coin') {
+      const lc = game.cells.get(cellKey(nc, r))
+      // A crate-pile must go as a whole, or stray invisible members linger.
+      if (lc?.obstacle === 'crate') destroyCratePile(lc)
+      else game.cells.delete(cellKey(nc, r))
+    }
   }
 
   /** Resolve the next target diamond from the current cell, honouring the
@@ -567,7 +671,13 @@ const useEpicGame = () => {
     if (game.racerTilesLeft > 0 || game.racerExitGuard > 0) {
       if (cell) {
         if (cell.kind === 'coin') collectCoin(cell)
-        else if (cell.kind !== 'floor') game.cells.delete(cellKey(c, r))
+        else if (cell.kind === 'obstacle') {
+          // The dash plows through obstacles — shatter them (juice) AND emit the
+          // 'shatter' FX so the on-screen boulders' googly eyes get frightened,
+          // same as a Push Force / invuln smash. A crate-pile bursts as one unit.
+          if (cell.obstacle === 'crate') destroyCratePile(cell)
+          else { emitFx('shatter', c, r, undefined, cell.obstacle); game.cells.delete(cellKey(c, r)) }
+        } else if (cell.kind !== 'floor') game.cells.delete(cellKey(c, r))
       }
       if (game.racerTilesLeft > 0) {
         game.racerTilesLeft -= 1
@@ -612,19 +722,21 @@ const useEpicGame = () => {
       return
     }
     if (cell.kind === 'obstacle') {
+      const isCrate = cell.obstacle === 'crate'
       if (invuln) {
-        // Tear the obstacle apart (matches the ball's death-shatter language).
-        emitFx('shatter', c, r, undefined, cell.obstacle)
+        // Tear the obstacle apart (matches the ball's death-shatter language). A
+        // crate-pile bursts as one unit (all four cells).
+        if (isCrate) destroyCratePile(cell)
+        else { emitFx('shatter', c, r, undefined, cell.obstacle); game.cells.delete(cellKey(c, r)) }
         emitFx('pop', c, r, '#ffd23f')
-        game.cells.delete(cellKey(c, r))
         awardInstantCoins(c, r, 3)
         playSound('shrapnel', 0.06)
         return
       }
       if (isPassableObstacle(cell.obstacle)) {
-        emitFx('shatter', c, r, undefined, cell.obstacle)
+        if (isCrate) destroyCratePile(cell)
+        else { emitFx('shatter', c, r, undefined, cell.obstacle); game.cells.delete(cellKey(c, r)) }
         emitFx('push', c, r, '#ff7a3f')
-        game.cells.delete(cellKey(c, r))
         awardInstantCoins(c, r, 3)
         playSound('shrapnel', 0.06)
         return
@@ -684,7 +796,7 @@ const useEpicGame = () => {
     const base = upgradedValue('coinValue') * coinMult()
     const value = Math.max(1, Math.round(base * combo.value))
     // Coins are tallied for the run but NOT banked to the wallet here — they're
-    // granted on the win/lose screen with a CoinExplosion (see EpicancerScene).
+    // granted on the win/lose screen with a CoinExplosion (see EpicrollaScene).
     coinsThisRun.value += value
     emitFx('coin', cell.c, cell.r, '#ffd23f')
     game.cells.delete(cellKey(cell.c, cell.r))
@@ -1117,6 +1229,19 @@ const useEpicGame = () => {
     }
   }
 
+  /** DEV/CHEAT: drop a 2×2 crate-pile a few rows ahead of the ball so the new
+   *  cluster can be eyeballed without waiting on its rare spawn roll. */
+  const spawnTestCratePile = (): void => {
+    if (phase.value !== 'idle' && phase.value !== 'playing') return
+    ensureGenerated()
+    const br = game.cell.r - 6 // bottom-front anchor, a few rows ahead
+    let bc = Math.max(3, Math.min(C_MAX - 2, game.cell.c))
+    if (((bc + br) & 1) !== 0) bc += 1
+    for (const [cc, rr] of cratePileCells(bc, br)) {
+      game.cells.set(cellKey(cc, rr), { c: cc, r: rr, kind: 'obstacle', obstacle: 'crate', crateBC: bc, crateBR: br })
+    }
+  }
+
   return {
     // reactive
     phase,
@@ -1138,6 +1263,7 @@ const useEpicGame = () => {
     die,
     revive,
     spawnTestItemBoxes,
+    spawnTestCratePile,
     // helpers for the scene
     powerupRemainingMs: (): number => powerups.remainingMs(game.clock),
     isPowerupActive: (t: PowerupType): boolean => powerups.isActive(t),

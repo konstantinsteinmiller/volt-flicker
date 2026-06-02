@@ -1,4 +1,4 @@
-# Epicancer — Retention & Conversion Roadmap
+# Epicrolla — Retention & Conversion Roadmap
 
 A backlog of future features aimed at four levers: **Day-1 retention**, **average
 playtime / session length**, **easy-to-pick-up / hard-to-put-down feel**, and

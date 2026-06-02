@@ -22,7 +22,7 @@ export default {
       'items250': { 'name': 'İstifçi', 'desc': 'Toplam 250 eşya kutusu yakala.' }
     }
   },
-  'gameName': 'Epicancer',
+  'gameName': 'Epicrolla',
   'cancel': 'İptal',
   'close': 'Kapat',
   'ok': 'Tamam',

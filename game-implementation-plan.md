@@ -1,10 +1,10 @@
-# Epicancer — Game Implementation Plan
+# Epicrolla — Game Implementation Plan
 
 > A mobile-first 2D arcade survival game. A ball rolls diagonally **upward**
 > across an isometric diamond grid. Each tap/click flips the horizontal
 > heading (NE ⇄ NW). Survive as long as possible while roll speed ramps up.
-> Score = number of grid tiles entered. Built on the existing Epicancer /
-> epicancer multi-platform Vue 3 + Vite + TS + Pug + Tailwind + SASS stack.
+> Score = number of grid tiles entered. Built on the existing Epicrolla /
+> epicrolla multi-platform Vue 3 + Vite + TS + Pug + Tailwind + SASS stack.
 
 This document is the **source of truth** for the build. If a session is
 interrupted, resume from the first unchecked item in "Execution Phases".
@@ -17,7 +17,7 @@ The repo already ships a battle-tested platform layer. We **keep and reuse**:
 
 | System | File(s) | Notes |
 |---|---|---|
-| Single-blob state | `use/useMawState.ts` → renamed `useEpicState.ts` | One localStorage key. Rename `STATE_KEY` → `epicancer_state`. |
+| Single-blob state | `use/useMawState.ts` → renamed `useEpicState.ts` | One localStorage key. Rename `STATE_KEY` → `epicrolla_state`. |
 | Save / cloud sync | `utils/save/*`, `SaveManager`, `BlobStorage`, `SaveMergePolicy` | Mirrors exactly the state blob + `__save_meta__`. |
 | Platform builds | `platforms/*`, `.env.*`, `main.ts` boot | CrazyGames, GameDistribution, Glitch, Itch, Wavedash, GamePix, Playgama, GameMonetize, Yandex. |
 | Ads | `use/useAds.ts`, `use/ads/*`, `use/useRewardedThrottle.ts` | `showRewardedAd`, `showMidgameAd`, `isRewardedReady`, `isInterstitialReady`, `isAdsBlocked`. |
@@ -31,9 +31,9 @@ The repo already ships a battle-tested platform layer. We **keep and reuse**:
 | Daily Rewards | `organisms/DailyRewards.vue` | Already coin-only. Keep. |
 | i18n | `i18n/*`, 8 locales (`en de fr es jp kr zh ru`) | Replace key bodies. en = source. |
 | UI atoms | `FButton`, `FModal`, `FReward`, `FMuteButton`, `FIconButton`, `FTabs`, `FSlider`, `FSwitch`, `FSelect`, `FLogoProgress`, `FPerfMeter`, `CoinBadge`, `IconCoin`, `IconMovie`, `StageBadge`, `OptionsModal`, `AdsBlockedModal`, `SaveStatusBanner` | Make F-components fully responsive (no fixed `scale-110` magic). |
-| App shell | `App.vue`, `router/index.ts` | Route `/` → `EpicancerScene.vue`. Drop `/editor` + LevelEditor. |
+| App shell | `App.vue`, `router/index.ts` | Route `/` → `EpicrollaScene.vue`. Drop `/editor` + LevelEditor. |
 
-### Components/composables to DELETE (Epicancer gameplay-specific)
+### Components/composables to DELETE (Epicrolla gameplay-specific)
 `views/MawScene.vue`, `views/LevelEditor.vue`, `use/useMawGame.ts`,
 `use/useMawArt.ts`, `use/useMawCampaign.ts`, `use/useMawProgress.ts`,
 `use/useMawState.ts`(renamed), `use/useMawConfig.ts`(renamed),
@@ -116,7 +116,7 @@ powerup shown as a labeled timer banner near bottom (ref: "INVINCIBLE" bar).
   time survived), shows coins collected this run, plus battle-pass campaign-win XP.
 - **2× coins** rewarded button on BOTH win & lose screens (30s cooldown after use).
 
-### State object — `epicancer_state` (single in-memory Record, one LS key)
+### State object — `epicrolla_state` (single in-memory Record, one LS key)
 Fields (internal blob keys, `epic_` prefix):
 ```
 epic_stage            number   // current stage (1+)
@@ -133,7 +133,7 @@ __save_meta__         ...      // save merge meta
 ```
 > NOTE: settings + battlepass + daily keys keep their `spinner_` names so the
 > reused composables work unchanged; they're just fields inside the one blob.
-> `STATE_KEY = 'epicancer_state'` is the single localStorage/cloud key.
+> `STATE_KEY = 'epicrolla_state'` is the single localStorage/cloud key.
 
 ---
 
@@ -146,12 +146,12 @@ src/use/useEpicProgress.ts     // stage, best score, upgrades
 src/use/useEpicGame.ts         // core loop, entities, collisions, powerups
 src/use/useEpicArt.ts          // canvas drawing: grid, ball, obstacles, coins, vfx
 src/use/usePowerups.ts         // powerup registry + active timer
-src/views/EpicancerScene.vue  // main scene + HUD + modals
+src/views/EpicrollaScene.vue  // main scene + HUD + modals
 src/components/atoms/ScoreBadge.vue     // big center score
 src/components/atoms/PowerupBanner.vue  // active powerup timer bar
 src/components/organisms/EpicUpgradesModal.vue  // powerup upgrades
 data/  (drop campaign-overrides)
-docs/epicancer-roadmap.md     // retention roadmap (deliverable)
+docs/epicrolla-roadmap.md     // retention roadmap (deliverable)
 ```
 
 ---
@@ -163,16 +163,16 @@ docs/epicancer-roadmap.md     // retention roadmap (deliverable)
 > 242/244 unit tests pass. The 2 failures are **pre-existing, unrelated**
 > platform-SDK tests (`gameMonetizeFill` cooldown timer; `GlitchStrategy`
 > fetch-fail timeout) — both test files are byte-identical to the original and
-> import no Epicancer code. Cloud‑hydrate is covered by
+> import no Epicrolla code. Cloud‑hydrate is covered by
 > `tests/save/EpicStateCloudHydrate.test.ts`; a driven-browser e2e
 > (`verify-cloud-save-hydration`) still needs running in an env with the
 > Chrome DevTools MCP (not available here). Tuning/art‑swap + the F‑component
 > responsive polish (P6) are the natural next polish pass.
 
-- [x] **P0 Rebrand**: package.json (name `epicancer`, zip names), index.html
+- [x] **P0 Rebrand**: package.json (name `epicrolla`, zip names), index.html
   (title, splash text/colors, manifest title, preload logo), manifest.json,
   fonts (only Angry), theme `#`. Remove editor route + vite overrides plugin.
-- [ ] **P1 State**: rename `useMawState`→`useEpicState`, `STATE_KEY='epicancer_state'`,
+- [ ] **P1 State**: rename `useMawState`→`useEpicState`, `STATE_KEY='epicrolla_state'`,
   strip legacy maw migration (fresh slate, keep generic fold), update
   `SaveMergePolicy` (STATE_KEY import, score formula → stage+upgrades),
   `keys.ts` (`epic_*`), and all importers. Build green.
@@ -182,7 +182,7 @@ docs/epicancer-roadmap.md     // retention roadmap (deliverable)
 - [ ] **P3 Art/VFX**: `useEpicArt` iso renderer (tiles via images w/ vector
   fallback, ball vector w/ glow states, obstacle vectors+image fallback, coin
   sprite + suck anim, ball-pop particles, powerup auras). Hook screenshake.
-- [ ] **P4 Scene/HUD**: `EpicancerScene.vue` — canvas + pointer, ScoreBadge,
+- [ ] **P4 Scene/HUD**: `EpicrollaScene.vue` — canvas + pointer, ScoreBadge,
   StageBadge, hint, tap-to-start, PowerupBanner, bottom-left mute/settings +
   Daily/AdReward/BattlePass, bottom-right upgrades, second-chance modal,
   win/lose FReward, 2× rewarded. Responsive all viewports + safe-area.
@@ -193,10 +193,10 @@ docs/epicancer-roadmap.md     // retention roadmap (deliverable)
 - [ ] **P7 i18n**: rewrite `en.ts`, propagate to 7 other locales.
 - [ ] **P8 Env cleanup**: blank platform keys/ids/title_id/test_install_id.
   `pnpm type-check` + `pnpm build` green.
-- [ ] **P9 Tests**: prune Epicancer gameplay tests, keep save/plugins/battlepass;
+- [ ] **P9 Tests**: prune Epicrolla gameplay tests, keep save/plugins/battlepass;
   add `useEpicGame`/`useEpicProgress`/`usePowerups`/`useEpicConfig` tests.
 - [ ] **P10 Cloud hydration e2e** via Chrome DevTools MCP (`verify-cloud-save-hydration`).
-- [ ] **P11 Roadmap**: `docs/epicancer-roadmap.md`, ≥15 retention features.
+- [ ] **P11 Roadmap**: `docs/epicrolla-roadmap.md`, ≥15 retention features.
 
 ## 5. Performance / mobile rules
 - Canvas sized to devicePixelRatio-capped; redraw only in RAF; early-return on

@@ -22,7 +22,7 @@ export default {
       'items250': { 'name': 'Hamsterer', 'desc': 'Schnapp dir insgesamt 250 Item-Boxen.' }
     }
   },
-  'gameName': 'Epicancer',
+  'gameName': 'Epicrolla',
   'cancel': 'Abbrechen',
   'close': 'Schließen',
   'ok': 'Ok',

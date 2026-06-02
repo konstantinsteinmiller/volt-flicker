@@ -22,7 +22,7 @@ export default {
       'items250': { 'name': 'นักกักตุน', 'desc': 'เก็บกล่องไอเทมรวม 250 กล่อง' }
     }
   },
-  'gameName': 'Epicancer',
+  'gameName': 'Epicrolla',
   'cancel': 'ยกเลิก',
   'close': 'ปิด',
   'ok': 'ตกลง',

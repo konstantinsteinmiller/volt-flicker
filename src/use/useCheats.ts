@@ -61,9 +61,9 @@ const useCheats = () => {
   if (!isCheat.value) return {}
 
   const { addCoins } = useEpicConfig()
-  const { spawnTestItemBoxes } = useEpicGame()
+  const { spawnTestItemBoxes, spawnTestCratePile } = useEpicGame()
 
-  // Epicancer has open-ended stages (tilesToClear scales with stage), so there
+  // Epicrolla has open-ended stages (tilesToClear scales with stage), so there
   // is no fixed STAGE_COUNT/STAGE_NAMES — just write the stage into the save
   // blob. `useEpicProgress` watches the blob and refreshes its `stage` ref; the
   // new stage takes effect on the next `resetForStage()` (next run / continue).
@@ -99,6 +99,11 @@ const useCheats = () => {
     'ctrl+shift+alt+i': () => {
       spawnTestItemBoxes()
       console.warn('[CHEAT] Spawned 1 item box + 1 golden box ahead.')
+    },
+    // Spawn a 2×2 crate-pile a few tiles ahead — to eyeball the new cluster.
+    'ctrl+shift+alt+c': () => {
+      spawnTestCratePile()
+      console.warn('[CHEAT] Spawned a 2×2 crate-pile ahead.')
     }
   }
 

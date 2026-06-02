@@ -1,4 +1,4 @@
-// ─── Canvas renderer + VFX for Epicancer ───────────────────────────────────
+// ─── Canvas renderer + VFX for Epicrolla ───────────────────────────────────
 //
 // Pure drawing layer. Reads the module-singleton `game` snapshot from
 // `useEpicGame` and the active power-up from `usePowerups`; owns NO game logic.
@@ -30,14 +30,20 @@ const SPECIAL_VARIANTS = [
 const COIN_SRC = 'images/props/coin_128x128.webp'
 const BOX_SRC = 'images/props/box_256x256.webp'
 const BOULDER_SRC = 'images/props/boulder_256x256.webp'
-const ITEM_BOX_SRC = 'images/props/item-box-single_256y256.webp'
-const ITEM_SPARKLE_SRC = 'images/props/item-box-sparkles_256y256.webp'
+const ITEM_BOX_SRC = 'images/props/item-box-single_256x256.webp'
+const ITEM_SPARKLE_SRC = 'images/props/item-box-sparkles_256x256.webp'
 const VORTEX_SRC = 'images/props/vortex_256x256.webp'
 const LAVA_SRC = 'images/props/lava_256x256.webp'
 const SPIKE_SRC = 'images/props/spiky-pole_256x256.webp'
 const LIBERTY_CAT_SRC = 'images/props/liberty-cat.webp'
 const BALL_SKIN_SRC = 'images/models/ball-eye-texture.webp'
 const WINGS_SRC = 'images/props/wings_260x108.webp'
+// 2×2 destructible crate-pile prop.
+const CRATE_PILE_SRC = 'images/props/crate-pile_512x512.webp'
+// Rift tiles that replace the procedural pit: a single diamond rift for an
+// isolated hole, and a 1×2 (two-tile) rift shared by a diagonally-adjacent pair.
+const RIFT_SRC = 'images/props/rift_256x256.webp'
+const RIFT2_SRC = 'images/props/rift-2-vert-tiles_256x512.webp'
 
 // Gameplay sprites drawn in the renderer's per-frame hot path — decoded before
 // first paint so the field never flashes a procedural fallback. The ball SKIN
@@ -47,7 +53,7 @@ const WINGS_SRC = 'images/props/wings_260x108.webp'
 const TILE_SRCS = [
   ...FLOOR_VARIANTS, ...SPECIAL_VARIANTS,
   COIN_SRC, BOX_SRC, BOULDER_SRC, ITEM_BOX_SRC, ITEM_SPARKLE_SRC, VORTEX_SRC, LAVA_SRC, SPIKE_SRC, LIBERTY_CAT_SRC,
-  WINGS_SRC
+  WINGS_SRC, CRATE_PILE_SRC, RIFT_SRC, RIFT2_SRC
 ]
 
 const getImg = (src: string): HTMLImageElement => {
@@ -219,6 +225,99 @@ const drawHole = (ctx: CanvasRenderingContext2D, x: number, y: number): void => 
   ctx.stroke()
 }
 
+// ─── Rift tiles (bitmap replacements for the procedural pit) ─────────────────
+//
+// A hole renders as the cracked-rift artwork instead of the plain dark pit:
+//   • an isolated hole (no diagonally-adjacent hole) → the single diamond rift;
+//   • a diagonally-adjacent PAIR → the 1×2 rift sprite, projected across both
+//     diamonds and rotated to the pair's axis. The pairing is computed once per
+//     frame (`planRifts`); only the pair's root cell draws the shared sprite.
+
+/** Single-diamond rift: same square→diamond projection as a floor tile. Falls
+ *  back to the procedural pit until the bitmap has decoded. */
+const drawRift = (ctx: CanvasRenderingContext2D, x: number, y: number): void => {
+  const dia = getDiamond(RIFT_SRC)
+  if (dia) ctx.drawImage(dia, x - dia.width / 2, y - dia.height / 2)
+  else drawHole(ctx, x, y)
+}
+
+/** Build (and cache) the 1×2 rift projected across two diamonds along one
+ *  diagonal. `rotSign` +1 → the "/" axis (up-right/down-left); −1 → the "\" axis
+ *  (up-left/down-right). The 256×512 source is drawn as a 1-wide × 2-tall block
+ *  so each half lands on one diamond; the result is centred in the canvas. */
+const getRiftDouble = (rotSign: 1 | -1): HTMLCanvasElement | null => {
+  const key = rotSign > 0 ? '__rift2_pos' : '__rift2_neg'
+  const cached = diamondCache.get(key)
+  if (cached) return cached
+  const img = getImg(RIFT2_SRC)
+  if (!ready(img)) return null
+  const cw = Math.ceil(geo.tileW * 2) + 2
+  const ch = Math.ceil(geo.tileH * 2) + 2
+  const cv = document.createElement('canvas')
+  cv.width = cw
+  cv.height = ch
+  const cx = cv.getContext('2d')
+  if (!cx) return null
+  cx.translate(cw / 2, ch / 2)
+  cx.scale(1, geo.tileH / geo.tileW)
+  cx.rotate(rotSign * (Math.PI / 4))
+  const side = (geo.tileW / Math.SQRT2) * 1.03
+  cx.drawImage(img, -side / 2, -side, side, side * 2)
+  diamondCache.set(key, cv)
+  return cv
+}
+
+/** Draw the shared 1×2 rift for a pair: `(dc, dr)` is the partner diamond's
+ *  offset from this root (one of ±1,±1). The sprite is centred on the midpoint
+ *  between the two diamonds. */
+const drawRiftDouble = (ctx: CanvasRenderingContext2D, x: number, y: number, dc: number, dr: number): void => {
+  // (+1,+1)/(-1,-1) lie on the "\" axis (rotSign −1); (+1,-1)/(-1,+1) on "/".
+  const rotSign: 1 | -1 = dc === dr ? -1 : 1
+  const cv = getRiftDouble(rotSign)
+  if (!cv) { drawRift(ctx, x, y); return }
+  const mx = x + (dc * geo.halfW) / 2
+  const my = y + (dr * geo.halfH) / 2
+  ctx.drawImage(cv, mx - cv.width / 2, my - cv.height / 2)
+}
+
+/** What to draw for each visible hole this frame: a single rift, the shared 1×2
+ *  rift (the pair's root → partner offset), or nothing (a paired-away member,
+ *  covered by its root's sprite). Greedy diagonal pairing over a deterministic
+ *  order so each pair is drawn exactly once. */
+type RiftPlan = Map<string, 'single' | 'skip' | { dc: number; dr: number }>
+// Diagonal partner search order (upper diagonals first so a pile of holes pairs
+// upward consistently).
+const RIFT_PAIR_DIRS = [[1, -1], [-1, -1], [1, 1], [-1, 1]] as const
+const planRifts = (): RiftPlan => {
+  const plan: RiftPlan = new Map()
+  const holes: Array<[number, number, string]> = []
+  for (const cell of game.cells.values()) {
+    if (cell.kind === 'hole') holes.push([cell.c, cell.r, `${cell.c},${cell.r}`])
+  }
+  // Deterministic order: by row then column, so pairing is stable frame-to-frame.
+  holes.sort((a, b) => a[1] - b[1] || a[0] - b[0])
+  const claimed = new Set<string>()
+  const isHole = (k: string): boolean =>
+    game.cells.get(k)?.kind === 'hole'
+  for (const [c, r, key] of holes) {
+    if (claimed.has(key)) continue
+    let paired = false
+    for (const [dc, dr] of RIFT_PAIR_DIRS) {
+      const pk = `${c + dc},${r + dr}`
+      if (!claimed.has(pk) && isHole(pk)) {
+        plan.set(key, { dc, dr })
+        plan.set(pk, 'skip')
+        claimed.add(key)
+        claimed.add(pk)
+        paired = true
+        break
+      }
+    }
+    if (!paired) { plan.set(key, 'single'); claimed.add(key) }
+  }
+  return plan
+}
+
 /** Bitmap prop sitting on the diamond at (x, y): a contact shadow plus the
  *  sprite grounded so its base rests on the tile and it rises upward. */
 const drawSpriteProp = (ctx: CanvasRenderingContext2D, src: string, x: number, y: number, scale = 1): void => {
@@ -234,6 +333,24 @@ const drawSpriteProp = (ctx: CanvasRenderingContext2D, src: string, x: number, y
   ctx.drawImage(img, x - w / 2, y + geo.halfH * 0.42 - h, w, h)
 }
 
+/** 2×2 crate-pile prop: a single large sprite anchored on the bottom-front
+ *  diamond (x, y), rising up to cover the 4-cell cluster. Drawn ONCE per pile
+ *  from its anchor cell (see the obstacle pass). */
+const drawCratePile = (ctx: CanvasRenderingContext2D, x: number, y: number): void => {
+  // Wide contact shadow under the 2×2 footprint.
+  ctx.fillStyle = 'rgba(0,0,0,0.32)'
+  ctx.beginPath()
+  ctx.ellipse(x, y + geo.halfH * 0.2, geo.halfW * 1.12, geo.halfH * 0.78, 0, 0, Math.PI * 2)
+  ctx.fill()
+  const img = getImg(CRATE_PILE_SRC)
+  if (!ready(img)) return
+  const w = geo.tileW * 1.32
+  const h = w * (img.naturalHeight / img.naturalWidth)
+  // Base rests a touch in front of the bottom diamond's centre; the pile rises
+  // up over the back cells of the cluster.
+  ctx.drawImage(img, x - w / 2, y + geo.halfH * 0.5 - h, w, h)
+}
+
 /** Iso obstacle — all kinds are bitmap props now. `jitter` (per-cell, ~0.9–1.1)
  *  varies box/boulder size so the field doesn't look uniform. */
 /** Source bitmap backing each obstacle kind (used by both the live renderer and
@@ -242,18 +359,202 @@ const obstacleSrc = (kind: ObstacleKind): string => {
   if (kind === 'stone') return BOULDER_SRC
   if (kind === 'pyramid') return SPIKE_SRC
   if (kind === 'libertyCat') return LIBERTY_CAT_SRC
+  if (kind === 'crate') return CRATE_PILE_SRC
   return BOX_SRC // box + wall both use the box art
 }
 
-const drawObstacle = (ctx: CanvasRenderingContext2D, kind: ObstacleKind, x: number, y: number, jitter = 1): void => {
+const drawObstacle = (
+  ctx: CanvasRenderingContext2D,
+  kind: ObstacleKind,
+  x: number,
+  y: number,
+  jitter = 1,
+  googly?: { mood: BoulderMood; lookX: number; lookY: number; now: number }
+): void => {
   if (kind === 'box') { drawSpriteProp(ctx, BOX_SRC, x, y, 0.9 * jitter); return }
-  if (kind === 'stone') { drawSpriteProp(ctx, BOULDER_SRC, x, y, jitter); return }
+  if (kind === 'crate') { drawCratePile(ctx, x, y); return }
+  if (kind === 'stone') {
+    drawSpriteProp(ctx, BOULDER_SRC, x, y, jitter)
+    // Googly eyes ride on the boulder's upper face, pupils tracking the ball.
+    // They go wide-and-scared when the ball is bearing down on this stone. The
+    // anchor is derived from the SPRITE's actual drawn bounds (width = tileW*0.63,
+    // height = width × the bitmap's aspect ratio) so the eyes sit on the rock at
+    // any per-cell jitter, not floating above it.
+    if (googly) {
+      const w = geo.tileW * 0.63 * jitter
+      const img = getImg(BOULDER_SRC)
+      const h = ready(img) ? w * (img.naturalHeight / img.naturalWidth) : w
+      const bottom = y + geo.halfH * 0.42
+      const eyesCy = bottom - h * 0.52    // ~52% up the boulder = its upper face
+      drawGooglyEyes(ctx, x, eyesCy, w, googly.mood, googly.lookX, googly.lookY, googly.now)
+    }
+    return
+  }
   // The old grey procedural block read poorly next to holes — use the box art.
   if (kind === 'wall') { drawSpriteProp(ctx, BOX_SRC, x, y, 1.035 * jitter); return }
   // Liberty Cat → its own upright sprite (late-game spiky-pole replacement).
   if (kind === 'libertyCat') { drawSpriteProp(ctx, LIBERTY_CAT_SRC, x, y, 1.0); return }
   // Pyramid → spiky-pole sprite (the bitmap is already upright; just scale to fit).
   drawSpriteProp(ctx, SPIKE_SRC, x, y, 1.0)
+}
+
+type BoulderMood = 'normal' | 'scared' | 'happy'
+
+/** A boulder's googly face: animated eyes, eyebrows and a stone-crack mouth that
+ *  re-shape AND move per mood. Pure-canvas, fully procedural.
+ *   • normal — eyes track the ball, slow idle blink, gently bobbing flat brows,
+ *     a neutral jagged crack mouth.
+ *   • scared — wide eyes + pinpoint shaking pupils, trembling worried "/\" brows,
+ *     a chattering open oval mouth (all jitter per-frame). Held 1.5s on a crash.
+ *   • happy  — squashed "^_^" smiling eyes (upper lid arcs down over the eye),
+ *     bouncing raised brows, rosy cheeks, and a wide grin that pulses; used on
+ *     nearby boulders after the player dies. */
+const drawGooglyEyes = (
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  bodyW: number,
+  mood: BoulderMood,
+  lookX: number,
+  lookY: number,
+  now: number
+): void => {
+  const scared = mood === 'scared'
+  const happy = mood === 'happy'
+  const ink = '#1a1410'
+  const inkR = Math.max(1, bodyW * 0.012)
+  const gap = bodyW * 0.221                           // eye spacing (closer together)
+  const eyeR = bodyW * (scared ? 0.168 : 0.1395)     // base white radius (bigger when scared)
+
+  // ── Shared animation drivers ──
+  // Scared: fast nervous tremble (shared by pupils, brows, mouth).
+  const trem = bodyW * 0.022
+  const tremX = scared ? Math.sin(now / 40) * trem : 0
+  const tremY = scared ? Math.cos(now / 33) * trem : 0
+  // Happy: a gentle bounce so the whole face feels alive/giddy.
+  const bounce = happy ? Math.sin(now / 180) : 0
+  // Normal: slow idle blink — eyes briefly close every few seconds.
+  const blink = (!scared && !happy) ? Math.max(0, Math.sin(now / 1500) - 0.94) / 0.06 : 0 // 0..1 pulse
+
+  // ── Eyes ──
+  const len = Math.hypot(lookX, lookY) || 1
+  const dirX = happy ? 0 : lookX / len
+  const dirY = happy ? -0.4 : lookY / len
+
+  for (const side of [-1, 1] as const) {
+    const ex = cx + side * gap
+    const ey = cy + (happy ? bounce * bodyW * 0.01 : 0)
+
+    if (happy) {
+      // Smiling "^_^" eye: a downward-curving upper-lid arc (closed-happy look),
+      // drawn as a thick stroke. The arc deepens with the bounce so it "laughs".
+      const half = eyeR * 1.05
+      const lift = eyeR * (0.55 + bounce * 0.08)
+      ctx.beginPath()
+      ctx.moveTo(ex - half, ey + eyeR * 0.18)
+      ctx.quadraticCurveTo(ex, ey - lift, ex + half, ey + eyeR * 0.18)
+      ctx.lineWidth = Math.max(2, bodyW * 0.03)
+      ctx.strokeStyle = ink
+      ctx.lineCap = 'round'
+      ctx.stroke()
+      continue
+    }
+
+    // White — vertically squashed during a blink (normal) so the lid "closes".
+    const ry = eyeR * 1.12 * (1 - blink * 0.85)
+    ctx.beginPath()
+    ctx.ellipse(ex, ey, eyeR, Math.max(eyeR * 0.12, ry), 0, 0, Math.PI * 2)
+    ctx.fillStyle = '#ffffff'
+    ctx.fill()
+    ctx.lineWidth = inkR
+    ctx.strokeStyle = 'rgba(0,0,0,0.55)'
+    ctx.stroke()
+
+    if (blink > 0.5) continue // pupil hidden mid-blink
+
+    // Pupil — pinpoint + jitter when scared, otherwise tracks the ball.
+    const pupilR = eyeR * (scared ? 0.32 : 0.52)
+    const maxShift = eyeR - pupilR - bodyW * 0.012
+    const px = ex + dirX * maxShift + tremX
+    const py = ey + dirY * maxShift + tremY
+    ctx.beginPath(); ctx.arc(px, py, pupilR, 0, Math.PI * 2)
+    ctx.fillStyle = '#111418'; ctx.fill()
+    // Catch-light.
+    ctx.beginPath(); ctx.arc(px - pupilR * 0.3, py - pupilR * 0.3, pupilR * 0.34, 0, Math.PI * 2)
+    ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.fill()
+  }
+
+  // ── Rosy cheeks (happy only) — under the eyes, sells the smile ──
+  if (happy) {
+    ctx.fillStyle = 'rgba(255,120,110,0.45)'
+    for (const side of [-1, 1] as const) {
+      ctx.beginPath()
+      ctx.ellipse(cx + side * gap * 1.05, cy + eyeR * 0.95, eyeR * 0.4, eyeR * 0.26, 0, 0, Math.PI * 2)
+      ctx.fill()
+    }
+  }
+
+  // ── Eyebrows (all moods, animated) ──
+  ctx.strokeStyle = ink
+  ctx.lineWidth = Math.max(1.5, bodyW * 0.024)
+  ctx.lineCap = 'round'
+  const bw = eyeR * 0.95
+  for (const side of [-1, 1] as const) {
+    const ex = cx + side * gap
+    ctx.beginPath()
+    if (scared) {
+      // Trembling worried "/\" — inner end lower than outer, jittering.
+      const browY = cy - eyeR * 1.6 + tremY * 0.6
+      ctx.moveTo(ex - side * bw * 0.5 + tremX * 0.4, browY - bw * 0.30)
+      ctx.lineTo(ex + side * bw * 0.5 + tremX * 0.4, browY + bw * 0.20)
+    } else if (happy) {
+      // High, lively arch that bobs up with the bounce.
+      const browY = cy - eyeR * 2.05 - bounce * bodyW * 0.018
+      ctx.moveTo(ex - bw * 0.55, browY + bw * 0.18)
+      ctx.quadraticCurveTo(ex, browY - bw * 0.45, ex + bw * 0.55, browY + bw * 0.18)
+    } else {
+      // Neutral flat brow with a slow, subtle idle bob.
+      const browY = cy - eyeR * 1.5 + Math.sin(now / 900 + side) * bodyW * 0.006
+      ctx.moveTo(ex - bw * 0.5, browY + bw * 0.05)
+      ctx.lineTo(ex + bw * 0.5, browY - bw * 0.05)
+    }
+    ctx.stroke()
+  }
+
+  // ── Mouth: a stone crack that re-shapes AND animates per mood ──
+  ctx.strokeStyle = ink
+  ctx.lineWidth = Math.max(1.5, bodyW * 0.022)
+  ctx.lineCap = 'round'
+  ctx.lineJoin = 'round'
+  const mouthW = gap * 1.2
+  if (scared) {
+    // Chattering open "oh no" — an oval whose height pulses fast + jitters.
+    const mouthY = cy + eyeR * 1.95 + tremY * 0.5
+    const chatter = 0.5 + 0.5 * Math.abs(Math.sin(now / 70))
+    ctx.beginPath()
+    ctx.ellipse(cx + tremX * 0.5, mouthY, mouthW * 0.3, eyeR * (0.28 + chatter * 0.5), 0, 0, Math.PI * 2)
+    ctx.fillStyle = 'rgba(20,18,14,0.55)'; ctx.fill()
+    ctx.stroke()
+  } else if (happy) {
+    // Wide upward grin that pulses with the bounce; jagged so it reads as stone.
+    const mouthY = cy + eyeR * 1.9
+    const grin = eyeR * (0.5 + (bounce + 1) * 0.12)
+    ctx.beginPath()
+    ctx.moveTo(cx - mouthW * 0.55, mouthY - eyeR * 0.12)
+    ctx.lineTo(cx - mouthW * 0.2, mouthY + grin)
+    ctx.lineTo(cx + mouthW * 0.18, mouthY + grin * 1.05)
+    ctx.lineTo(cx + mouthW * 0.55, mouthY - eyeR * 0.14)
+    ctx.stroke()
+  } else {
+    // Neutral jagged horizontal crack (a slight zig-zag, no curve).
+    const mouthY = cy + eyeR * 1.85
+    ctx.beginPath()
+    ctx.moveTo(cx - mouthW * 0.5, mouthY - eyeR * 0.06)
+    ctx.lineTo(cx - mouthW * 0.15, mouthY + eyeR * 0.1)
+    ctx.lineTo(cx + mouthW * 0.18, mouthY - eyeR * 0.08)
+    ctx.lineTo(cx + mouthW * 0.5, mouthY + eyeR * 0.06)
+    ctx.stroke()
+  }
 }
 
 /** Small sparkle particles emitting from an item box — each fades in fast,
@@ -353,7 +654,10 @@ const drawPortal = (ctx: CanvasRenderingContext2D, x: number, y: number, now: nu
   ctx.save()
   ctx.translate(x, y)
   ctx.scale(1, geo.tileH / geo.tileW) // lie flat on the ground plane
-  ctx.rotate(dir * (now / speed) + phase)
+  // The swirl art reads as pulling INWARD only when spun the matching way; the
+  // previous sign rotated it against the swirl, so it looked like it was pushing
+  // out. Negate to match the vortex texture's swirl direction.
+  ctx.rotate(-dir * (now / speed) + phase)
   // Shrunk another 10% (~0.65) so the swirl art never clips the tile edge,
   // plus a breathing pulse between 95% and 100%.
   const pulse = 0.975 + Math.sin(now / 480 + seed) * 0.025
@@ -366,7 +670,7 @@ const drawPortal = (ctx: CanvasRenderingContext2D, x: number, y: number, now: nu
 
 /** Lava field tile — the bitmap rotated 45° + iso-squashed so the square art
  *  fills the diamond exactly like the floor tiles do, with a hot glow on top. */
-const drawLava = (ctx: CanvasRenderingContext2D, x: number, y: number, now: number): void => {
+const drawLava = (ctx: CanvasRenderingContext2D, c: number, r: number, x: number, y: number, now: number): void => {
   const img = getImg(LAVA_SRC)
   if (ready(img)) {
     ctx.save()
@@ -389,6 +693,75 @@ const drawLava = (ctx: CanvasRenderingContext2D, x: number, y: number, now: numb
   glow.addColorStop(1, 'rgba(255,90,20,0)')
   ctx.fillStyle = glow
   diamondPath(ctx, x, y, geo.halfW, geo.halfH); ctx.fill()
+  // Spawn drifting steam from this (live) lava cell. Called every frame the cell
+  // is drawn; the spawner self-throttles. A destroyed lava cell stops being drawn
+  // → stops spawning, while already-airborne puffs finish rising and fade.
+  spawnLavaSteam(c, r, x, y, now)
+}
+
+// ─── Lava steam / fog ───────────────────────────────────────────────────────
+//
+// Soft puffs that rise + fade above each live lava field. Emitted only while the
+// lava cell is being drawn (i.e. still exists); once the lava is destroyed it's
+// no longer in `game.cells`, so no new puffs spawn and the field stops steaming.
+interface SteamPuff { x: number; y: number; bornAt: number; life: number; r0: number; drift: number; seed: number }
+const steamPuffs: SteamPuff[] = []
+// Last-spawn game-clock per lava cell key, so each field emits at a steady, low
+// rate regardless of frame rate / how many cells are on screen.
+const lastSteamAt = new Map<string, number>()
+const STEAM_INTERVAL_MS = 420  // one puff per cell roughly every ~0.4s
+const STEAM_LIFE_MS = 3400     // slower drift → longer, lazier life
+const STEAM_MAX = 90           // hard cap so the array can't grow unbounded
+
+const spawnLavaSteam = (c: number, r: number, x: number, y: number, now: number): void => {
+  const key = `${c},${r}`
+  const last = lastSteamAt.get(key) ?? -Infinity
+  if (now - last < STEAM_INTERVAL_MS) return
+  // Prune stale per-cell timers so the map can't grow unbounded over a long run
+  // (cells scroll off + are culled; their keys would otherwise linger forever).
+  if (lastSteamAt.size > 64) {
+    for (const [k, t] of lastSteamAt) if (now - t > STEAM_INTERVAL_MS * 4) lastSteamAt.delete(k)
+  }
+  lastSteamAt.set(key, now)
+  if (steamPuffs.length >= STEAM_MAX) steamPuffs.shift()
+  steamPuffs.push({
+    x: x + (Math.random() - 0.5) * geo.halfW * 0.55,
+    y: y - geo.halfH * 0.1,
+    bornAt: now,
+    life: STEAM_LIFE_MS * (0.8 + Math.random() * 0.4),
+    r0: geo.halfW * (0.16 + Math.random() * 0.08), // small puff to start
+    drift: (Math.random() - 0.5) * geo.halfW * 0.35, // gentle horizontal sway target
+    seed: Math.random() * 6.283
+  })
+}
+
+/** Draw + age all live steam puffs. Each rises, expands, and fades over its
+ *  lifetime; expired puffs are culled. Drawn on top of the floor so the fog
+ *  reads above the lava but under props/ball. */
+const drawLavaSteam = (ctx: CanvasRenderingContext2D, now: number): void => {
+  if (steamPuffs.length === 0) return
+  ctx.save()
+  for (let i = steamPuffs.length - 1; i >= 0; i--) {
+    const p = steamPuffs[i]!
+    const t = (now - p.bornAt) / p.life
+    if (t >= 1) { steamPuffs.splice(i, 1); continue }
+    // Rise only ~half a grid tile high (was 1.6 tiles), and slower — it hovers
+    // just over its own lava cell instead of streaming up the screen.
+    const rise = geo.tileH * 0.5 * t
+    const sway = Math.sin(now / 700 + p.seed) * p.drift * t
+    const radius = p.r0 * (1 + t * 1.0)              // gentle expansion
+    // Reddish, more opaque so it reads as heat-haze rising off the lava.
+    const alpha = (t < 0.2 ? t / 0.2 : 1 - (t - 0.2) / 0.8) * 0.5
+    const px = p.x + sway
+    const py = p.y - rise
+    const g = ctx.createRadialGradient(px, py, 0, px, py, radius)
+    g.addColorStop(0, `rgba(255,120,70,${alpha})`)
+    g.addColorStop(0.6, `rgba(220,90,55,${alpha * 0.6})`)
+    g.addColorStop(1, 'rgba(200,80,50,0)')
+    ctx.fillStyle = g
+    ctx.beginPath(); ctx.arc(px, py, radius, 0, Math.PI * 2); ctx.fill()
+  }
+  ctx.restore()
 }
 
 const drawCoinSprite = (ctx: CanvasRenderingContext2D, x: number, y: number, size: number, alpha = 1): void => {
@@ -602,8 +975,37 @@ const drawRollingBall = (ctx: CanvasRenderingContext2D, cx: number, cy: number, 
 // performance.now() (NOT game.clock, which is frozen while the run is idle).
 const DROP_IN_MS = 600
 let dropInStart = -Infinity
-/** Trigger the drop-in bounce; called from `resetForStage`. */
-export const triggerBallDropIn = (): void => { dropInStart = performance.now() }
+/** Trigger the drop-in bounce; called from `resetForStage`. Also clears any
+ *  lingering lava steam AND the boulder fright state from the previous stage so
+ *  the fresh field starts dry and calm. */
+export const triggerBallDropIn = (): void => {
+  dropInStart = performance.now()
+  steamPuffs.length = 0
+  lastSteamAt.clear()
+  bouldersFrightened = false
+  crashDeathAt = 0
+  boulderScaredUntil.clear()
+}
+
+// ─── Boulder collective fright (googly-eye reaction) ────────────────────────
+//
+// When ANY stone/box is destroyed on-screen, every googly-eyed boulder visible
+// gets scared and STAYS scared until the player dies (which resets the stage via
+// `triggerBallDropIn`). Detected from the obstacle `'shatter'` FX the game emits
+// on every destruction (invuln smash, Push Force, Rolling Boulder, Racer). We
+// latch on a freshly-spawned shatter event rather than re-arming every frame.
+let bouldersFrightened = false
+// performance.now() of the frame the ball blew up (crash death). The boulder the
+// ball crashed INTO stays scared for CRASH_SCARE_MS after that even though the
+// player is dead, so the terrified face is actually readable; the OTHER boulders
+// go happy immediately. 0 = no crash this run.
+let crashDeathAt = 0
+const CRASH_SCARE_MS = 1500
+// Per-cell scared hold: keyed `c,r` → performance.now() until which that boulder
+// stays scared. Set when the ball is closing on it so a brief approach-fright
+// lingers a beat instead of flickering off the instant the ball moves on.
+const boulderScaredUntil = new Map<string, number>()
+const CLOSE_SCARE_HOLD_MS = 600
 
 /** Penner easeOutBounce: 0 (just dropped) → 1 (settled), with 3 diminishing
  *  bounces — the canonical bounce-landing curve. */
@@ -1147,6 +1549,17 @@ interface Drawable { r: number; fn: () => void }
 export const drawScene = (ctx: CanvasRenderingContext2D, w: number, h: number, now: number): void => {
   ctx.clearRect(0, 0, w, h)
 
+  // Latch the collective boulder fright: an obstacle `'shatter'` FX present in
+  // the live list means a box/stone/… was just destroyed on screen → every
+  // googly boulder stays scared until the next stage reset (`triggerBallDropIn`,
+  // which fires on death/restart and clears the flag). Once latched it stays on,
+  // so we stop scanning; the FX list is culled within ~900ms regardless.
+  if (!bouldersFrightened) {
+    for (const fx of game.fx) {
+      if (fx.kind === 'shatter') { bouldersFrightened = true; break }
+    }
+  }
+
   const camOffsetY = h * 0.64 - game.ballR * geo.halfH
   const ballPos = project(game.ballC, game.ballR, camOffsetY)
   const ballY = ballPos.y - geo.halfH * 1.05 * 0.75
@@ -1154,14 +1567,22 @@ export const drawScene = (ctx: CanvasRenderingContext2D, w: number, h: number, n
   const rTop = Math.floor((-geo.tileH - camOffsetY) / geo.halfH) - 1
   const rBottom = Math.ceil((h + geo.tileH - camOffsetY) / geo.halfH) + 1
 
+  // Rift bitmap layout for this frame's holes (single vs. shared 1×2 pair).
+  const riftPlan = planRifts()
+
   // Pass 1 — floor + holes (back to front).
   for (let r = rTop; r <= rBottom; r++) {
     for (let c = 0; c <= C_MAX; c++) {
       if (((c + r) & 1) !== 0) continue
       const { x, y } = project(c, r, camOffsetY)
       const cell = game.cells.get(`${c},${r}`)
-      if (cell && cell.kind === 'hole') drawHole(ctx, x, y)
-      else if (cell && cell.kind === 'lava') drawLava(ctx, x, y, now)
+      if (cell && cell.kind === 'hole') {
+        const plan = riftPlan.get(`${c},${r}`)
+        if (plan === 'skip') { /* covered by its pair root's shared sprite */ }
+        else if (plan && typeof plan === 'object') drawRiftDouble(ctx, x, y, plan.dc, plan.dr)
+        else drawRift(ctx, x, y)
+      }
+      else if (cell && cell.kind === 'lava') drawLava(ctx, c, r, x, y, now)
       else if (cell && cell.kind === 'portal') { drawFloorTile(ctx, c, r, x, y); drawPortal(ctx, x, y, now, hash(c, r)) }
       else drawFloorTile(ctx, c, r, x, y)
     }
@@ -1177,8 +1598,67 @@ export const drawScene = (ctx: CanvasRenderingContext2D, w: number, h: number, n
       const { x, y } = project(c, r, camOffsetY)
       if (cell.kind === 'obstacle' && cell.obstacle) {
         const k = cell.obstacle
+        // Crate-pile: one sprite covers all four cells. Draw it ONLY from the
+        // bottom-front anchor cell (the front-most, so it sorts on top of the
+        // back members) and skip the other three.
+        if (k === 'crate') {
+          if (cell.crateBC !== c || cell.crateBR !== r) continue
+          drawables.push({ r, fn: () => drawCratePile(ctx, x, y) })
+          continue
+        }
         const jitter = 1 + ((hash(c, r) % 21) - 10) / 100 // ±10% per-cell size variance
-        drawables.push({ r, fn: () => drawObstacle(ctx, k, x, y, jitter) })
+        // Stones get a googly face that follows the ball. Mood:
+        //  • happy  — the player has died (boulder survived → relieved/gleeful),
+        //  • scared — the ball is bearing down on this stone (next target, closing
+        //    in — about to crash / get pushed/smashed) OR any obstacle was just
+        //    destroyed on screen (`bouldersFrightened`, held until the next reset),
+        //  • normal — otherwise.
+        let googly: { mood: BoulderMood; lookX: number; lookY: number; now: number } | undefined
+        if (k === 'stone') {
+          const bp = project(game.ballC, game.ballR, camOffsetY)
+          const key = `${c},${r}`
+          // Scared while the ball is rolling AT this stone, up to TWO tiles away
+          // along the current heading — not only once it's about to crash. That
+          // covers the immediate target (1 tile) AND the predicted next landing
+          // one hop further (bouncing off the field edges), giving the player a
+          // long lead to witness its fear of being collided with. A short hold
+          // (CLOSE_SCARE_HOLD_MS) keeps the fright from flickering as it passes.
+          const closingTarget = game.target.c === c && game.target.r === r
+          let predC = game.target.c + game.dir
+          if (predC < 0 || predC > C_MAX) predC = game.target.c - game.dir // edge bounce
+          const closingNext = predC === c && game.target.r - 1 === r
+          const closing = closingTarget || closingNext
+          if (closing && game.phase === 'playing') {
+            boulderScaredUntil.set(key, now + CLOSE_SCARE_HOLD_MS)
+            // Prune expired holds so the map can't grow as cells scroll off.
+            if (boulderScaredUntil.size > 48) {
+              for (const [k, t] of boulderScaredUntil) if (t <= now) boulderScaredUntil.delete(k)
+            }
+          }
+          const heldScared = (boulderScaredUntil.get(key) ?? 0) > now
+          // Is this the boulder the ball just crashed into? (Its cell sits within
+          // ~1 tile of the ball's final resting position.) That one stays scared
+          // through CRASH_SCARE_MS after death; the rest celebrate.
+          const isCrashVictim = crashDeathAt > 0
+            && Math.abs(game.ballC - c) <= 1.2 && Math.abs(game.ballR - r) <= 1.2
+          let mood: BoulderMood
+          if (game.phase === 'dead') {
+            mood = (isCrashVictim && now - crashDeathAt < CRASH_SCARE_MS) ? 'scared' : 'happy'
+          } else {
+            mood = (heldScared || bouldersFrightened) ? 'scared' : 'normal'
+          }
+          // Per-boulder animation desync so the faces don't move in lockstep: a
+          // stable per-cell phase (it starts slightly later) plus a shortened
+          // cycle (up to 30% faster). Only the ANIMATION clock is varied — the
+          // mood + pupil aim still use the real `now`.
+          const aseed = hash(c, r)
+          const animPhase = aseed % 2000                            // 0..2000ms later start
+          const animLen = 1 - (((aseed >>> 11) % 1000) / 1000) * 0.3 // 0.70..1.0× length
+          const animNow = (now + animPhase) / animLen
+          googly = { mood, lookX: bp.x - x, lookY: (bp.y - geo.tileH * 0.5) - y, now: animNow }
+        }
+        const g = googly
+        drawables.push({ r, fn: () => drawObstacle(ctx, k, x, y, jitter, g) })
       } else if (cell.kind === 'coin' && !cell.collected) {
         drawables.push({ r: r + 0.1, fn: () => drawCoinSprite(ctx, x, y - geo.tileH * 0.4 + Math.sin(now / 240 + c) * geo.halfH * 0.15, geo.halfW * 0.7) })
       } else if (cell.kind === 'item') {
@@ -1194,7 +1674,13 @@ export const drawScene = (ctx: CanvasRenderingContext2D, w: number, h: number, n
   // tear-apart shards (matches the ball geometry used in `drawBall`).
   const deathRadius = geo.halfH * 1.05
   const deathCy = ballPos.y - deathRadius * 0.75
-  if (game.exploded && !prevExploded) spawnBallShatter(ballPos.x, deathCy, deathRadius, now)
+  if (game.exploded && !prevExploded) {
+    spawnBallShatter(ballPos.x, deathCy, deathRadius, now)
+    // Mark the crash so the boulder the ball hit holds its terrified face for
+    // CRASH_SCARE_MS (the player is dead, but we keep that one scared a beat so
+    // the reaction reads) — the surrounding boulders flip to happy immediately.
+    crashDeathAt = now
+  }
   prevExploded = game.exploded
 
   // The frame a held Second Chance is spent: tear the angel wings apart.
@@ -1244,6 +1730,9 @@ export const drawScene = (ctx: CanvasRenderingContext2D, w: number, h: number, n
   }
   drawables.sort((a, b) => a.r - b.r)
   for (const d of drawables) d.fn()
+
+  // Lava steam — drifts up above the field + props (spawned in `drawLava`).
+  drawLavaSteam(ctx, now)
 
   if (inTeleportSlow) {
     drawTeleportSpotlight(ctx, w, h, ballPos.x, ballPos.y - geo.halfH * 1.05 * 0.75)

@@ -6,6 +6,12 @@
 
 
 
+All boulders now do the same facial animation at     
+exactly the same time, variate it a bit by e.g.
+starting slightly later and/or shorten the facial    
+animation length by up to 30%, so it does not looks
+so choreographed.
+
 
 
 

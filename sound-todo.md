@@ -1,4 +1,4 @@
-# Sound TODO — Epicancer
+# Sound TODO — Epicrolla
 
 Audit of in-game moments vs. the SFX actually triggered in code
 (`grep playSound|playRandomVariant` across `src/`). The project already ships a
@@ -6,7 +6,7 @@ large `.ogg` library, so most gaps can be filled by *wiring an existing file*
 rather than recording a new one.
 
 > Note: this file previously held the legacy *spin&mow* sound design notes
-> (chain-loop / grass-cut / mow-a-hero). Those were obsolete for Epicancer and
+> (chain-loop / grass-cut / mow-a-hero). Those were obsolete for Epicrolla and
 > were replaced by this audit — recover them from git history if still needed.
 
 ## ✅ Already covered (for reference)

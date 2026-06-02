@@ -1,4 +1,4 @@
-# Epicancer — Growth & Retention Roadmap
+# Epicrolla — Growth & Retention Roadmap
 
 Prioritised, actionable feature backlog aimed at four levers:
 **Day‑1 retention**, **average playtime**, **easy‑to‑pickup / hard‑to‑put‑down**,
@@ -6,7 +6,7 @@ and **new‑player conversion**. Each item lists the lever it moves, an
 implementation sketch (mapped to the existing architecture), and a rough
 effort tag (S/M/L). Ordered roughly by ROI.
 
-> Architecture anchors you already have: single‑blob `epicancer_state`
+> Architecture anchors you already have: single‑blob `epicrolla_state`
 > (`useEpicState`), `useEpicProgress` (stage/upgrades/metrics), `usePowerups`,
 > `useEpicGame` (sim) + `useEpicArt` (render), `useBattlePass`, `DailyRewards`,
 > `useAds` (rewarded/interstitial), `SaveManager` cloud sync.

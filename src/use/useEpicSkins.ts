@@ -1,6 +1,6 @@
 import { ref, computed, watch, type Ref } from 'vue'
 import { saveDataVersion, flushSaveNow } from '@/use/useSaveStatus'
-import { getState, setState, epicancerState } from '@/use/useEpicState'
+import { getState, setState, epicrollaState } from '@/use/useEpicState'
 import { SKINS_KEY, SKINS_SEEN_KEY } from '@/keys'
 import useEpicProgress from '@/use/useEpicProgress'
 import useEpicConfig from '@/use/useEpicConfig'
@@ -12,7 +12,7 @@ import useEpicConfig from '@/use/useEpicConfig'
 // purely cosmetic: they change appearance only, never gameplay. The default
 // `stone` skin is owned for free; every other skin costs a flat coin price.
 //
-// Persistence lives in the single `epicancer_state` blob under `SKINS_KEY` as
+// Persistence lives in the single `epicrolla_state` blob under `SKINS_KEY` as
 // `{ owned: string[], selected: string }` — same pattern as upgrades — so it
 // round-trips through the platform cloud strategies like the rest of progress.
 
@@ -87,7 +87,7 @@ const skins: Ref<SkinState> = ref(loadSkins())
 
 const refresh = (): void => { skins.value = loadSkins() }
 watch(saveDataVersion, refresh)
-watch(epicancerState, refresh, { deep: false })
+watch(epicrollaState, refresh, { deep: false })
 
 /** Reactive id of the currently-equipped skin (consumed by the renderer). */
 export const selectedSkinId = computed(() => skins.value.selected)

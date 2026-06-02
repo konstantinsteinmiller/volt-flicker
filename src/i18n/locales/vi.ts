@@ -22,7 +22,7 @@ export default {
       'items250': { 'name': 'Kẻ tích trữ', 'desc': 'Lấy tổng cộng 250 hộp vật phẩm.' }
     }
   },
-  'gameName': 'Epicancer',
+  'gameName': 'Epicrolla',
   'cancel': 'Hủy',
   'close': 'Đóng',
   'ok': 'Đồng ý',

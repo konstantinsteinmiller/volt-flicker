@@ -16,7 +16,7 @@
         div(:style="sizeStyle")
           img(
             :src="logoSrc"
-            alt="epicancer"
+            alt="epicrolla"
             class="w-full h-full object-contain"
             draggable="false"
           )

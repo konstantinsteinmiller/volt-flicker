@@ -22,7 +22,7 @@ export default {
       'items250': { 'name': 'जमाखोर', 'desc': 'कुल 250 आइटम बक्से पकड़ें।' }
     }
   },
-  'gameName': 'Epicancer',
+  'gameName': 'Epicrolla',
   'cancel': 'रद्द करें',
   'close': 'बंद करें',
   'ok': 'ठीक है',
