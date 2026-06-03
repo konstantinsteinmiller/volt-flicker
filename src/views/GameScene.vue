@@ -2,7 +2,7 @@
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 
-import useEpicGame, { gameMode, setGameMode, bestEndless, isOnboardingRun, setPendingBoon, combo, racerActive, type BoonId } from '@/use/useEpicGame'
+import useEpicGame, { gameMode, setGameMode, bestEndless, isOnboardingRun, setPendingBoon, combo, racerActive, exitingActive, type BoonId } from '@/use/useEpicGame'
 import useEpicConfig from '@/use/useEpicConfig'
 import { drawScene, configureGeometry, setBallSkin, setGhostBest } from '@/use/useEpicArt'
 import { powerupFraction } from '@/use/usePowerups'
@@ -284,15 +284,11 @@ const onWin = async (): Promise<void> => {
   stopBattleMusic()
   playSound('happy', 0.08)
   playSound('celebration-3', 0.08)
-  // Campaign clear: offer the pick-1-of-3 boon FIRST, then the win/reward
-  // screen. Endless has no boon, so it goes straight to the result screen.
-  if (!isEndless.value) {
-    showBoon.value = true
-    return
-  }
+  // Show the win/reward screen FIRST so the player sees their coin reward + hears
+  // the win sting and understands why the run stopped. On a campaign clear the
+  // boon picker comes AFTER they continue, before the next stage (onResultContinue).
   showResult.value = true
   void grantRunCoins()
-  // Endless win lands directly on the result screen → 600ms-delayed interstitial.
   void presentResultInterstitial()
 }
 
@@ -342,22 +338,23 @@ const onResultContinue = (): void => {
   if (isAdInFlight.value) return
   showResult.value = false
   consumeFirstRunBonus()
-  // The boon (if any) was already chosen before this win screen, so just start
-  // the next run. Losses and endless runs land here directly.
+  // Campaign clear: NOW offer the pick-1-of-3 boon — after the win screen, before
+  // the next stage starts. Losses and endless runs skip straight to the next run.
+  if (gameResult.value === 'win' && !isEndless.value) {
+    showBoon.value = true
+    return
+  }
   resetForStage()
   startBattleMusic()
 }
 
-// Boon picked on a campaign clear: stash it for the next stage, then reveal the
-// win/reward screen (the boon modal precedes FReward).
+// Boon picked on a campaign clear: stash it for the next stage, then set up that
+// stage (resetForStage consumes the pending boon); the player taps to start it.
 const onChooseBoon = (boon: BoonId): void => {
   setPendingBoon(boon)
   showBoon.value = false
-  showResult.value = true
-  void grantRunCoins()
-  // The win/reward screen has now appeared (after the boon pick) → fire the
-  // 600ms-delayed interstitial, same as the lose/endless paths.
-  void presentResultInterstitial()
+  resetForStage()
+  startBattleMusic()
 }
 
 const toggleEndless = (): void => {
@@ -456,9 +453,9 @@ onUnmounted(() => {
         class="z-[5]"
         :style="{ top: 'calc(3.2rem + env(safe-area-inset-top, 0px))' }"
       )
-        ScoreBadge(v-if="phase === 'playing' || phase === 'dead'" :score="displayScore")
+        ScoreBadge(v-if="(phase === 'playing' || phase === 'dead') && !exitingActive" :score="displayScore")
         div.pointer-events-none.font-black.game-text.italic.animate-pulse(
-          v-show="phase === 'playing' && combo > 1.05"
+          v-show="phase === 'playing' && combo > 1.05 && !exitingActive"
           :class="isMobileLandscape ? 'text-base mt-0.5' : 'text-xl sm:text-3xl mt-1'"
           :style="{ color: combo >= 3 ? '#ffd23c' : (combo >= 2 ? '#ff9a3c' : '#ffffff'), textShadow: '2px 2px 0 #000' }"
         ) ×{{ combo.toFixed(2) }}

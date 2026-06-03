@@ -6,14 +6,6 @@
 
 
 
-All boulders now do the same facial animation at     
-exactly the same time, variate it a bit by e.g.
-starting slightly later and/or shorten the facial    
-animation length by up to 30%, so it does not looks
-so choreographed.
-
-
-
 
 ##Add a new upgrade as the very last upgrade called "time bubble". 
 This upgrade has only 1 level and grants the ability to roll over 

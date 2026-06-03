@@ -1,4 +1,4 @@
-import { onMounted, onUnmounted, ref } from 'vue'
+import { onMounted, onUnmounted, ref, nextTick } from 'vue'
 import useEpicConfig from '@/use/useEpicConfig'
 import useEpicGame from '@/use/useEpicGame'
 import { setState } from '@/use/useEpicState'
@@ -61,19 +61,24 @@ const useCheats = () => {
   if (!isCheat.value) return {}
 
   const { addCoins } = useEpicConfig()
-  const { spawnTestItemBoxes, spawnTestCratePile } = useEpicGame()
+  const { spawnTestItemBoxes, spawnTestCratePile, resetForStage } = useEpicGame()
 
-  // Epicrolla has open-ended stages (tilesToClear scales with stage), so there
-  // is no fixed STAGE_COUNT/STAGE_NAMES — just write the stage into the save
-  // blob. `useEpicProgress` watches the blob and refreshes its `stage` ref; the
-  // new stage takes effect on the next `resetForStage()` (next run / continue).
+  // Epicrolla has open-ended stages (tilesToClear scales with stage), so just
+  // write the stage into the save blob. `useEpicProgress` watches the blob and
+  // refreshes its `stage` ref — but that refresh is a reactive effect that flushes
+  // on the next tick, so we `nextTick` before `resetForStage()` (which reads
+  // `progress.stage`). That regenerates the field at the new stage IMMEDIATELY
+  // (the old behaviour only applied on the next run, so the cheat looked dead).
   const setStage = (stageId: number) => {
     if (stageId < 1) {
       console.warn(`[CHEAT] Invalid stage ${stageId}. Must be >= 1.`)
       return
     }
     setState(STAGE_KEY, stageId)
-    console.warn(`[CHEAT] Stage set to ${stageId} (applies on next run).`)
+    void nextTick(() => {
+      resetForStage()
+      console.warn(`[CHEAT] Stage set to ${stageId} (applied now).`)
+    })
   }
 
   const cheatsMap: Record<string, () => void> = {

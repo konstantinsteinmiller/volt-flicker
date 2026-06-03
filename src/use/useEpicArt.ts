@@ -12,7 +12,7 @@
 
 import { prependBaseUrl } from '@/utils/function'
 import { resourceCache } from '@/use/useAssets'
-import { game, C_MAX, DROP_MS, TELEPORT_SLOW_MS, type ObstacleKind, type FxEvent } from '@/use/useEpicGame'
+import { game, C_MAX, DROP_MS, TELEPORT_SLOW_MS, EXIT_SEQUENCE_MS, type ObstacleKind, type FxEvent } from '@/use/useEpicGame'
 import { activePowerup } from '@/use/usePowerups'
 
 const FLOOR_VARIANTS = [
@@ -28,6 +28,9 @@ const SPECIAL_VARIANTS = [
   'images/props/grid-tile-special-3.webp'
 ]
 const COIN_SRC = 'images/props/coin_128x128.webp'
+// Amber of the coin's outer ring — used as the cylindrical *edge* (rim) colour
+// for the spinning 3D coins, so the thickness reads as metal rather than a gap.
+const COIN_EDGE_COLOR = '#e8a506'
 const BOX_SRC = 'images/props/box_256x256.webp'
 const BOULDER_SRC = 'images/props/boulder_256x256.webp'
 const ITEM_BOX_SRC = 'images/props/item-box-single_256x256.webp'
@@ -44,6 +47,9 @@ const CRATE_PILE_SRC = 'images/props/crate-pile_512x512.webp'
 // isolated hole, and a 1×2 (two-tile) rift shared by a diagonally-adjacent pair.
 const RIFT_SRC = 'images/props/rift_256x256.webp'
 const RIFT2_SRC = 'images/props/rift-2-vert-tiles_256x512.webp'
+// Stage-clear exit gate: a wide stone wall with a central runic archway the ball
+// rolls through at the end of a campaign stage.
+const EXIT_GATE_SRC = 'images/props/exit-gate_1000x302.webp'
 
 // Gameplay sprites drawn in the renderer's per-frame hot path — decoded before
 // first paint so the field never flashes a procedural fallback. The ball SKIN
@@ -53,7 +59,7 @@ const RIFT2_SRC = 'images/props/rift-2-vert-tiles_256x512.webp'
 const TILE_SRCS = [
   ...FLOOR_VARIANTS, ...SPECIAL_VARIANTS,
   COIN_SRC, BOX_SRC, BOULDER_SRC, ITEM_BOX_SRC, ITEM_SPARKLE_SRC, VORTEX_SRC, LAVA_SRC, SPIKE_SRC, LIBERTY_CAT_SRC,
-  WINGS_SRC, CRATE_PILE_SRC, RIFT_SRC, RIFT2_SRC
+  WINGS_SRC, CRATE_PILE_SRC, RIFT_SRC, RIFT2_SRC, EXIT_GATE_SRC
 ]
 
 const getImg = (src: string): HTMLImageElement => {
@@ -369,7 +375,7 @@ const drawObstacle = (
   x: number,
   y: number,
   jitter = 1,
-  googly?: { mood: BoulderMood; lookX: number; lookY: number; now: number }
+  googly?: { mood: BoulderMood; lookX: number; lookY: number; now: number; cyclops: boolean }
 ): void => {
   if (kind === 'box') { drawSpriteProp(ctx, BOX_SRC, x, y, 0.9 * jitter); return }
   if (kind === 'crate') { drawCratePile(ctx, x, y); return }
@@ -386,7 +392,7 @@ const drawObstacle = (
       const h = ready(img) ? w * (img.naturalHeight / img.naturalWidth) : w
       const bottom = y + geo.halfH * 0.42
       const eyesCy = bottom - h * 0.52    // ~52% up the boulder = its upper face
-      drawGooglyEyes(ctx, x, eyesCy, w, googly.mood, googly.lookX, googly.lookY, googly.now)
+      drawGooglyEyes(ctx, x, eyesCy, w, googly.mood, googly.lookX, googly.lookY, googly.now, googly.cyclops)
     }
     return
   }
@@ -417,7 +423,8 @@ const drawGooglyEyes = (
   mood: BoulderMood,
   lookX: number,
   lookY: number,
-  now: number
+  now: number,
+  cyclops = false
 ): void => {
   const scared = mood === 'scared'
   const happy = mood === 'happy'
@@ -441,6 +448,75 @@ const drawGooglyEyes = (
   const dirX = happy ? 0 : lookX / len
   const dirY = happy ? -0.4 : lookY / len
 
+  if (cyclops) {
+    // ── Single big central eye + one brow (a cyclops boulder, ~30% of them) ──
+    const er = eyeR * 1.4
+    const ex = cx
+    const ey = cy + (happy ? bounce * bodyW * 0.01 : 0)
+    if (happy) {
+      const half = er * 1.05
+      const lift = er * (0.55 + bounce * 0.08)
+      ctx.beginPath()
+      ctx.moveTo(ex - half, ey + er * 0.18)
+      ctx.quadraticCurveTo(ex, ey - lift, ex + half, ey + er * 0.18)
+      ctx.lineWidth = Math.max(2, bodyW * 0.034)
+      ctx.strokeStyle = ink
+      ctx.lineCap = 'round'
+      ctx.stroke()
+    } else {
+      const ry = er * 1.12 * (1 - blink * 0.85)
+      ctx.beginPath()
+      ctx.ellipse(ex, ey, er, Math.max(er * 0.12, ry), 0, 0, Math.PI * 2)
+      ctx.fillStyle = '#ffffff'
+      ctx.fill()
+      ctx.lineWidth = inkR
+      ctx.strokeStyle = 'rgba(0,0,0,0.55)'
+      ctx.stroke()
+      if (blink <= 0.5) {
+        const pupilR = er * (scared ? 0.32 : 0.52)
+        const maxShift = er - pupilR - bodyW * 0.012
+        const px = ex + dirX * maxShift + tremX
+        const py = ey + dirY * maxShift + tremY
+        ctx.beginPath(); ctx.arc(px, py, pupilR, 0, Math.PI * 2)
+        ctx.fillStyle = '#111418'; ctx.fill()
+        ctx.beginPath(); ctx.arc(px - pupilR * 0.3, py - pupilR * 0.3, pupilR * 0.34, 0, Math.PI * 2)
+        ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.fill()
+      }
+    }
+    // Rosy cheeks flanking the single eye (happy).
+    if (happy) {
+      ctx.fillStyle = 'rgba(255,120,110,0.45)'
+      for (const side of [-1, 1] as const) {
+        ctx.beginPath()
+        ctx.ellipse(cx + side * er * 0.95, cy + er * 0.95, er * 0.4, er * 0.26, 0, 0, Math.PI * 2)
+        ctx.fill()
+      }
+    }
+    // One brow centred above the eye — mirrors the two-eye moods, just single +
+    // wider and scaled to the bigger eye so it reads at the same fidelity.
+    ctx.strokeStyle = ink
+    ctx.lineWidth = Math.max(1.5, bodyW * 0.026)
+    ctx.lineCap = 'round'
+    const bw = er * 0.85
+    ctx.beginPath()
+    if (scared) {
+      // Worried, gently raised in the middle (a soft "︿"), trembling.
+      const browY = cy - er * 1.5 + tremY * 0.6
+      ctx.moveTo(ex - bw + tremX * 0.4, browY + bw * 0.14)
+      ctx.quadraticCurveTo(ex + tremX * 0.4, browY - bw * 0.22, ex + bw + tremX * 0.4, browY + bw * 0.14)
+    } else if (happy) {
+      // High lively arch that bobs up with the bounce.
+      const browY = cy - er * 1.78 - bounce * bodyW * 0.018
+      ctx.moveTo(ex - bw, browY + bw * 0.2)
+      ctx.quadraticCurveTo(ex, browY - bw * 0.42, ex + bw, browY + bw * 0.2)
+    } else {
+      // Neutral flat brow with a subtle idle bob.
+      const browY = cy - er * 1.42 + Math.sin(now / 900) * bodyW * 0.006
+      ctx.moveTo(ex - bw, browY + bw * 0.05)
+      ctx.lineTo(ex + bw, browY - bw * 0.05)
+    }
+    ctx.stroke()
+  } else {
   for (const side of [-1, 1] as const) {
     const ex = cx + side * gap
     const ey = cy + (happy ? bounce * bodyW * 0.01 : 0)
@@ -520,39 +596,44 @@ const drawGooglyEyes = (
     }
     ctx.stroke()
   }
+  }
 
   // ── Mouth: a stone crack that re-shapes AND animates per mood ──
+  // Scaled to a per-face reference radius so the cyclops (one big central eye)
+  // gets a proportionally bigger mouth that sits clear below its eye, instead of
+  // the small two-eye mouth crowding it.
+  const mEyeR = cyclops ? eyeR * 1.4 : eyeR
+  const mouthW = cyclops ? mEyeR * 1.2 : gap * 1.2
   ctx.strokeStyle = ink
   ctx.lineWidth = Math.max(1.5, bodyW * 0.022)
   ctx.lineCap = 'round'
   ctx.lineJoin = 'round'
-  const mouthW = gap * 1.2
   if (scared) {
     // Chattering open "oh no" — an oval whose height pulses fast + jitters.
-    const mouthY = cy + eyeR * 1.95 + tremY * 0.5
+    const mouthY = cy + mEyeR * 1.95 + tremY * 0.5
     const chatter = 0.5 + 0.5 * Math.abs(Math.sin(now / 70))
     ctx.beginPath()
-    ctx.ellipse(cx + tremX * 0.5, mouthY, mouthW * 0.3, eyeR * (0.28 + chatter * 0.5), 0, 0, Math.PI * 2)
+    ctx.ellipse(cx + tremX * 0.5, mouthY, mouthW * 0.3, mEyeR * (0.28 + chatter * 0.5), 0, 0, Math.PI * 2)
     ctx.fillStyle = 'rgba(20,18,14,0.55)'; ctx.fill()
     ctx.stroke()
   } else if (happy) {
     // Wide upward grin that pulses with the bounce; jagged so it reads as stone.
-    const mouthY = cy + eyeR * 1.9
-    const grin = eyeR * (0.5 + (bounce + 1) * 0.12)
+    const mouthY = cy + mEyeR * 1.9
+    const grin = mEyeR * (0.5 + (bounce + 1) * 0.12)
     ctx.beginPath()
-    ctx.moveTo(cx - mouthW * 0.55, mouthY - eyeR * 0.12)
+    ctx.moveTo(cx - mouthW * 0.55, mouthY - mEyeR * 0.12)
     ctx.lineTo(cx - mouthW * 0.2, mouthY + grin)
     ctx.lineTo(cx + mouthW * 0.18, mouthY + grin * 1.05)
-    ctx.lineTo(cx + mouthW * 0.55, mouthY - eyeR * 0.14)
+    ctx.lineTo(cx + mouthW * 0.55, mouthY - mEyeR * 0.14)
     ctx.stroke()
   } else {
     // Neutral jagged horizontal crack (a slight zig-zag, no curve).
-    const mouthY = cy + eyeR * 1.85
+    const mouthY = cy + mEyeR * 1.85
     ctx.beginPath()
-    ctx.moveTo(cx - mouthW * 0.5, mouthY - eyeR * 0.06)
-    ctx.lineTo(cx - mouthW * 0.15, mouthY + eyeR * 0.1)
-    ctx.lineTo(cx + mouthW * 0.18, mouthY - eyeR * 0.08)
-    ctx.lineTo(cx + mouthW * 0.5, mouthY + eyeR * 0.06)
+    ctx.moveTo(cx - mouthW * 0.5, mouthY - mEyeR * 0.06)
+    ctx.lineTo(cx - mouthW * 0.15, mouthY + mEyeR * 0.1)
+    ctx.lineTo(cx + mouthW * 0.18, mouthY - mEyeR * 0.08)
+    ctx.lineTo(cx + mouthW * 0.5, mouthY + mEyeR * 0.06)
     ctx.stroke()
   }
 }
@@ -640,29 +721,37 @@ const drawItemBox = (ctx: CanvasRenderingContext2D, x: number, y: number, now: n
  *  plane and rotated over time to read as a swirling teleport portal. `seed`
  *  (per-cell hash) randomises spin direction, speed and start angle so no two
  *  portals look in lock-step. */
-const drawPortal = (ctx: CanvasRenderingContext2D, x: number, y: number, now: number, seed = 0): void => {
+/** Glow pooled on the portal tile (drawn in the floor pass — anchors the floating
+ *  vortex to the ground). */
+const drawPortalGlow = (ctx: CanvasRenderingContext2D, x: number, y: number): void => {
   const glow = ctx.createRadialGradient(x, y, 2, x, y, geo.halfW)
-  glow.addColorStop(0, 'rgba(140,100,255,0.55)')
-  glow.addColorStop(1, 'rgba(140,100,255,0)')
+  glow.addColorStop(0, 'rgba(90,170,255,0.42)')
+  glow.addColorStop(1, 'rgba(90,170,255,0)')
   ctx.fillStyle = glow
   diamondPath(ctx, x, y, geo.halfW, geo.halfH); ctx.fill()
+}
+
+/** The hovering, front-facing, z-spinning vortex disc — drawn DEPTH-SORTED in the
+ *  prop pass (by its tile row) so props/coins/ball one row behind sit behind it
+ *  and one row in front draw over it. */
+const drawPortalVortex = (ctx: CanvasRenderingContext2D, x: number, y: number, now: number, seed = 0): void => {
   const img = getImg(VORTEX_SRC)
   if (!ready(img)) return
   const dir = (seed & 1) ? 1 : -1            // spin clockwise or counter
   const speed = 520 + (seed % 420)           // per-portal spin rate
   const phase = (seed % 628) / 100           // per-portal start angle (rad)
+  // The vortex HOVERS above its tile and FACES the camera (a front-on disc — NOT
+  // squashed onto the iso ground plane), spinning on the z-axis so the player
+  // looks straight into the swirl. A gentle bob sells the float.
+  const bob = Math.sin(now / 640 + seed) * geo.halfH * 0.14
+  const cy = y - geo.tileH * 0.55 + bob
   ctx.save()
-  ctx.translate(x, y)
-  ctx.scale(1, geo.tileH / geo.tileW) // lie flat on the ground plane
-  // The swirl art reads as pulling INWARD only when spun the matching way; the
-  // previous sign rotated it against the swirl, so it looked like it was pushing
-  // out. Negate to match the vortex texture's swirl direction.
+  ctx.translate(x, cy)
+  // Negate so the spin matches the texture's inward swirl (pulls inward).
   ctx.rotate(-dir * (now / speed) + phase)
-  // Shrunk another 10% (~0.65) so the swirl art never clips the tile edge,
-  // plus a breathing pulse between 95% and 100%.
-  const pulse = 0.975 + Math.sin(now / 480 + seed) * 0.025
-  const s = geo.tileW * 0.648 * pulse
-  ctx.globalAlpha = 0.95
+  const pulse = 0.97 + Math.sin(now / 480 + seed) * 0.03
+  const s = geo.tileW * 0.72 * pulse
+  ctx.globalAlpha = 0.97
   ctx.drawImage(img, -s / 2, -s / 2, s, s)
   ctx.restore()
   ctx.globalAlpha = 1
@@ -670,7 +759,7 @@ const drawPortal = (ctx: CanvasRenderingContext2D, x: number, y: number, now: nu
 
 /** Lava field tile — the bitmap rotated 45° + iso-squashed so the square art
  *  fills the diamond exactly like the floor tiles do, with a hot glow on top. */
-const drawLava = (ctx: CanvasRenderingContext2D, c: number, r: number, x: number, y: number, now: number): void => {
+const drawLava = (ctx: CanvasRenderingContext2D, c: number, r: number, x: number, y: number, now: number, camOffsetY: number): void => {
   const img = getImg(LAVA_SRC)
   if (ready(img)) {
     ctx.save()
@@ -696,79 +785,156 @@ const drawLava = (ctx: CanvasRenderingContext2D, c: number, r: number, x: number
   // Spawn drifting steam from this (live) lava cell. Called every frame the cell
   // is drawn; the spawner self-throttles. A destroyed lava cell stops being drawn
   // → stops spawning, while already-airborne puffs finish rising and fade.
-  spawnLavaSteam(c, r, x, y, now)
+  spawnLavaSteam(c, r, x, y, now, camOffsetY)
 }
 
-// ─── Lava steam / fog ───────────────────────────────────────────────────────
+// ─── Lava flames ─────────────────────────────────────────────────────────────
 //
-// Soft puffs that rise + fade above each live lava field. Emitted only while the
-// lava cell is being drawn (i.e. still exists); once the lava is destroyed it's
-// no longer in `game.cells`, so no new puffs spawn and the field stops steaming.
-interface SteamPuff { x: number; y: number; bornAt: number; life: number; r0: number; drift: number; seed: number }
-const steamPuffs: SteamPuff[] = []
-// Last-spawn game-clock per lava cell key, so each field emits at a steady, low
-// rate regardless of frame rate / how many cells are on screen.
+// Flickering fire tongues that lick up off each live lava field, ~1 tile high
+// (matching the reference art). Emitted only while the lava cell is being drawn
+// (i.e. still exists); once the lava is destroyed it's no longer in `game.cells`,
+// so no new tongues spawn and the already-airborne ones finish rising and fade.
+// `x` is a screen x (the camera never pans horizontally, so it's stable); `y` is
+// a WORLD y (camera-independent) so flames stay anchored to their lava tile as the
+// grid scrolls — the current `camOffsetY` is re-added at draw time.
+interface Flame { x: number; y: number; bornAt: number; life: number; w0: number; h: number; sway: number; seed: number }
+const lavaFlames: Flame[] = []
+// Last-spawn game-clock per lava cell key, so each field emits at a steady rate
+// regardless of frame rate / how many cells are on screen.
 const lastSteamAt = new Map<string, number>()
-const STEAM_INTERVAL_MS = 420  // one puff per cell roughly every ~0.4s
-const STEAM_LIFE_MS = 3400     // slower drift → longer, lazier life
-const STEAM_MAX = 90           // hard cap so the array can't grow unbounded
+const FLAME_INTERVAL_MS = 120  // a new tongue (or two) per cell roughly every ~0.12s
+const FLAME_LIFE_MS = 620      // quick flicker life
+const FLAME_MAX = 110          // hard cap so the array can't grow unbounded
 
-const spawnLavaSteam = (c: number, r: number, x: number, y: number, now: number): void => {
+const spawnLavaSteam = (c: number, r: number, x: number, y: number, now: number, camOffsetY: number): void => {
   const key = `${c},${r}`
   const last = lastSteamAt.get(key) ?? -Infinity
-  if (now - last < STEAM_INTERVAL_MS) return
+  if (now - last < FLAME_INTERVAL_MS) return
   // Prune stale per-cell timers so the map can't grow unbounded over a long run
   // (cells scroll off + are culled; their keys would otherwise linger forever).
   if (lastSteamAt.size > 64) {
-    for (const [k, t] of lastSteamAt) if (now - t > STEAM_INTERVAL_MS * 4) lastSteamAt.delete(k)
+    for (const [k, t] of lastSteamAt) if (now - t > FLAME_INTERVAL_MS * 6) lastSteamAt.delete(k)
   }
   lastSteamAt.set(key, now)
-  if (steamPuffs.length >= STEAM_MAX) steamPuffs.shift()
-  steamPuffs.push({
-    x: x + (Math.random() - 0.5) * geo.halfW * 0.55,
-    y: y - geo.halfH * 0.1,
-    bornAt: now,
-    life: STEAM_LIFE_MS * (0.8 + Math.random() * 0.4),
-    r0: geo.halfW * (0.16 + Math.random() * 0.08), // small puff to start
-    drift: (Math.random() - 0.5) * geo.halfW * 0.35, // gentle horizontal sway target
-    seed: Math.random() * 6.283
-  })
+  // One or two tongues per emission, scattered across the cell width.
+  const n = 1 + (Math.random() < 0.45 ? 1 : 0)
+  for (let i = 0; i < n; i++) {
+    if (lavaFlames.length >= FLAME_MAX) lavaFlames.shift()
+    lavaFlames.push({
+      x: x + (Math.random() - 0.5) * geo.halfW * 0.7,
+      y: (y - camOffsetY) - geo.halfH * 0.12, // WORLD y → stays glued to the tile when scrolling
+      bornAt: now,
+      life: FLAME_LIFE_MS * (0.7 + Math.random() * 0.6),
+      w0: geo.halfW * (0.17 + Math.random() * 0.1),    // base half-width (upright, not flat)
+      h: geo.tileH * (0.6 + Math.random() * 0.22),     // peak height ~0.6–0.8 tile
+      sway: Math.random() - 0.5,
+      seed: Math.random() * 6.283
+    })
+  }
 }
 
-/** Draw + age all live steam puffs. Each rises, expands, and fades over its
- *  lifetime; expired puffs are culled. Drawn on top of the floor so the fog
- *  reads above the lava but under props/ball. */
-const drawLavaSteam = (ctx: CanvasRenderingContext2D, now: number): void => {
-  if (steamPuffs.length === 0) return
+/** One flame tongue: a full-bellied teardrop from a rounded base bulging out a
+ *  little above the base, then tapering to a soft tip — filled with a vertical
+ *  base→tip gradient so it reads as a rounded flame rather than a thin spike. */
+const drawFlameTongue = (
+  ctx: CanvasRenderingContext2D,
+  baseX: number, baseY: number, tipX: number, tipY: number, w: number,
+  stops: ReadonlyArray<readonly [number, string]>
+): void => {
+  const g = ctx.createLinearGradient(baseX, baseY, tipX, tipY)
+  for (const [o, col] of stops) g.addColorStop(o, col)
+  ctx.fillStyle = g
+  const belly = baseY - (baseY - tipY) * 0.3 // widest point ~1/3 up
+  ctx.beginPath()
+  ctx.moveTo(baseX - w, baseY)
+  ctx.quadraticCurveTo(baseX - w * 0.92, belly, tipX, tipY) // left: gentle belly then in to the tip
+  ctx.quadraticCurveTo(baseX + w * 0.92, belly, baseX + w, baseY) // right: tip back down
+  ctx.quadraticCurveTo(baseX, baseY + w * 0.5, baseX - w, baseY) // rounded base
+  ctx.closePath()
+  ctx.fill()
+}
+
+/** Draw + age all live flame tongues. Each rises ~1 tile, narrows + flickers, and
+ *  fades over its (short) life; expired ones are culled. Additive-blended so the
+ *  overlapping tongues read as glowing fire. Drawn after props/ball. */
+const drawLavaSteam = (ctx: CanvasRenderingContext2D, now: number, camOffsetY: number): void => {
+  if (lavaFlames.length === 0) return
   ctx.save()
-  for (let i = steamPuffs.length - 1; i >= 0; i--) {
-    const p = steamPuffs[i]!
+  ctx.globalCompositeOperation = 'lighter' // additive → flames glow + blend
+  for (let i = lavaFlames.length - 1; i >= 0; i--) {
+    const p = lavaFlames[i]!
     const t = (now - p.bornAt) / p.life
-    if (t >= 1) { steamPuffs.splice(i, 1); continue }
-    // Rise only ~half a grid tile high (was 1.6 tiles), and slower — it hovers
-    // just over its own lava cell instead of streaming up the screen.
-    const rise = geo.tileH * 0.5 * t
-    const sway = Math.sin(now / 700 + p.seed) * p.drift * t
-    const radius = p.r0 * (1 + t * 1.0)              // gentle expansion
-    // Reddish, more opaque so it reads as heat-haze rising off the lava.
-    const alpha = (t < 0.2 ? t / 0.2 : 1 - (t - 0.2) / 0.8) * 0.5
-    const px = p.x + sway
-    const py = p.y - rise
-    const g = ctx.createRadialGradient(px, py, 0, px, py, radius)
-    g.addColorStop(0, `rgba(255,120,70,${alpha})`)
-    g.addColorStop(0.6, `rgba(220,90,55,${alpha * 0.6})`)
-    g.addColorStop(1, 'rgba(200,80,50,0)')
-    ctx.fillStyle = g
-    ctx.beginPath(); ctx.arc(px, py, radius, 0, Math.PI * 2); ctx.fill()
+    if (t >= 1) { lavaFlames.splice(i, 1); continue }
+    const climb = Math.min(1, t * 1.25)                       // reaches full height by ~80% of life
+    const baseY = p.y + camOffsetY                            // world → screen with the LIVE camera
+    const cx = p.x + p.sway * geo.halfW * 0.1 * t
+    const tipX = cx + Math.sin(now / 55 + p.seed) * geo.halfW * 0.1 * climb // tip flicker
+    const tipY = baseY - p.h * climb
+    const w = p.w0 * (1 - t * 0.4) * (0.92 + Math.sin(now / 45 + p.seed) * 0.1) // stays fuller, flickers
+    const alpha = t < 0.12 ? t / 0.12 : 1 - (t - 0.12) / 0.88
+    // Heat bloom rooted on the lava — a soft additive glow at the flame base.
+    const bloomR = w * 2.1
+    const bg = ctx.createRadialGradient(cx, baseY, 0, cx, baseY, bloomR)
+    bg.addColorStop(0, `rgba(255,170,60,${alpha * 0.5})`)
+    bg.addColorStop(1, 'rgba(255,110,30,0)')
+    ctx.fillStyle = bg
+    ctx.beginPath(); ctx.arc(cx, baseY, bloomR, 0, Math.PI * 2); ctx.fill()
+    // Outer orange tongue.
+    drawFlameTongue(ctx, cx, baseY, tipX, tipY, w, [
+      [0, `rgba(255,160,50,${alpha})`],
+      [0.45, `rgba(245,95,28,${alpha * 0.85})`],
+      [1, 'rgba(180,40,10,0)']
+    ])
+    // Inner hot core — shorter, brighter, yellow-white.
+    const coreTipY = baseY - (baseY - tipY) * 0.62
+    drawFlameTongue(ctx, cx, baseY, tipX, coreTipY, w * 0.6, [
+      [0, `rgba(255,245,190,${alpha})`],
+      [0.55, `rgba(255,195,80,${alpha * 0.75})`],
+      [1, 'rgba(255,130,35,0)']
+    ])
   }
   ctx.restore()
 }
 
-const drawCoinSprite = (ctx: CanvasRenderingContext2D, x: number, y: number, size: number, alpha = 1): void => {
+const drawCoinSprite = (ctx: CanvasRenderingContext2D, x: number, y: number, size: number, alpha = 1, spinSeed = -1, now = 0): void => {
   const img = getImg(COIN_SRC)
   ctx.globalAlpha = alpha
   if (ready(img)) {
-    ctx.drawImage(img, x - size / 2, y - size / 2, size, size)
+    if (spinSeed >= 0) {
+      // Pseudo-3D coin (~40% of coins): a thin cylinder spun around the Y axis.
+      // Both flat faces are the coin image (foreshortened by cos → edge-on through
+      // the middle of the spin, mirrored for the back); the cylindrical rim is
+      // solid coin-gold and is revealed as a band on the trailing side, giving the
+      // coin real thickness. A tiny X-axis tilt + per-coin phase/speed add variety;
+      // slow + subtle so it reads as gentle shimmer, not distraction.
+      const phase = (spinSeed % 628) / 100                 // 0..2π start angle
+      const speed = 650 + (spinSeed % 450)                 // 650..1100 ms/radian (calm)
+      const theta = now / speed + phase                    // spin angle around Y
+      const tilt = 1 - 0.1 * (0.5 + 0.5 * Math.sin(now / 1100 + phase)) // gentle X tilt
+      const cos = Math.cos(theta), sin = Math.sin(theta)
+      const R = size / 2
+      const faceHW = Math.max(R * Math.abs(cos), 0.4)      // face ellipse half-width
+      const halfT = size * 0.045                           // half coin thickness (~9%)
+      const d = halfT * sin                                // face centre offset along x
+      ctx.save()
+      ctx.translate(x, y)
+      ctx.scale(1, tilt)
+      // Rim: union of the two face ellipses (at ±d) + the band between them.
+      ctx.fillStyle = COIN_EDGE_COLOR
+      ctx.beginPath()
+      ctx.ellipse(d, 0, faceHW, R, 0, 0, Math.PI * 2)
+      ctx.ellipse(-d, 0, faceHW, R, 0, 0, Math.PI * 2)
+      if (Math.abs(d) > 0.01) ctx.rect(-Math.abs(d), -R, 2 * Math.abs(d), 2 * R)
+      ctx.fill()
+      // Visible face (front when cos≥0, else the back), drawn over its own ellipse
+      // so the rim shows as a crescent on the opposite side.
+      ctx.translate(cos >= 0 ? d : -d, 0)
+      ctx.scale(cos, 1)
+      ctx.drawImage(img, -R, -R, size, size)
+      ctx.restore()
+    } else {
+      ctx.drawImage(img, x - size / 2, y - size / 2, size, size)
+    }
   } else {
     ctx.fillStyle = '#ffd23f'
     ctx.beginPath(); ctx.arc(x, y, size / 2, 0, Math.PI * 2); ctx.fill()
@@ -980,7 +1146,7 @@ let dropInStart = -Infinity
  *  the fresh field starts dry and calm. */
 export const triggerBallDropIn = (): void => {
   dropInStart = performance.now()
-  steamPuffs.length = 0
+  lavaFlames.length = 0
   lastSteamAt.clear()
   bouldersFrightened = false
   crashDeathAt = 0
@@ -1025,7 +1191,7 @@ const dropInLift = (now: number): number => {
   return -fall * (1 - easeOutBounce(t))
 }
 
-const drawBall = (ctx: CanvasRenderingContext2D, x: number, y: number, now: number, dropT = 0, lift = 0): void => {
+const drawBall = (ctx: CanvasRenderingContext2D, x: number, y: number, now: number, dropT = 0, lift = 0, extraFade = 1): void => {
   const baseRadius = geo.halfH * 1.05
   // While dropping the ball sinks below the surface, shrinks, and fades out as
   // it disappears into the pit. The hole's front lip (drawn afterwards) hides
@@ -1035,7 +1201,8 @@ const drawBall = (ctx: CanvasRenderingContext2D, x: number, y: number, now: numb
   // the ball falls in from above and bounces before settling. Applied to the
   // ball body + shadow scale only, so the contact shadow stays on the tile.
   const cy = y - baseRadius * 0.75 + dropT * baseRadius * 1.9 + lift
-  let alpha = dropT < 0.7 ? 1 : Math.max(0, 1 - (dropT - 0.7) / 0.3)
+  // `extraFade` (1→0) dissolves the ball as it rolls into the exit-gate archway.
+  let alpha = (dropT < 0.7 ? 1 : Math.max(0, 1 - (dropT - 0.7) / 0.3)) * extraFade
   // After spending a Second Chance the ball blinks for a beat.
   if (game.secondChanceBlinkUntil > game.clock) {
     alpha *= 0.35 + 0.65 * Math.abs(Math.sin(now / 70))
@@ -1560,7 +1727,22 @@ export const drawScene = (ctx: CanvasRenderingContext2D, w: number, h: number, n
     }
   }
 
-  const camOffsetY = h * 0.64 - game.ballR * geo.halfH
+  // The camera follows the ball at 64% down. During the stage-clear exit roll it
+  // keeps following (so the gate wall scrolls in from the top with the grid) UNTIL
+  // the wall's top edge reaches the screen top, then LOCKS — so the wall reads as
+  // the end of the room and the ball rolls the rest of the way up into it.
+  let camOffsetY = h * 0.64 - game.ballR * geo.halfH
+  if (game.exiting) {
+    const gimg = getImg(EXIT_GATE_SRC)
+    if (ready(gimg)) {
+      const W = exitGateWidth()
+      const H = W * (gimg.naturalHeight / gimg.naturalWidth)
+      // Lock so the wall's top edge stays ~20px ABOVE the screen top — the wall
+      // always fills to the top (no gap behind it).
+      const lockCam = -20 - game.exitGateR * geo.halfH - geo.halfH * 0.6 + H
+      camOffsetY = Math.min(camOffsetY, lockCam)
+    }
+  }
   const ballPos = project(game.ballC, game.ballR, camOffsetY)
   const ballY = ballPos.y - geo.halfH * 1.05 * 0.75
 
@@ -1582,8 +1764,8 @@ export const drawScene = (ctx: CanvasRenderingContext2D, w: number, h: number, n
         else if (plan && typeof plan === 'object') drawRiftDouble(ctx, x, y, plan.dc, plan.dr)
         else drawRift(ctx, x, y)
       }
-      else if (cell && cell.kind === 'lava') drawLava(ctx, c, r, x, y, now)
-      else if (cell && cell.kind === 'portal') { drawFloorTile(ctx, c, r, x, y); drawPortal(ctx, x, y, now, hash(c, r)) }
+      else if (cell && cell.kind === 'lava') drawLava(ctx, c, r, x, y, now, camOffsetY)
+      else if (cell && cell.kind === 'portal') { drawFloorTile(ctx, c, r, x, y); drawPortalGlow(ctx, x, y) }
       else drawFloorTile(ctx, c, r, x, y)
     }
   }
@@ -1598,12 +1780,15 @@ export const drawScene = (ctx: CanvasRenderingContext2D, w: number, h: number, n
       const { x, y } = project(c, r, camOffsetY)
       if (cell.kind === 'obstacle' && cell.obstacle) {
         const k = cell.obstacle
-        // Crate-pile: one sprite covers all four cells. Draw it ONLY from the
-        // bottom-front anchor cell (the front-most, so it sorts on top of the
-        // back members) and skip the other three.
+        // Crate-pile: one tall sprite covers all four cells. Draw it ONLY from
+        // the bottom-front anchor cell (the front-most member) and skip the other
+        // three. Bias its depth key half a row toward the camera (`r + 0.5`) so a
+        // ball level with — or behind — the pile's front row is reliably drawn
+        // BEHIND it (the pile is closer to the bottom edge), while a ball a full
+        // tile in front (row r+1) still sorts on top.
         if (k === 'crate') {
           if (cell.crateBC !== c || cell.crateBR !== r) continue
-          drawables.push({ r, fn: () => drawCratePile(ctx, x, y) })
+          drawables.push({ r: r + 0.5, fn: () => drawCratePile(ctx, x, y) })
           continue
         }
         const jitter = 1 + ((hash(c, r) % 21) - 10) / 100 // ±10% per-cell size variance
@@ -1613,7 +1798,7 @@ export const drawScene = (ctx: CanvasRenderingContext2D, w: number, h: number, n
         //    in — about to crash / get pushed/smashed) OR any obstacle was just
         //    destroyed on screen (`bouldersFrightened`, held until the next reset),
         //  • normal — otherwise.
-        let googly: { mood: BoulderMood; lookX: number; lookY: number; now: number } | undefined
+        let googly: { mood: BoulderMood; lookX: number; lookY: number; now: number; cyclops: boolean } | undefined
         if (k === 'stone') {
           const bp = project(game.ballC, game.ballR, camOffsetY)
           const key = `${c},${r}`
@@ -1655,16 +1840,29 @@ export const drawScene = (ctx: CanvasRenderingContext2D, w: number, h: number, n
           const animPhase = aseed % 2000                            // 0..2000ms later start
           const animLen = 1 - (((aseed >>> 11) % 1000) / 1000) * 0.3 // 0.70..1.0× length
           const animNow = (now + animPhase) / animLen
-          googly = { mood, lookX: bp.x - x, lookY: (bp.y - geo.tileH * 0.5) - y, now: animNow }
+          // ~30% of googly boulders are one-eyed cyclopes (stable per cell; a high
+          // bit slice so it doesn't correlate with the jitter / animation seeds).
+          const cyclops = ((aseed >>> 8) % 10) < 3
+          googly = { mood, lookX: bp.x - x, lookY: (bp.y - geo.tileH * 0.5) - y, now: animNow, cyclops }
         }
         const g = googly
         drawables.push({ r, fn: () => drawObstacle(ctx, k, x, y, jitter, g) })
       } else if (cell.kind === 'coin' && !cell.collected) {
-        drawables.push({ r: r + 0.1, fn: () => drawCoinSprite(ctx, x, y - geo.tileH * 0.4 + Math.sin(now / 240 + c) * geo.halfH * 0.15, geo.halfW * 0.7) })
+        // ~40% of coins get the 3D spin (deterministic per cell); the rest stay flat.
+        const cseed = hash(c, r)
+        const spin = cseed % 100 < 40 ? cseed : -1
+        drawables.push({ r: r + 0.1, fn: () => drawCoinSprite(ctx, x, y - geo.tileH * 0.4 + Math.sin(now / 240 + c) * geo.halfH * 0.15, geo.halfW * 0.7, 1, spin, now) })
       } else if (cell.kind === 'item') {
         const seed = (hash(c, r) % 997) / 159
         const lucky = cell.lucky === true
         drawables.push({ r: r + 0.1, fn: () => drawItemBox(ctx, x, y, now, seed, lucky) })
+      } else if (cell.kind === 'portal') {
+        // The hovering vortex sorts with props/ball by its tile row, so a box or
+        // ball one row BEHIND (smaller r) is drawn first → the vortex sits in
+        // front of it; one row in FRONT draws over it. (The floor-pooled glow is
+        // already drawn in Pass 1.)
+        const seed = hash(c, r)
+        drawables.push({ r, fn: () => drawPortalVortex(ctx, x, y, now, seed) })
       }
     }
   }
@@ -1722,7 +1920,9 @@ export const drawScene = (ctx: CanvasRenderingContext2D, w: number, h: number, n
   const slowLeft = game.teleportSlowUntil - game.clock
   const inTeleportSlow = !game.exploded && slowLeft > 0
 
-  const ballIsDrawable = !game.exploded
+  // The exit roll draws its own ball (so the gate can occlude it as it passes
+  // through the archway), so suppress the normal depth-sorted ball there.
+  const ballIsDrawable = !game.exploded && !game.exiting
   // During slow-mo the ball is drawn AFTER the overlay (on top of the dim) so it
   // stays bright; otherwise it sorts into the depth list as usual.
   if (ballIsDrawable && !inTeleportSlow) {
@@ -1732,7 +1932,7 @@ export const drawScene = (ctx: CanvasRenderingContext2D, w: number, h: number, n
   for (const d of drawables) d.fn()
 
   // Lava steam — drifts up above the field + props (spawned in `drawLava`).
-  drawLavaSteam(ctx, now)
+  drawLavaSteam(ctx, now, camOffsetY)
 
   if (inTeleportSlow) {
     drawTeleportSpotlight(ctx, w, h, ballPos.x, ballPos.y - geo.halfH * 1.05 * 0.75)
@@ -1751,6 +1951,61 @@ export const drawScene = (ctx: CanvasRenderingContext2D, w: number, h: number, n
   // Pass 4 — full-screen "juice" overlays (roadmap #14).
   drawSpeedLines(ctx, w, h, now)
   drawPowerupPulse(ctx, w, h)
+
+  // Stage-clear: the ball + exit gate, drawn last so the wall occludes the ball
+  // as it rolls through the archway and vanishes behind it.
+  if (game.exiting) drawExitGate(ctx, camOffsetY, now)
+}
+
+// ─── Stage-clear exit gate ────────────────────────────────────────────────────
+//
+// A stone wall with a central runic archway at the end of a campaign stage. The
+// camera scrolls it into view then locks (see drawScene), so it reads as the end
+// of the room. The wall is drawn ON TOP of the ball, which dissolves into the dark
+// doorway as it passes through. The PNG is fully transparent (background + arch),
+// so it composites straight onto the scene with no backing fill.
+/** Exit-gate wall width = exactly the grid playground width (left edge of column
+ *  0 to right edge of column C_MAX), so the wall caps the floor without spilling
+ *  out beyond the grid onto the dark page background. */
+const exitGateWidth = (): number => (C_MAX + 2) * geo.halfW
+const drawExitGate = (ctx: CanvasRenderingContext2D, camOffsetY: number, now: number): void => {
+  const t = Math.min(1, (game.clock - game.exitStartClock) / EXIT_SEQUENCE_MS)
+  const g = project(game.exitGateC, game.exitGateR, camOffsetY)
+  const bp = project(game.ballC, game.ballR, camOffsetY)
+  const img = getImg(EXIT_GATE_SRC)
+
+  // 1) The gate wall, drawn at its WORLD position (no spawn-in animation): the
+  //    camera scrolls it into view from the top like the rest of the grid, then
+  //    locks. Drawn BEFORE the ball so the ball stays visible rolling up; the ball
+  //    then dissolves into the dark doorway via `extraFade`.
+  if (ready(img)) {
+    const W = exitGateWidth()
+    const H = W * (img.naturalHeight / img.naturalWidth)
+    const imgBottom = g.y + geo.halfH * 0.6
+    const imgTop = imgBottom - H
+    // The wall PNG is fully transparent around the stones AND through the doorway,
+    // so it composites straight onto the scene — no backing fill. The wall spans
+    // exactly the grid playground width and the camera lock keeps its top above the
+    // screen, so the open archway shows the room beyond and the wall caps the grid.
+    ctx.drawImage(img, g.x - W / 2, imgTop, W, H)
+    // Pulsing portal glow in the doorway (additive light spilling out of the arch).
+    const pulse = 0.55 + 0.45 * Math.abs(Math.sin(now / 400))
+    const doorCy = imgBottom - H * 0.42
+    ctx.save()
+    ctx.globalCompositeOperation = 'lighter'
+    const glow = ctx.createRadialGradient(g.x, doorCy, 2, g.x, doorCy, W * 0.14)
+    glow.addColorStop(0, `rgba(150,220,255,${0.4 * pulse})`)
+    glow.addColorStop(1, 'rgba(150,220,255,0)')
+    ctx.fillStyle = glow
+    ctx.beginPath(); ctx.ellipse(g.x, doorCy, W * 0.11, H * 0.32, 0, 0, Math.PI * 2); ctx.fill()
+    ctx.restore()
+  }
+
+  // 2) The rolling ball, ON TOP of the wall so it stays visible as it rolls up
+  //    into the archway, then dissolves into the dark passage at the end (it
+  //    reaches the threshold ~t 0.85, so fade over the final stretch).
+  const fade = Math.max(0, Math.min(1, (0.99 - t) / (0.99 - 0.85)))
+  if (fade > 0.001) drawBall(ctx, bp.x, bp.y, now, 0, 0, fade)
 }
 
 // ─── Speed lines (roadmap #14) ───────────────────────────────────────────────

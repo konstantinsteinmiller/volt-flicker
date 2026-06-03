@@ -13,4 +13,5 @@ click/space/tap change ball roll direction.
 
 ## Goal of the game
 
-Roll as far as you can and clear each stage by travelling its required number of tiles without falling into a gap, hitting lava, or crashing into an obstacle. Each stage cleared advances you to a longer, denser, faster one. Coins earned along the way fund permanent upgrades, cosmetic ball skins, and survival aids — the long-term goal is to push your max stage and best tile run as high as possible while building a loadout that turns a fragile early ball into an unstoppable one.
+Roll as far as you can and clear each stage by travelling its required number of tiles without falling into a gap, hitting lava, or crashing into an obstacle. 
+Each stage cleared advances you to a longer, denser, faster one. Coins earned along the way fund permanent upgrades, cosmetic ball skins, and survival aids — the long-term goal is to push your max stage and best tile run as high as possible while building a loadout that turns a fragile early ball into an unstoppable one.

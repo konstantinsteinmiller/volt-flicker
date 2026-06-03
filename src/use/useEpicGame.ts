@@ -67,15 +67,31 @@ export const C_MAX = 10
 const GEN_AHEAD = 22
 const CULL_BEHIND = 6
 
-const BASE_SPEED = 2.5          // diamonds / second at the START of a stage
+const BASE_SPEED = 2.5          // diamonds / second at the START of stage 1
 const MAX_SPEED = 8
-const STAGE_SPEED_BONUS = 0.18  // extra starting speed per stage
+
+// Per-stage STARTING speed (diamonds/sec). A slower, stretched ramp (rebalance):
+//   • stages 1 → 20 : 2.50 → 4.12  (the old stage-10 start speed now lands at 20)
+//   • stages 20 → 50: 4.12 → 7.72  (the old stages 11-30 stretched over 20-50)
+//   • stages 50+     : +0.18/stage, clamped to the MAX_SPEED cap (~stage 52)
+// Each segment is linear; the result is clamped to MAX_SPEED. Replaces the old
+// single `BASE_SPEED + (s-1) * 0.18` line.
+const startSpeedForStage = (stage: number): number => {
+  const s = Math.max(1, stage)
+  let v: number
+  if (s <= 20) v = BASE_SPEED + (s - 1) * ((4.12 - BASE_SPEED) / 19)
+  else if (s <= 50) v = 4.12 + (s - 20) * ((7.72 - 4.12) / 30)
+  else v = 7.72 + (s - 50) * 0.18
+  return Math.min(MAX_SPEED, v)
+}
 
 // Within-stage acceleration: the ball speeds up as the player nears the goal.
-// Stages 1-5 ramp a gentle +30% over the whole stage (beginner-friendly);
-// stage 6+ ramp a steeper +66%.
+// Stages 1-10 ramp a gentle +30% over the whole stage (beginner-friendly);
+// stage 11+ ramp a steeper +66%. (Knee stretched from the old stage 6 so the
+// end-of-stage speed reaches the old stage-10 value of ~6.84 at the new stage 20.)
 const EARLY_STAGE_RAMP = 0.30
 const LATE_STAGE_RAMP = 0.66
+const RAMP_KNEE_STAGE = 10
 
 const START_RUNWAY = 7          // rows of guaranteed-safe floor at the start
 // Push Force / shatter-able obstacles. `wall` is included because it renders
@@ -117,6 +133,27 @@ export const gameMode: Ref<GameMode> = ref('campaign')
 export const setGameMode = (m: GameMode): void => { gameMode.value = m }
 /** Endless personal best (tiles), persisted separately from the campaign best. */
 export const bestEndless: Ref<number> = ref(Math.max(0, Number(getState<number>(BEST_ENDLESS_KEY, 0)) || 0))
+
+// ─── Late-stage death rubber band (campaign, stage 10+, session-only) ────────
+//
+// Late stages can't lower the tile goal (that band is stages 1-3 only), so a
+// player stuck on stage 10+ instead gets the FIELD eased each failed attempt:
+//   • obstacle density −5% per death, down to −35% (more room to breathe), and
+//   • travel speed −2% per death, down to −20% (more reaction time).
+// Both read the same per-stage `stageFailCounts` (incremented in `die`), so they
+// melt away the moment the player clears the stage and moves on. Campaign-only;
+// not persisted (resets on reload), like the rest of the rubber band.
+const LATE_RUBBER_BAND_FROM = 10
+/** Obstacle-density relief fraction (0..0.35) for a stuck player at stage 10+. */
+const lateStageObstacleRelief = (stage: number): number => {
+  if (gameMode.value !== 'campaign' || stage < LATE_RUBBER_BAND_FROM) return 0
+  return Math.min(0.35, 0.05 * (stageFailCounts.get(stage) ?? 0))
+}
+/** Travel-speed relief fraction (0..0.20) for a stuck player at stage 10+. */
+const lateStageSpeedRelief = (stage: number): number => {
+  if (gameMode.value !== 'campaign' || stage < LATE_RUBBER_BAND_FROM) return 0
+  return Math.min(0.20, 0.02 * (stageFailCounts.get(stage) ?? 0))
+}
 
 // ─── Adaptive spawn director (roadmap #8, session-only) ─────────────────────
 //
@@ -213,7 +250,18 @@ export const game = {
   racerExitGuard: 0,
   // Game-clock ms at which a power-up / Racer was just picked up — the renderer
   // reads a fresh (changed) non-zero value to fire the chromatic pickup pulse.
-  powerupFlashAt: 0
+  powerupFlashAt: 0,
+  // ─── Stage-clear EXIT sequence (campaign) ─────────────────────────────────
+  // On reaching the tile goal the run doesn't end immediately: control is taken
+  // away, an exit-gate wall spawns a few rows ahead, and the ball auto-rolls
+  // through the archway and vanishes behind it before `win()` fires. The renderer
+  // reads these to freeze the camera, place the gate and animate the roll.
+  exiting: false,
+  exitStartClock: 0,   // game.clock when the sequence began
+  exitFromC: 0,        // ball float position at the start (camera locks here)
+  exitFromR: 0,
+  exitGateC: 0,        // gate (archway) lattice position the ball rolls into
+  exitGateR: 0
 }
 
 /** Duration (ms) of the post-teleport orientation slow-motion. */
@@ -222,6 +270,16 @@ export const TELEPORT_SLOW_MS = 2000
 const TELEPORT_SLOW_FACTOR = 0.2
 /** How long (ms) the ball blinks after spending a Second Chance. */
 export const SECOND_CHANCE_BLINK_MS = 1600
+
+/** Stage-clear exit-gate sequence (campaign): total duration of the auto-roll
+ *  through the archway, and how many rows ahead of the ball the gate spawns.
+ *  Exported so the renderer can drive the gate rise + ball-fade animation. */
+export const EXIT_SEQUENCE_MS = 2300
+export const EXIT_GATE_ROWS_AHEAD = 11
+/** Final approach: this many tiles before the goal, stop spawning obstacles in the
+ *  central lane (and everything beyond the goal) so the ball can roll cleanly to
+ *  the exit gate without obstacles having to be deleted at the last second. */
+const EXIT_APPROACH_TILES = 7
 
 // ─── Reactive HUD surface ─────────────────────────────────────────────────
 
@@ -234,17 +292,21 @@ const lastWinReward: Ref<number> = ref(0)
 const stageTarget: Ref<number> = ref(tilesToClear(1))
 const survivalMs: Ref<number> = ref(0)
 
-// ─── Coin-combo multiplier chain (roadmap #6) ───────────────────────────────
+// ─── Risk-combo multiplier (roadmap #6) ─────────────────────────────────────
 //
-// Collecting freely-placed coins in quick succession builds a multiplier: each
-// coin grabbed within COMBO_WINDOW_MS of the last one bumps it +COMBO_STEP, up
-// to COMBO_MAX. It resets to 1× on a hit (death) or after COMBO_WINDOW_MS with
-// no pickup. Obstacle-destroy coins do NOT feed the chain (only `collectCoin`).
+// The coin multiplier rewards RISK, not coin-vacuuming. It only climbs on close
+// calls — when the player earns their keep:
+//   • a last-tile turn-AWAY from an obstacle (flipped just before a fatal cell),
+//   • an auto-dodge swinging the ball off a lethal cell, or
+//   • surviving a fatal hit on the angel-wings Second Chance.
+// Each close call bumps it +COMBO_STEP up to COMBO_MAX. It resets to 1× on death
+// or after COMBO_WINDOW_MS with no close call (a hot streak you must keep feeding
+// with daring play). Coins are MULTIPLIED by it but no longer feed it.
 export const combo: Ref<number> = ref(1)
-const COMBO_WINDOW_MS = 4000
-const COMBO_STEP = 0.05
+const COMBO_WINDOW_MS = 5000
+const COMBO_STEP = 0.1
 const COMBO_MAX = 3
-let lastComboCoinAt = -Infinity
+let lastComboAt = -Infinity
 
 // ─── Racer pickup (auto-pilot dash) ─────────────────────────────────────────
 //
@@ -257,6 +319,10 @@ const RACER_TILES_GOLDEN = 40 // golden (lucky) box → a longer dash
 const RACER_SPEED_MULT = 5
 const RACER_EXIT_RUNWAY = 2
 export const racerActive: Ref<boolean> = ref(false)
+
+/** Reactive mirror of `game.exiting` — true during the stage-clear exit-gate
+ *  cinematic, so the scene can hide the in-run HUD while it plays. */
+export const exitingActive: Ref<boolean> = ref(false)
 
 const useEpicGame = () => {
   const { playSound, playRandomVariant } = useSounds()
@@ -333,18 +399,27 @@ const useEpicGame = () => {
 
   // ─── Procedural generation ────────────────────────────────────────────────
 
-  // Hazard density ramps from very sparse (stage 1, a gentle tutorial) up to a
-  // ceiling at stage 10, then STAYS there. Stages past 10 only get a higher tile
-  // goal (+10/stage via `tilesToClear`), not more obstacles — otherwise stage 12+
-  // becomes a wall of dodging that's near-impossible without invuln pickups.
-  // Endless softens it a touch; the first-ever (onboarding) run halves it.
-  const STAGE10_HAZARD = 0.18
+  // Per-cell hazard APPEAR CHANCE `q` — a slower, lower curve (rebalance):
+  //   • stages 1 → 20 : 0.05 → 0.14   (gentle ramp; old stage-10 density now at 20)
+  //   • stages 20 → 50: flat 0.14     (old stages 11-30 stretched over 20-50)
+  //   • stages 50+     : +0.2%/stage up to a 0.17 cap (the old 31+ creep, lower cap)
+  // The generator forbids two adjacent hazards, so realised on-field density is
+  // q/(1+q): ~12.3% of cells at stage 20, ~14.5% at the 0.17 cap. Endless softens
+  // it; the first-ever (onboarding) run halves it; a player stuck on a stage 10+
+  // gets the field further thinned per death (see `lateStageObstacleRelief`).
+  const HAZARD_EARLY_END = 0.14    // q at the end of the 1→20 ramp, held flat to 50
+  const HAZARD_MAX = 0.17          // far-late-game cap (reached ~stage 65)
+  const HAZARD_LATE_PER_STAGE = 0.002
   const stageHazardChance = (stage: number): number => {
-    let p = stage >= 10
-      ? STAGE10_HAZARD
-      : 0.05 + (stage - 1) * ((STAGE10_HAZARD - 0.05) / 9)
+    const s = Math.max(1, stage)
+    let p: number
+    if (s <= 20) p = 0.05 + (s - 1) * ((HAZARD_EARLY_END - 0.05) / 19)
+    else if (s <= 50) p = HAZARD_EARLY_END
+    else p = Math.min(HAZARD_MAX, HAZARD_EARLY_END + (s - 50) * HAZARD_LATE_PER_STAGE)
     if (gameMode.value === 'endless') p *= 0.9
     if (isOnboardingRun.value) p *= 0.5
+    // Stuck-player relief: thin the field the more they've died on this stage.
+    p *= 1 - lateStageObstacleRelief(stage)
     return p
   }
 
@@ -463,14 +538,28 @@ const useEpicGame = () => {
     for (let c = 0; c <= C_MAX; c++) {
       if (((c + r) & 1) === 0) cols.push(c)
     }
+    // Exit-gate planning: as the player nears the campaign goal, stop spawning
+    // obstacles in the central lane (final approach) and EVERYTHING beyond the goal
+    // (the exit corridor). The ball then auto-rolls cleanly into the gate without
+    // any obstacles having to be deleted at the last second (immersion).
+    const goal = (gameMode.value === 'campaign' && Number.isFinite(stageTarget.value)) ? stageTarget.value : Infinity
+    const tile = -r // this row's tile index (≈ score on entering it)
+    const corridorClear = goal !== Infinity && tile > goal                                       // pure floor beyond the goal
+    const centerClear = goal !== Infinity && !corridorClear && tile >= goal - EXIT_APPROACH_TILES // clear central lane
+    const exitCenter = Math.round(C_MAX / 2)
     // Rare 2×2 crate-pile (stage 5+): commit it first, then keep the row's other
     // hazards clear of its top column so nothing sits adjacent to the pile.
     let pileTopC = -99
-    if (!safeRunway && stage >= CRATE_PILE_STAGE && Math.random() < CRATE_PILE_CHANCE) {
+    if (!safeRunway && !corridorClear && !centerClear && stage >= CRATE_PILE_STAGE
+      && Math.random() < CRATE_PILE_CHANCE * (1 - lateStageObstacleRelief(stage))) {
       pileTopC = tryPlaceCratePile(r)
     }
     let prevHazard = false
     for (const c of cols) {
+      // Exit planning: pure floor in the corridor beyond the goal; a clear central
+      // lane on the final approach.
+      if (corridorClear) continue
+      if (centerClear && Math.abs(c - exitCenter) <= 1) { prevHazard = false; continue }
       // Skip the pile's top column and its in-row neighbours (already placed /
       // must stay clear so no hazard ends up adjacent to the crate-pile).
       if (pileTopC >= 0 && Math.abs(c - pileTopC) <= 2) { prevHazard = false; continue }
@@ -500,7 +589,7 @@ const useEpicGame = () => {
     // Item box: place it in the horizontal centre with a guaranteed-clear
     // approach so it's ALWAYS reachable by the diagonal-hop movement — never at
     // the edge, behind a wall, or across a hole the player can't cross.
-    if (game.pendingItem && !safeRunway) {
+    if (game.pendingItem && !safeRunway && !corridorClear && !centerClear) {
       const mid = C_MAX >> 1
       // Keep parity valid for this row ((c + r) must be even); nudge off-centre by one if needed.
       const c = ((mid + r) & 1) === 0 ? mid : (Math.random() < 0.5 ? mid - 1 : mid + 1)
@@ -512,6 +601,20 @@ const useEpicGame = () => {
       game.cells.delete(cellKey(c + 1, r + 1))
       game.pendingItem = false
       game.itemSpawned += 1
+    }
+
+    // Stage 1 is short (20-tile goal) with a long safe runway, so it can play
+    // almost empty. Guarantee a box to dodge on each of tiles 9, 12 and 15 (≥3
+    // obstacles in the 9-15 window) so the opener actually teaches dodging. Placed
+    // outside the normal density/runway rules, with in-row neighbours cleared so
+    // it never traps the player (stage 1 has only boxes — always dodgeable).
+    if (stage === 1 && (r === -9 || r === -12 || r === -15)) {
+      let bc = 2 + Math.floor(Math.random() * (C_MAX - 3)) // 2 .. C_MAX-2
+      if (((bc + r) & 1) !== 0) bc += 1
+      bc = Math.max(0, Math.min(C_MAX, bc))
+      game.cells.delete(cellKey(bc - 2, r))
+      game.cells.delete(cellKey(bc + 2, r))
+      game.cells.set(cellKey(bc, r), { c: bc, r, kind: 'obstacle', obstacle: 'box' })
     }
   }
 
@@ -588,6 +691,8 @@ const useEpicGame = () => {
   const retarget = (): void => {
     // Hands-off Racer dash steers itself along a guaranteed-safe path.
     if (game.racerTilesLeft > 0 || game.racerExitGuard > 0) { racerRetarget(); return }
+    const oldDir = game.dir
+    const playerFlipped = game.nextDir !== oldDir // the player tapped this hop
     game.dir = game.nextDir
     let tc = game.cell.c + game.dir
     if (tc < 0 || tc > C_MAX) {
@@ -602,6 +707,7 @@ const useEpicGame = () => {
     //   • the timed Dodge-Master power-up (free, always dodges while active), and
     //   • the permanent Dodge Apprentice upgrade (cooldown-gated; consumes a
     //     charge per dodge, recharging faster at higher levels).
+    let dodged = false
     const apprenticeLevel = progress.levelOf('dodgeApprentice')
     const apprenticeReady = apprenticeLevel > 0 && game.clock >= game.dodgeReadyAt
     if (powerups.isActive('dodge') || apprenticeReady) {
@@ -618,7 +724,20 @@ const useEpicGame = () => {
           }
           emitFx('sparkle', altC, tr, '#37e0a0')
           playSound('dodge', 0.05)
+          dodged = true
+          bumpCombo(altC, tr) // risk-combo: an auto-dodge off a lethal cell
         }
+      }
+    }
+
+    // Risk-combo: a last-tile turn-AWAY — the player flipped and the cell they'd
+    // have rolled into without it was lethal, while the new one is safe.
+    if (playerFlipped && !dodged) {
+      const avoidedC = game.cell.c + oldDir
+      if (avoidedC >= 0 && avoidedC <= C_MAX
+        && isDeadlyKind(game.cells.get(cellKey(avoidedC, tr)))
+        && !isDeadlyKind(game.cells.get(cellKey(tc, tr)))) {
+        bumpCombo(tc, tr)
       }
     }
     game.target = { c: tc, r: tr }
@@ -659,9 +778,11 @@ const useEpicGame = () => {
     if (gameMode.value === 'endless') recordEndlessBest(false)
     const cell = game.cells.get(cellKey(c, r))
 
-    // Win check.
+    // Win check. Campaign: reaching the tile goal kicks off the exit-gate
+    // sequence (auto-roll through the archway) which calls `win()` when it
+    // finishes. Endless has an Infinity goal, so it never reaches here.
     if (score.value >= stageTarget.value) {
-      win()
+      beginExit()
       return
     }
 
@@ -767,6 +888,7 @@ const useEpicGame = () => {
     emitFx('sparkle', c, r, '#37e0a0')
     triggerShake('small')
     playSound('barricade', 0.06)
+    bumpCombo(c, r) // risk-combo: survived a fatal hit on the Second Chance wings
     return true
   }
 
@@ -782,17 +904,23 @@ const useEpicGame = () => {
     playCoinSound()
   }
 
+  /** Reward a close call: bump the risk-combo one step (capped) and refresh its
+   *  hot-streak timer. A small golden sparkle marks the moment. No reward when
+   *  there was no real risk — invuln (passes through anything), Push Force (clears
+   *  the obstacle for free), or a Racer dash (free auto-piloted tiles). */
+  const bumpCombo = (c: number, r: number): void => {
+    if (powerups.isActive('invuln') || powerups.isActive('push')) return
+    if (game.racerTilesLeft > 0 || game.racerExitGuard > 0) return
+    combo.value = Math.min(COMBO_MAX, +(combo.value + COMBO_STEP).toFixed(2))
+    lastComboAt = game.clock
+    emitFx('sparkle', c, r, '#ffd23f')
+  }
+
   const collectCoin = (cell: Cell): void => {
     if (cell.collected) return
     cell.collected = true
-    // Combo chain: a freely-collected coin within the window bumps the
-    // multiplier; otherwise the chain (re)starts at the first step above 1×.
-    if (game.clock - lastComboCoinAt <= COMBO_WINDOW_MS) {
-      combo.value = Math.min(COMBO_MAX, +(combo.value + COMBO_STEP).toFixed(2))
-    } else {
-      combo.value = +(1 + COMBO_STEP).toFixed(2)
-    }
-    lastComboCoinAt = game.clock
+    // Coins are MULTIPLIED by the current risk-combo but no longer FEED it (the
+    // combo only climbs on close calls — see `bumpCombo`).
     const base = upgradedValue('coinValue') * coinMult()
     const value = Math.max(1, Math.round(base * combo.value))
     // Coins are tallied for the run but NOT banked to the wallet here — they're
@@ -883,7 +1011,7 @@ const useEpicGame = () => {
     game.progress = 0
     game.ballC = startC
     game.ballR = 0
-    game.speed = BASE_SPEED + (progress.stage.value - 1) * STAGE_SPEED_BONUS
+    game.speed = startSpeedForStage(progress.stage.value)
     game.clock = 0
     game.runStartClock = 0
     game.genR = 1
@@ -908,11 +1036,14 @@ const useEpicGame = () => {
     game.dodgeReadyAt = 0 // every run starts with one Dodge Apprentice charge ready
     game.wingsBreakAt = 0 // clear any pending wings-shatter trigger
     game.powerupFlashAt = 0 // clear any pending pickup pulse
-    combo.value = 1 // reset the coin-combo chain for the fresh stage
-    lastComboCoinAt = -Infinity
+    combo.value = 1 // reset the risk-combo for the fresh stage
+    lastComboAt = -Infinity
     game.racerTilesLeft = 0 // clear any Racer dash for the fresh stage
     game.racerExitGuard = 0
     racerActive.value = false
+    game.exiting = false // clear any stage-clear exit sequence
+    exitingActive.value = false
+    game.exitStartClock = 0
     // Reset the music tempo to this stage's floor (0.60× early, 1.0× from st.8).
     setMusicRate(progress.stage.value >= 8 ? 1.0 : 0.6)
     powerups.clear()
@@ -952,8 +1083,8 @@ const useEpicGame = () => {
 
   const flip = (): void => {
     if (phase.value !== 'playing') return
-    // No control during the Racer dash — the auto-pilot owns the wheel.
-    if (game.racerTilesLeft > 0 || game.racerExitGuard > 0) return
+    // No control during the Racer dash or the stage-clear exit roll.
+    if (game.racerTilesLeft > 0 || game.racerExitGuard > 0 || game.exiting) return
     game.nextDir = (-game.nextDir) as 1 | -1
     playSound('anchor-swap', 0.035, 1 + (Math.random() - 0.5) * 0.12)
   }
@@ -977,14 +1108,15 @@ const useEpicGame = () => {
     phase.value = 'dead'
     gameResult.value = 'lose'
     lossCause.value = cause
-    combo.value = 1 // a hit breaks the coin-combo chain
-    lastComboCoinAt = -Infinity
+    combo.value = 1 // a hit breaks the risk-combo
+    lastComboAt = -Infinity
     game.racerTilesLeft = 0 // end any Racer dash on death
     game.racerExitGuard = 0
     racerActive.value = false
-    // Rubber band: record this failed attempt so the next try at an early stage
-    // gets a slightly lower tile goal (struggling-player assist; session-only).
-    if (gameMode.value === 'campaign' && progress.stage.value <= RUBBER_BAND_STAGES) {
+    // Rubber band: record this failed attempt (per stage). Early stages (1-3) use
+    // it to lower the tile goal; stage 10+ uses it to thin obstacles + slow the
+    // ball (see the late-stage relief helpers). Session-only; campaign-only.
+    if (gameMode.value === 'campaign') {
       const s = progress.stage.value
       stageFailCounts.set(s, (stageFailCounts.get(s) ?? 0) + 1)
     }
@@ -1065,6 +1197,49 @@ const useEpicGame = () => {
     triggerShake('strong')
   }
 
+  // ─── Stage-clear exit-gate sequence ───────────────────────────────────────
+
+  /** Begin the campaign stage-clear sequence: take control away, spawn the exit
+   *  gate a few rows ahead, and clear the corridor so the ball can auto-roll
+   *  cleanly through the archway. `win()` fires when the roll completes. */
+  const beginExit = (): void => {
+    if (game.exiting) return
+    game.exiting = true
+    exitingActive.value = true
+    game.exitStartClock = game.clock
+    game.exitFromC = game.ballC
+    game.exitFromR = game.ballR
+    game.exitGateC = Math.round(C_MAX / 2)                // centre the arch on the grid
+    game.exitGateR = Math.round(game.ballR) - EXIT_GATE_ROWS_AHEAD
+    // End any Racer dash — the victory roll owns the wheel now.
+    game.racerTilesLeft = 0
+    game.racerExitGuard = 0
+    racerActive.value = false
+    // Make sure the corridor + gate rows exist. They were generated obstacle-free
+    // by `genRow`'s exit planning (everything beyond the goal is pure floor), so
+    // NOTHING is deleted here — the ball rolls a naturally clean corridor into the
+    // gate instead of obstacles vanishing at the last second.
+    ensureGenerated()
+    haptic([20, 30, 20])
+    playSound('barricade', 0.06) // win sting plays in win()
+  }
+
+  /** Cubic ease-in-out for the victory roll. */
+  const easeInOut = (t: number): number =>
+    t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2
+
+  /** Drive the exit roll each frame: centre on the arch column, roll up to and a
+   *  touch PAST the archway (so the renderer occludes the ball behind the wall),
+   *  then hand off to `win()`. */
+  const stepExit = (): void => {
+    const t = Math.min(1, (game.clock - game.exitStartClock) / EXIT_SEQUENCE_MS)
+    const e = easeInOut(t)
+    game.ballC = game.exitFromC + (game.exitGateC - game.exitFromC) * Math.min(1, e * 1.4)
+    const targetR = game.exitGateR - 0.5 // 0.5 row past the threshold = inside the doorway
+    game.ballR = game.exitFromR + (targetR - game.exitFromR) * e
+    if (t >= 1) { game.exiting = false; win() }
+  }
+
   // ─── Per-frame step ───────────────────────────────────────────────────────
 
   /** Advance the simulation by `dtMs`. `dtMs` is already pause-gated by the
@@ -1090,6 +1265,9 @@ const useEpicGame = () => {
       return
     }
 
+    // Stage-clear: the ball auto-rolls through the exit gate (no normal movement).
+    if (game.exiting) { stepExit(); return }
+
     powerups.update(game.clock)
 
     // Speed. Campaign: a per-stage starting speed that accelerates as the player
@@ -1113,10 +1291,12 @@ const useEpicGame = () => {
       speed = Math.min(MAX_SPEED, BASE_SPEED * (1 + ramp))
     } else {
       const stage = progress.stage.value
-      const startSpeed = BASE_SPEED + (stage - 1) * STAGE_SPEED_BONUS
+      const startSpeed = startSpeedForStage(stage)
       const frac = Math.min(1, Math.max(0, score.value / Math.max(1, stageTarget.value)))
-      const rampMax = stage <= 5 ? EARLY_STAGE_RAMP : LATE_STAGE_RAMP
+      const rampMax = stage <= RAMP_KNEE_STAGE ? EARLY_STAGE_RAMP : LATE_STAGE_RAMP
       speed = Math.min(MAX_SPEED, startSpeed * (1 + rampMax * frac))
+      // Stuck-player relief: slow the ball the more they've died on this stage 10+.
+      speed *= 1 - lateStageSpeedRelief(stage)
     }
     // The first-ever run rolls slower so newcomers can find the controls.
     if (isOnboardingRun.value) speed *= 0.8
@@ -1127,13 +1307,14 @@ const useEpicGame = () => {
     // Racer dash overrides everything with a flat 5× sprint (ignores slow-mo).
     const racing = game.racerTilesLeft > 0 || game.racerExitGuard > 0
     if (racing) {
-      const stageBase = BASE_SPEED + (progress.stage.value - 1) * STAGE_SPEED_BONUS
+      const stageBase = startSpeedForStage(progress.stage.value)
       speed = stageBase * RACER_SPEED_MULT
     }
     racerActive.value = racing
     game.speed = speed
-    // Combo chain times out after a quiet spell with no fresh coin pickup.
-    if (combo.value > 1 && game.clock - lastComboCoinAt > COMBO_WINDOW_MS) {
+    // Risk-combo cools off after a quiet spell with no close call (keep it hot
+    // with daring play).
+    if (combo.value > 1 && game.clock - lastComboAt > COMBO_WINDOW_MS) {
       combo.value = 1
     }
     // Dynamic music tempo: modulate the track's playback rate from the ball's
