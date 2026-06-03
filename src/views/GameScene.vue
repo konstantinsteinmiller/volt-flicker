@@ -254,8 +254,18 @@ const onSkipContinue = (): void => {
 // gate drops — resuming audio — only after the ad finishes / fails / no-fills.
 const RESULT_INTERSTITIAL_DELAY_MS = 600
 
-/** Show a result-screen interstitial after the standard delay, iff one is
- *  loaded. Safe no-op when no interstitial is ready (no-fill / cooldown). */
+// Lose-screen interstitial cadence: fire on every Nth lose only. Wins always
+// request one (the high-value, low-frequency placement); loses are frequent,
+// so spamming the ad network on every defeat just burns its internal
+// frequency-cap quota and starves the win ads. Throttling loses to 1-in-3
+// leaves headroom for the win interstitial to actually fill.
+const LOSE_AD_EVERY = 3
+let loseScreenCount = 0
+
+/** Show a result-screen interstitial after the standard delay. Always requests
+ *  when the provider's SDK is live — `showMidgameAd` is a safe no-op on
+ *  no-fill / cooldown, and the readiness gate keeps non-ad builds (Noop /
+ *  native) from needlessly suspending audio for an ad that never shows. */
 const presentResultInterstitial = async (): Promise<void> => {
   await wait(RESULT_INTERSTITIAL_DELAY_MS)
   if (isInterstitialReady.value) {
@@ -271,9 +281,14 @@ const presentLoseScreen = async (): Promise<void> => {
   // Game-Over sting as the lose screen appears (distinct from the crash SFX).
   playSound('lose', 0.08)
   // Keep the bg music silent for the whole result screen — it resumes only when
-  // the player continues (onResultContinue). 600ms in, request the interstitial.
+  // the player continues (onResultContinue).
   stopBattleMusic()
-  await presentResultInterstitial()
+  // Interstitial on every 3rd lose screen only (see LOSE_AD_EVERY); wins always
+  // request one. 600ms in, request the interstitial when this lose is due.
+  loseScreenCount += 1
+  if (loseScreenCount % LOSE_AD_EVERY === 0) {
+    await presentResultInterstitial()
+  }
 }
 
 const onWin = async (): Promise<void> => {

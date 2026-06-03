@@ -797,7 +797,7 @@ const drawLava = (ctx: CanvasRenderingContext2D, c: number, r: number, x: number
 // `x` is a screen x (the camera never pans horizontally, so it's stable); `y` is
 // a WORLD y (camera-independent) so flames stay anchored to their lava tile as the
 // grid scrolls — the current `camOffsetY` is re-added at draw time.
-interface Flame { x: number; y: number; bornAt: number; life: number; w0: number; h: number; sway: number; seed: number }
+interface Flame { x: number; y: number; r: number; bornAt: number; life: number; w0: number; h: number; sway: number; seed: number }
 const lavaFlames: Flame[] = []
 // Last-spawn game-clock per lava cell key, so each field emits at a steady rate
 // regardless of frame rate / how many cells are on screen.
@@ -823,6 +823,7 @@ const spawnLavaSteam = (c: number, r: number, x: number, y: number, now: number,
     lavaFlames.push({
       x: x + (Math.random() - 0.5) * geo.halfW * 0.7,
       y: (y - camOffsetY) - geo.halfH * 0.12, // WORLD y → stays glued to the tile when scrolling
+      r, // source tile row → depth-sorts the tongue with props/ball/vortex
       bornAt: now,
       life: FLAME_LIFE_MS * (0.7 + Math.random() * 0.6),
       w0: geo.halfW * (0.17 + Math.random() * 0.1),    // base half-width (upright, not flat)
@@ -854,46 +855,60 @@ const drawFlameTongue = (
   ctx.fill()
 }
 
-/** Draw + age all live flame tongues. Each rises ~1 tile, narrows + flickers, and
- *  fades over its (short) life; expired ones are culled. Additive-blended so the
- *  overlapping tongues read as glowing fire. Drawn after props/ball. */
-const drawLavaSteam = (ctx: CanvasRenderingContext2D, now: number, camOffsetY: number): void => {
-  if (lavaFlames.length === 0) return
+/** Render one live flame tongue at the current camera. Pure draw — no aging /
+ *  culling (see `cullLavaFlames`). Caller sets the additive composite once for a
+ *  whole batch (see `drawFlameBatch`). */
+const drawFlame = (ctx: CanvasRenderingContext2D, p: Flame, now: number, camOffsetY: number): void => {
+  const t = (now - p.bornAt) / p.life
+  if (t >= 1) return
+  const climb = Math.min(1, t * 1.25)                       // reaches full height by ~80% of life
+  const baseY = p.y + camOffsetY                            // world → screen with the LIVE camera
+  const cx = p.x + p.sway * geo.halfW * 0.1 * t
+  const tipX = cx + Math.sin(now / 55 + p.seed) * geo.halfW * 0.1 * climb // tip flicker
+  const tipY = baseY - p.h * climb
+  const w = p.w0 * (1 - t * 0.4) * (0.92 + Math.sin(now / 45 + p.seed) * 0.1) // stays fuller, flickers
+  const alpha = t < 0.12 ? t / 0.12 : 1 - (t - 0.12) / 0.88
+  // Heat bloom rooted on the lava — a soft additive glow at the flame base.
+  const bloomR = w * 2.1
+  const bg = ctx.createRadialGradient(cx, baseY, 0, cx, baseY, bloomR)
+  bg.addColorStop(0, `rgba(255,170,60,${alpha * 0.5})`)
+  bg.addColorStop(1, 'rgba(255,110,30,0)')
+  ctx.fillStyle = bg
+  ctx.beginPath(); ctx.arc(cx, baseY, bloomR, 0, Math.PI * 2); ctx.fill()
+  // Outer orange tongue.
+  drawFlameTongue(ctx, cx, baseY, tipX, tipY, w, [
+    [0, `rgba(255,160,50,${alpha})`],
+    [0.45, `rgba(245,95,28,${alpha * 0.85})`],
+    [1, 'rgba(180,40,10,0)']
+  ])
+  // Inner hot core — shorter, brighter, yellow-white.
+  const coreTipY = baseY - (baseY - tipY) * 0.62
+  drawFlameTongue(ctx, cx, baseY, tipX, coreTipY, w * 0.6, [
+    [0, `rgba(255,245,190,${alpha})`],
+    [0.55, `rgba(255,195,80,${alpha * 0.75})`],
+    [1, 'rgba(255,130,35,0)']
+  ])
+}
+
+/** Additive-blend a row-bucket of flame tongues (so the overlapping tongues read
+ *  as glowing fire). Pushed into the depth-sorted prop pass keyed by the lava
+ *  cell's row, so a portal vortex / prop / ball on a tile in FRONT of the lava
+ *  draws over the flames and one BEHIND is licked over — instead of the whole
+ *  steam pass always painting last, on top of everything (the old bug). */
+const drawFlameBatch = (ctx: CanvasRenderingContext2D, flames: Flame[], now: number, camOffsetY: number): void => {
+  if (flames.length === 0) return
   ctx.save()
   ctx.globalCompositeOperation = 'lighter' // additive → flames glow + blend
-  for (let i = lavaFlames.length - 1; i >= 0; i--) {
-    const p = lavaFlames[i]!
-    const t = (now - p.bornAt) / p.life
-    if (t >= 1) { lavaFlames.splice(i, 1); continue }
-    const climb = Math.min(1, t * 1.25)                       // reaches full height by ~80% of life
-    const baseY = p.y + camOffsetY                            // world → screen with the LIVE camera
-    const cx = p.x + p.sway * geo.halfW * 0.1 * t
-    const tipX = cx + Math.sin(now / 55 + p.seed) * geo.halfW * 0.1 * climb // tip flicker
-    const tipY = baseY - p.h * climb
-    const w = p.w0 * (1 - t * 0.4) * (0.92 + Math.sin(now / 45 + p.seed) * 0.1) // stays fuller, flickers
-    const alpha = t < 0.12 ? t / 0.12 : 1 - (t - 0.12) / 0.88
-    // Heat bloom rooted on the lava — a soft additive glow at the flame base.
-    const bloomR = w * 2.1
-    const bg = ctx.createRadialGradient(cx, baseY, 0, cx, baseY, bloomR)
-    bg.addColorStop(0, `rgba(255,170,60,${alpha * 0.5})`)
-    bg.addColorStop(1, 'rgba(255,110,30,0)')
-    ctx.fillStyle = bg
-    ctx.beginPath(); ctx.arc(cx, baseY, bloomR, 0, Math.PI * 2); ctx.fill()
-    // Outer orange tongue.
-    drawFlameTongue(ctx, cx, baseY, tipX, tipY, w, [
-      [0, `rgba(255,160,50,${alpha})`],
-      [0.45, `rgba(245,95,28,${alpha * 0.85})`],
-      [1, 'rgba(180,40,10,0)']
-    ])
-    // Inner hot core — shorter, brighter, yellow-white.
-    const coreTipY = baseY - (baseY - tipY) * 0.62
-    drawFlameTongue(ctx, cx, baseY, tipX, coreTipY, w * 0.6, [
-      [0, `rgba(255,245,190,${alpha})`],
-      [0.55, `rgba(255,195,80,${alpha * 0.75})`],
-      [1, 'rgba(255,130,35,0)']
-    ])
-  }
+  for (const p of flames) drawFlame(ctx, p, now, camOffsetY)
   ctx.restore()
+}
+
+/** Cull expired flame tongues. Called once per frame (drawing is now split across
+ *  per-row batches, so aging can't live inside the draw loop any more). */
+const cullLavaFlames = (now: number): void => {
+  for (let i = lavaFlames.length - 1; i >= 0; i--) {
+    if ((now - lavaFlames[i]!.bornAt) / lavaFlames[i]!.life >= 1) lavaFlames.splice(i, 1)
+  }
 }
 
 const drawCoinSprite = (ctx: CanvasRenderingContext2D, x: number, y: number, size: number, alpha = 1, spinSeed = -1, now = 0): void => {
@@ -1928,11 +1943,27 @@ export const drawScene = (ctx: CanvasRenderingContext2D, w: number, h: number, n
   if (ballIsDrawable && !inTeleportSlow) {
     drawables.push({ r: game.ballR, fn: paintBall })
   }
+
+  // Lava flames (spawned in `drawLava`): depth-sort each tile's tongues with the
+  // props/ball/vortex by the source lava row, so the vortex on a tile in FRONT of
+  // the lava draws OVER its flames (was painting last → on top of everything).
+  // `+0.25` floats the tongues just ahead of same-row neighbours but well behind
+  // anything a full row closer to the camera. Cull once here, then batch by row.
+  cullLavaFlames(now)
+  if (lavaFlames.length > 0) {
+    const flamesByRow = new Map<number, Flame[]>()
+    for (const p of lavaFlames) {
+      const bucket = flamesByRow.get(p.r)
+      if (bucket) bucket.push(p)
+      else flamesByRow.set(p.r, [p])
+    }
+    for (const [row, flames] of flamesByRow) {
+      drawables.push({ r: row + 0.25, fn: () => drawFlameBatch(ctx, flames, now, camOffsetY) })
+    }
+  }
+
   drawables.sort((a, b) => a.r - b.r)
   for (const d of drawables) d.fn()
-
-  // Lava steam — drifts up above the field + props (spawned in `drawLava`).
-  drawLavaSteam(ctx, now, camOffsetY)
 
   if (inTeleportSlow) {
     drawTeleportSpotlight(ctx, w, h, ballPos.x, ballPos.y - geo.halfH * 1.05 * 0.75)
