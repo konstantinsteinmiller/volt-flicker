@@ -32,3 +32,8 @@ export const ACHIEVEMENTS_KEY = 'epic_achievements'
 // Skin IDs the player has already seen in the Skin shop — drives the "NEW!"
 // badge on freshly-owned / newly-unlocked skins (roadmap #12). string[].
 export const SKINS_SEEN_KEY = 'epic_skins_seen'
+// Mobile-only hard audio mute (boolean). On phones the OS volume rocker owns the
+// device level and the Web Audio gain has no effect, so the on-screen mute is a
+// silence toggle instead: suspend all audio + block new music/SFX. Persisted so
+// it sticks across sessions; only ever honoured on mobile (see useMobileAudioMute).
+export const MOBILE_MUTE_KEY = 'epic_mobile_mute'

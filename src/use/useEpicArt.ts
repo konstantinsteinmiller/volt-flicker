@@ -136,6 +136,33 @@ const drawGhostLine = (
 }
 
 /** Recompute tile geometry for a viewport. Returns true when it changed. */
+// The camera parks the ball at this fraction of the viewport height (see the
+// `camOffsetY` setup in `drawScene`); everything below it is the slice of grid
+// still visible under the ball. Shared so the despawn distance can be derived
+// from the SAME anchor the renderer uses.
+export const CAMERA_BALL_Y_FRACTION = 0.64
+// Extra rows kept alive past the bottom edge so a tall prop (crate pile, etc.)
+// — which is drawn UP from its tile, so it lingers on screen after its tile
+// centre has scrolled off — is fully gone before its cell is culled.
+const CULL_MARGIN_ROWS = 6
+
+// Number of grid rows visible BELOW the ball, recomputed on every resize from
+// the live viewport. Read by `useEpicGame`'s `cull()` so cells are only
+// despawned once they've scrolled past the bottom edge on ALL screen sizes
+// (portrait viewports are tall + use small tiles → far more rows fit below the
+// ball than the old fixed `CULL_BEHIND`, which culled them while still visible).
+let rowsBelowBall = 0
+export const getRowsBelowBall = (): number => rowsBelowBall
+
+// Number of grid rows from the ball UP to the top edge of the viewport,
+// recomputed on every resize. Read by `useEpicGame`'s `beginExit()` so the
+// stage-clear exit gate is spawned just past the top edge and SCROLLS IN as the
+// camera follows the ball up — instead of popping into view mid-screen on tall
+// (portrait) viewports, where far more rows fit above the ball than the old
+// fixed `EXIT_GATE_ROWS_AHEAD`.
+let rowsAboveBall = 0
+export const getRowsAboveBall = (): number => rowsAboveBall
+
 export const configureGeometry = (w: number, h: number): boolean => {
   const halfW = Math.min((w * 0.92) / C_MAX, h * 0.11)
   const halfH = halfW * 0.6
@@ -144,6 +171,15 @@ export const configureGeometry = (w: number, h: number): boolean => {
   const offsetX = (w - C_MAX * halfW) / 2
   const changed = Math.abs(halfW - geo.halfW) > 0.5
   geo = { halfW, halfH, offsetX, tileW, tileH }
+  // Rows from the ball (at CAMERA_BALL_Y_FRACTION down) to the bottom edge: a
+  // cell's screen y is `(r - ballR) * halfH + frac * h`, so it crosses the
+  // bottom (`= h`) at `(r - ballR) = (1 - frac) * h / halfH`. Plus prop margin.
+  rowsBelowBall = Math.ceil(((1 - CAMERA_BALL_Y_FRACTION) * h) / halfH) + CULL_MARGIN_ROWS
+  // Rows from the ball up to the top edge (y = 0): the ball sits at `frac * h`,
+  // so a row crosses the top at `(ballR - r) = frac * h / halfH`. Spawning the
+  // exit gate that many rows ahead places its tile right at the top edge → the
+  // whole wall (drawn UP from the tile) starts off-screen and scrolls in.
+  rowsAboveBall = Math.ceil((CAMERA_BALL_Y_FRACTION * h) / halfH)
   if (changed) diamondCache.clear()
   return changed
 }
@@ -1746,7 +1782,7 @@ export const drawScene = (ctx: CanvasRenderingContext2D, w: number, h: number, n
   // keeps following (so the gate wall scrolls in from the top with the grid) UNTIL
   // the wall's top edge reaches the screen top, then LOCKS — so the wall reads as
   // the end of the room and the ball rolls the rest of the way up into it.
-  let camOffsetY = h * 0.64 - game.ballR * geo.halfH
+  let camOffsetY = h * CAMERA_BALL_Y_FRACTION - game.ballR * geo.halfH
   if (game.exiting) {
     const gimg = getImg(EXIT_GATE_SRC)
     if (ready(gimg)) {

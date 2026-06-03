@@ -8,7 +8,7 @@ import { difficultySpeedFactor } from '@/use/useUser'
 import { getState, setState } from '@/use/useEpicState'
 import { ONBOARDED_KEY, BEST_ENDLESS_KEY } from '@/keys'
 import { flushSaveNow } from '@/use/useSaveStatus'
-import { triggerBallDropIn } from '@/use/useEpicArt'
+import { triggerBallDropIn, getRowsBelowBall, getRowsAboveBall } from '@/use/useEpicArt'
 
 /**
  * Core game loop for Epicrolla.
@@ -64,8 +64,8 @@ export interface FxEvent {
 
 /** Diamond column span [0, C_MAX]. ~6 diamonds across a row. */
 export const C_MAX = 10
-const GEN_AHEAD = 22
-const CULL_BEHIND = 6
+const GEN_AHEAD = 29
+const CULL_BEHIND = 9
 
 const BASE_SPEED = 2.5          // diamonds / second at the START of stage 1
 const MAX_SPEED = 8
@@ -275,7 +275,14 @@ export const SECOND_CHANCE_BLINK_MS = 1600
  *  through the archway, and how many rows ahead of the ball the gate spawns.
  *  Exported so the renderer can drive the gate rise + ball-fade animation. */
 export const EXIT_SEQUENCE_MS = 2300
+// Minimum rows ahead the gate spawns. The ACTUAL distance is the larger of this
+// and the live ball→top-edge row count (`getRowsAboveBall`) so the gate always
+// starts off-screen above the viewport and scrolls in — this constant only
+// governs short/landscape viewports where few rows fit above the ball.
 export const EXIT_GATE_ROWS_AHEAD = 11
+/** Extra rows beyond the top edge so the gate is fully hidden at spawn (rather
+ *  than peeking a sliver) and reads as scrolling cleanly in from above. */
+const EXIT_GATE_MARGIN_ROWS = 2
 /** Final approach: this many tiles before the goal, stop spawning obstacles in the
  *  central lane (and everything beyond the goal) so the ball can roll cleanly to
  *  the exit gate without obstacles having to be deleted at the last second. */
@@ -627,7 +634,13 @@ const useEpicGame = () => {
   }
 
   const cull = (): void => {
-    const behind = Math.ceil(game.ballR) + CULL_BEHIND
+    // Despawn only cells that have scrolled past the bottom edge. The number of
+    // visible rows below the ball scales with viewport height ÷ tile size
+    // (`getRowsBelowBall`, recomputed on resize), so tall portrait screens keep
+    // far more rows alive than the old fixed `CULL_BEHIND` — which despawned
+    // obstacles/coins while they were still on screen. Floor at CULL_BEHIND so a
+    // missing/zero geometry reading can never cull more aggressively than before.
+    const behind = Math.ceil(game.ballR) + Math.max(CULL_BEHIND, getRowsBelowBall())
     for (const [k, cell] of game.cells) {
       if (cell.r > behind) game.cells.delete(k)
     }
@@ -1210,7 +1223,12 @@ const useEpicGame = () => {
     game.exitFromC = game.ballC
     game.exitFromR = game.ballR
     game.exitGateC = Math.round(C_MAX / 2)                // centre the arch on the grid
-    game.exitGateR = Math.round(game.ballR) - EXIT_GATE_ROWS_AHEAD
+    // Spawn far enough ahead that the gate clears the TOP edge on every viewport
+    // (tall portrait fits ~2–3× more rows above the ball than landscape), so it
+    // scrolls into view from above instead of popping in mid-screen. Falls back
+    // to the fixed minimum on short viewports where few rows fit above the ball.
+    const rowsAhead = Math.max(EXIT_GATE_ROWS_AHEAD, getRowsAboveBall() + EXIT_GATE_MARGIN_ROWS)
+    game.exitGateR = Math.round(game.ballR) - rowsAhead
     // End any Racer dash — the victory roll owns the wheel now.
     game.racerTilesLeft = 0
     game.racerExitGuard = 0

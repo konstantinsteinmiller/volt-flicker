@@ -2,6 +2,7 @@ import { prependBaseUrl } from '@/utils/function'
 import useUser, { MUSIC_TRACK_FILES } from '@/use/useUser'
 import { getAudioContext, loadAudioBuffer, resourceCache, registerHtmlAudio, unregisterHtmlAudio, isAudioSuspended, registerOneShotSource } from '@/use/useAssets'
 import { isGamePaused } from '@/use/useGamePause'
+import { isMobileAudioMuted } from '@/use/useMobileAudioMute'
 
 import { ref, onMounted, watch, onUnmounted } from 'vue'
 
@@ -146,6 +147,18 @@ export const useMusic = () => {
           playWithFade()
         }
       })
+
+      // Same re-fire on the mobile hard-mute clearing: while muted, a
+      // `startBattleMusic()` set `shouldPlay=true` but `playWithFade` refused to
+      // sound. When the player unmutes, resume the track iff a battle is still
+      // running and it isn't already playing (the generic suspend resume may have
+      // already restarted it if it was mid-play when muted — hence the `paused`
+      // guard avoids a double start).
+      watch(isMobileAudioMuted, (muted) => {
+        if (!muted && shouldPlay.value && bgMusic.value && bgMusic.value.paused) {
+          playWithFade()
+        }
+      })
     })
     onUnmounted(() => {
       if (bgMusic.value) unregisterHtmlAudio(bgMusic.value)
@@ -194,6 +207,12 @@ export const useMusic = () => {
     // gate clears (ad finished / failed to fill), satisfying "resume only after
     // the ad has finished or failed".
     if (isGamePaused.value) return
+
+    // Mobile hard-mute: the player silenced the game to play their own audio.
+    // Block the new start the same way the pause gate does; `shouldPlay` stays
+    // true so the `isMobileAudioMuted`-drop watcher in `initMusic` re-fires this
+    // the moment they unmute (if a battle is still running).
+    if (isMobileAudioMuted.value) return
 
     // Browsers block autoplay until user interaction
     bgMusic.value.play().then(() => {
