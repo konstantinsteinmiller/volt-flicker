@@ -9,7 +9,7 @@ Roll a ball up an endless isometric grid. Tap to change direction, dodge holes, 
 Epicrolla is a one-tap isometric roller. Your ball climbs a diamond grid hopping corner to corner — every tap flips its heading left or right, and it bounces off the edges. Survive the gaps, lava, boxes and spinning portals long enough to hit each stage's tile goal. Snatch item boxes for Invincibility, Coin Magnet, Slow-Mo, Dodge and Push power-ups, bank coins, and spend them on permanent upgrades, ball skins and a repeatable Second Chance. Easy to pick up, hard to master.
 
 ## Controls
-click/space/tap change ball roll direction.
+click/space/tap to change ball roll direction.
 
 ## Goal of the game
 

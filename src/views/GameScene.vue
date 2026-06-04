@@ -32,6 +32,7 @@ import StageBadge from '@/components/StageBadge.vue'
 import ScoreBadge from '@/components/atoms/ScoreBadge.vue'
 import PowerupBanner from '@/components/atoms/PowerupBanner.vue'
 import CoinBadge from '@/components/organisms/CoinBadge.vue'
+import TreasureChest from '@/components/organisms/TreasureChest.vue'
 import FMuteButton from '@/components/atoms/FMuteButton.vue'
 import FReward from '@/components/atoms/FReward.vue'
 import DailyRewards from '@/components/organisms/DailyRewards.vue'
@@ -94,6 +95,18 @@ const loop = (t: number): void => {
 
 // ─── Input ────────────────────────────────────────────────────────────────
 const onPointerDown = (e: PointerEvent): void => {
+  // Claim keyboard focus on the pointer gesture. In a portal iframe
+  // (GameMonetize / Playgama / itch) the iframe's window does NOT hold keyboard
+  // focus on load — keystrokes go to the parent document. Clicking inside the
+  // frame normally focuses it, but the `e.preventDefault()` below (needed to
+  // suppress touch-scroll / selection on the `touch-none` canvas) ALSO cancels
+  // that implicit focus transfer. Without this, a player who STARTS the run by
+  // tapping/clicking never gives the frame focus, so Space/ArrowUp never reach
+  // the window keydown listener and the ball can't be controlled — while
+  // starting the run with Space works (the frame already had focus). Reclaim it
+  // explicitly; `window.focus()` on a user gesture is a no-op when already
+  // focused and safe on the top-level window too.
+  try { window.focus() } catch { /* cross-origin parent can refuse — ignore */ }
   e.preventDefault()
   if (showResult.value || showSecondChance.value) return
   if (phase.value === 'idle') begin()
@@ -457,7 +470,13 @@ onUnmounted(() => {
           :target="stageTarget"
           :endless="isEndless"
         )
-        CoinBadge(ref="coinBadgeRef")
+        //- Right column: coin badge with the idle-reward treasure chest tucked
+        //- directly beneath it. The chest's coin-explosion VFX flies to the coin
+        //- badge element (`coinBadgeEl`). `gap-4` leaves room for the chest's
+        //- `-bottom-4` countdown/reward label.
+        div.flex.flex-col.items-end.gap-4
+          CoinBadge(ref="coinBadgeRef")
+          TreasureChest(:target-el="coinBadgeEl")
 
       //- Center-top stack: big score, then the combo multiplier, then the Racer
       //- banner — all in ONE flex column so the combo/racer always sit directly

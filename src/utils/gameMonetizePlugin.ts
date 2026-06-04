@@ -227,6 +227,29 @@ export const gameMonetizePlugin = (): Promise<void> => {
       resumeGame()
     })
 
+    // Page-lifetime frequency-cap guard. GameMonetize enforces a GLOBAL min-gap
+    // between ads — request one too soon and the SDK rejects it ("The
+    // advertisement was requested too soon after the previous advertisement was
+    // finished"), which is exactly the failed rewarded tap players hit when the
+    // first-load interstitial played moments earlier. Arm OUR cooldown off a
+    // GENUINE ad-completion signal so the rewarded button hides for
+    // REWARDED_MIN_GAP_MS after any ad actually finished — even when the per-call
+    // show promise already settled early on the NO_FILL_MS short-circuit (the
+    // test-env TCF consent wall can delay the ad past 3s) and missed it.
+    //
+    // We key on the IMA terminal event ALL_ADS_COMPLETED, NOT on the
+    // SDK_GAME_PAUSE → SDK_GAME_START pause/resume cycle: in the iframe test env
+    // that pair ALSO fires for non-ad reasons (the boot TCF consent wall,
+    // visibility/focus changes), so arming off it spuriously cooled the SDK down
+    // BEFORE any ad played and suppressed every ad for the whole session.
+    // ALL_ADS_COMPLETED only fires when a real ad reached its end, so a consent
+    // dialog or tab-blur can't trip it. `startRewardedCooldown` is idempotent, so
+    // this co-existing with the per-call arming just restarts the same window.
+    onSdkEvent(EVT_ALL_ADS_COMPLETED, () => {
+      if (isDebug.value) console.info('[gamemonetize] ad completed → arming frequency-cap cooldown')
+      startRewardedCooldown()
+    })
+
     // Page-lifetime ad-blocker detection. A blocked IMA loader surfaces as
     // AD_SDK_ERROR ("IMA script failed to load! Probably due to an ADBLOCKER!"),
     // NOT SDK_ERROR — listen to all three so blockers at boot OR mid-session

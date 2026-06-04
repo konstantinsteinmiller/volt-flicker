@@ -128,6 +128,7 @@ import vue from '@vitejs/plugin-vue'
 import tailwindcss from '@tailwindcss/vite'
 import VueI18nPlugin from '@intlify/unplugin-vue-i18n/vite'
 import javascriptObfuscator from 'vite-plugin-javascript-obfuscator'
+import { viteSingleFile } from 'vite-plugin-singlefile'
 import { buildCsp } from './src/platforms/csp'
 
 // https://vite.dev/config/
@@ -304,6 +305,14 @@ export default defineConfig(({ mode, command }) => {
   // lets Yandex's wrapper own the security policy. The placeholder comment
   // is simply removed so it doesn't ship either.
   const isYandexBuild = env.VITE_APP_YANDEX === 'true'
+  // GamePix, like Yandex, hosts the game in its own environment and applies its
+  // own CSP. Our meta tag is redundant there and the GamePix testing toolkit's
+  // wrapper surfaced it as a `script-src` "blocks the use of 'eval'" violation
+  // (the GamePix SDK + its Google ad-creative chain need `eval`/`Function`).
+  // Skipping our meta tag on the GamePix build lets GamePix's environment own
+  // the policy — same exception we already make for Yandex.
+  const isGamepixBuild = env.VITE_APP_GAMEPIX === 'true'
+  const skipCspMeta = isYandexBuild || isGamepixBuild
   const cspValue = buildCsp(env)
 
   plugins.push({
@@ -311,7 +320,7 @@ export default defineConfig(({ mode, command }) => {
     transformIndexHtml(html: string) {
       return html.replace(
         '<!-- CSP meta tag injected by vite.config.ts at build time -->',
-        isYandexBuild
+        skipCspMeta
           ? ''
           : `<meta http-equiv="Content-Security-Policy" content="${cspValue}" />`
       )
@@ -365,6 +374,26 @@ export default defineConfig(({ mode, command }) => {
         )
       }
     })
+  }
+
+  // ─── GamePix single-file bundle ─────────────────────────────────────────
+  // The GamePix build CDN serves the root `index.html` (200) but intermittently
+  // 403s the hashed `assets/*.js` / `assets/*.css` chunks — the 403 body is XML,
+  // so the browser refuses the ES module ("blocked due to MIME application/xml")
+  // and the app never finishes loading → dead UI, no ad calls. Verified end-to-
+  // end in a real browser that the ad chain itself works when assets load, so
+  // this is purely the CDN refusing separate chunks. Inline the ENTIRE app
+  // (JS + CSS) into index.html for the GamePix build so there are no separate
+  // code chunks to refuse — the one file the CDN already serves carries
+  // everything. Runtime-URL assets (`images/`, `audio/`, fetched by string URL,
+  // not build-time imports) stay external and load fine. GamePix-only; other
+  // platforms keep normal code-splitting. Obfuscation is off for GamePix, and
+  // the CSP already allows `'unsafe-inline'` scripts on this ad-waterfall build,
+  // so the inlined bundle isn't a CSP regression.
+  if (isGamepix) {
+    // Cast to `any` — the plugin ships its own (mismatched) Vite Plugin types,
+    // same reason the obfuscator plugin above is cast.
+    plugins.push(viteSingleFile() as any)
   }
 
   // Emit `playgama-bridge-config.json` ONLY for the Playgama build. NOT

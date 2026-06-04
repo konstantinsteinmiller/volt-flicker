@@ -1,10 +1,11 @@
 {
   "name": "epicrolla",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev-playgama": "vite --mode playgama",
     "build": "run-p type-check \"build-only {@}\" --",
     "build-only": "vite build ",
     "build:crazy-web": "vite build --mode crazy-web --base=./ ",
@@ -54,6 +55,7 @@
     "typescript": "~5.9.3",
     "vite": "^7.3.1",
     "vite-plugin-javascript-obfuscator": "^3.1.0",
+    "vite-plugin-singlefile": "^2.3.3",
     "vitest": "^4.1.0",
     "vue-tsc": "^3.2.5"
   },

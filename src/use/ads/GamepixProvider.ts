@@ -1,61 +1,59 @@
-// GamePix ad provider — wraps the lazy-loaded `gamepixPlugin` in the
-// cross-platform `AdProvider` surface consumed by `useAds`.
+// GamePix.com ad provider — wraps the `gamepixPlugin` in the cross-platform
+// `AdProvider` surface consumed by `useAds`.
 //
-// **Dynamic** imports of the plugin so the plugin's heavy module — which
-// contains the literal SDK URL `https://integration.gamepix.com/sdk/v3/
-// gamepix.sdk.js` — only enters the bundle on builds where the GamePix
-// provider is actually constructed. On a Yandex build,
-// `createGamepixProvider` is never called (the env-gated arm in
-// `resolveAdProvider` is dead), so the dynamic-import call sites are
-// unreachable and Rollup emits no chunk for `gamepixPlugin` — keeping
-// the `gamepix.com` URL out of Yandex's submitted bundle (which would
-// trip the "Service storage URL detected" moderation check).
+// Imports of the plugin are STATIC, matching the approved nexusorbiter
+// integration. The previous DYNAMIC-import version (`await import(...)`) was an
+// unnecessary and fragile workaround:
+//   • The GamePix SDK URL is already kept out of every OTHER build by the
+//     `resolve.alias` stub swap in `vite.config.ts` — on non-GamePix builds
+//     both this provider AND `@/utils/gamepixPlugin` are aliased to no-op
+//     stubs, so the real module (with the `integration.gamepix.com` URL) is
+//     ONLY ever bundled on the GamePix build. A static import is therefore safe.
+//   • The dynamic import split `gamepixPlugin` into a separately-fetched chunk.
+//     In the GamePix testing toolkit / build-preview env those lazy chunks were
+//     returning 403, so `loadGamepix()` could never resolve and the show call
+//     silently did nothing. A static import folds the plugin into the boot
+//     chunks that are already loaded.
+//   • It also caused the reactivity bug patched earlier: a
+//     `computed(() => gamepixModule?.isGamepixSdkActive.value)` reads through a
+//     null module variable before `init()` runs, so it never tracks the real
+//     ref. With a static import the ref is real from module-eval time and the
+//     computed tracks it correctly — no watch-bridge needed.
 //
-// This file is in `vite-plugin-javascript-obfuscator`'s exclude list, so
-// the dynamic-import literal `'@/utils/gamepixPlugin'` is preserved and
-// Vite resolves it correctly at runtime. Each lazy slot caches the
-// resolved module so the SDK script isn't refetched per call.
+// Tree-shaking + stub-aliasing keep this off non-GamePix bundles, so the static
+// import costs nothing elsewhere.
 
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
+import {
+  gamepixPlugin,
+  isGamepixAdsBlocked,
+  isGamepixSdkActive,
+  showMidgameAdGP,
+  showRewardedAdGP
+} from '@/utils/gamepixPlugin'
 import type { AdProvider } from './types'
 
-type GamepixModule = typeof import('@/utils/gamepixPlugin')
-let gamepixModule: GamepixModule | null = null
-const loadGamepix = async (): Promise<GamepixModule> => {
-  if (!gamepixModule) gamepixModule = await import('@/utils/gamepixPlugin')
-  return gamepixModule
-}
-
-// Synchronous fallback refs for the period before `init()` resolves — they
-// stay at their default values on builds that never call `createGamepixProvider`.
-const isReadyFallback = ref(false)
-const isAdsBlockedFallback = ref(false)
-
 export const createGamepixProvider = (): AdProvider => {
-  const isReady = computed(() => gamepixModule?.isGamepixSdkActive.value ?? isReadyFallback.value)
-  const isAdsBlocked = computed(() => gamepixModule?.isGamepixAdsBlocked.value ?? isAdsBlockedFallback.value)
+  const isReady = computed(() => isGamepixSdkActive.value)
   return {
     name: 'gamepix',
     isReady,
-    // No per-format readiness query on the SDK — mirror the coarse gate.
-    // No-fill bubbles up as `{ success: false }` from the show call.
+    // GamePix v3 SDK has no per-format readiness query — mirror the coarse
+    // gate. No-fill bubbles up as `{ success: false }` from the show call.
     isRewardedReady: isReady,
     isInterstitialReady: isReady,
-    isAdsBlocked,
+    isAdsBlocked: computed(() => isGamepixAdsBlocked.value),
     init: async () => {
       try {
-        const m = await loadGamepix()
-        await m.gamepixPlugin()
-      } catch (e) { console.warn('[ads/gamepix] plugin init failed', e) }
+        await gamepixPlugin()
+      } catch (e) {
+        console.warn('[ads/gamepix] plugin init failed', e)
+      }
     },
-    showRewardedAd: async () => {
-      const m = await loadGamepix()
-      return m.showRewardedAdGP()
-    },
+    showRewardedAd: () => showRewardedAdGP(),
     showMidgameAd: async () => {
-      const m = await loadGamepix()
       // Discard the boolean — the cross-provider contract is void.
-      await m.showMidgameAdGP()
+      await showMidgameAdGP()
     }
   }
 }

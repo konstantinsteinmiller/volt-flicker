@@ -6,16 +6,5 @@
 
 
 
-
-##Add a new upgrade as the very last upgrade called "time bubble". 
-This upgrade has only 1 level and grants the ability to roll over 
-the box obstacles without being affected by them as if you had the Push Force pickup.
-This upgrade is a late game upgrade and should cost 10000 coins and not be 
-acquirable with rewarded ads. the hint for this upgrade needs to be precise and short,
-but easily understandable what it provides.
-
-
-
-
 Add a leaderboard to the game with the LeaderboardButton and LeaderboardModal.
 It displays the amount of tries you failed on the current stage. The Leaderboard show

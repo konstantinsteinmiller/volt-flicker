@@ -517,7 +517,10 @@ const callAd = async (kind: 'reward' | 'interstitial'): Promise<boolean> => {
     console.warn(`[gamepix] no ${kind} ad method found on SDK; available top-level keys:`, sdk && Object.keys(sdk))
     return false
   }
-  dlog(`[gamepix] dispatching ${kind} ad via sdk.${resolved.path}`)
+  // Unconditional (not debug-gated) — these are the per-ad audit logs that make
+  // a portal QA pass debuggable without flipping a cheat flag, matching the
+  // approved nexusorbiter integration. They fire only on an actual ad request.
+  console.info(`[gamepix] dispatching ${kind} ad via sdk.${resolved.path}`)
   try {
     // `sdk.ad.requestAd` is the namespaced fallback — takes a kind arg
     // (`'rewarded'` / `'midgame'`); the canonical `rewardAd` /
@@ -529,7 +532,7 @@ const callAd = async (kind: 'reward' | 'interstitial'): Promise<boolean> => {
     // some v3 builds dispatch fire-and-forget (return undefined) and we
     // must NOT await undefined or we'd misread it as `{success:false}`.
     const isPromise = raw && typeof (raw as any).then === 'function'
-    dlog(`[gamepix] ${resolved.path} returned ${isPromise ? 'Promise' : typeof raw}`, raw)
+    console.info(`[gamepix] ${resolved.path} returned ${isPromise ? 'Promise' : typeof raw}`, raw)
     const result = isPromise ? await raw : raw
     // Print the result inline so we don't have to expand a collapsed
     // `Object` in the QA console. JSON.stringify guards against
@@ -541,7 +544,7 @@ const callAd = async (kind: 'reward' | 'interstitial'): Promise<boolean> => {
       resultJson = '[unserialisable]'
     }
     const successFlag = result && typeof result === 'object' ? (result as any).success : undefined
-    dlog(
+    console.info(
       `[gamepix] ${kind} ad call resolved: success=${successFlag} keys=[${Object.keys(result || {}).join(',')}] json=${resultJson}`
     )
     if (looksLikeBlockerResult(result)) isGamepixAdsBlocked.value = true

@@ -159,8 +159,9 @@ describe('gameMonetize rewarded fill gating', () => {
     expect(plugin.isGmAdCoolingDown.value).toBe(true)
     expect(plugin.isGmRewardedFilled.value).toBe(false)
 
-    // After the 60s min-gap the cooldown clears and a fresh preload re-arms fill.
-    await vi.advanceTimersByTimeAsync(60_000)
+    // After the 120s min-gap (REWARDED_MIN_GAP_MS) the cooldown clears and a
+    // fresh preload re-arms fill.
+    await vi.advanceTimersByTimeAsync(120_000)
     await flush()
     expect(plugin.isGmAdCoolingDown.value).toBe(false)
     expect(plugin.isGmRewardedFilled.value).toBe(true)
@@ -207,6 +208,43 @@ describe('gameMonetize rewarded fill gating', () => {
     // preloadAd would resolve.
     expect(plugin.isGmAdCoolingDown.value).toBe(true)
     expect(plugin.isGmRewardedFilled.value).toBe(false)
+  })
+
+  it('a completed ad (ALL_ADS_COMPLETED, no show wrapper) arms the cooldown', async () => {
+    // Regression: an ad can finish WITHOUT our per-call show promise observing it —
+    // the first-load interstitial's NO_FILL_MS short-circuit settles before the
+    // (consent-wall-delayed) ad plays, and a portal pre-roll never goes through a
+    // wrapper at all. The SDK still consumes its global frequency cap, so the
+    // page-lifetime ALL_ADS_COMPLETED (the IMA "ad reached its end" terminal
+    // event) must arm OUR cooldown; otherwise the rewarded button stays visible
+    // inside the cap window and the next tap gets "requested too soon".
+    const preloadAd = vi.fn(() => Promise.resolve())
+    const plugin = await initWith({ preloadAd, showBanner: vi.fn() })
+    expect(plugin.isGmRewardedFilled.value).toBe(true)
+
+    // A real ad finished — no showRewardedAdGM / showMidgameAdGM call involved.
+    emit('ALL_ADS_COMPLETED')
+
+    expect(plugin.isGmAdCoolingDown.value).toBe(true)
+    expect(plugin.isGmRewardedFilled.value).toBe(false)
+  })
+
+  it('a non-ad pause/resume cycle (consent wall, visibility) does NOT arm the cooldown', async () => {
+    // Regression guard: in the iframe test env SDK_GAME_PAUSE → SDK_GAME_START
+    // ALSO fires for the boot TCF consent wall and visibility/focus changes — NOT
+    // just ads. Arming the cooldown off that pair cooled the SDK down before any
+    // ad played and suppressed EVERY ad for the session. Only ALL_ADS_COMPLETED
+    // (a genuine ad completion) may arm it, so a bare pause/resume must leave both
+    // the first-load interstitial gate and the rewarded button available.
+    const preloadAd = vi.fn(() => Promise.resolve())
+    const plugin = await initWith({ preloadAd, showBanner: vi.fn() })
+    expect(plugin.isGmRewardedFilled.value).toBe(true)
+
+    emit('SDK_GAME_PAUSE')
+    emit('SDK_GAME_START')
+
+    expect(plugin.isGmAdCoolingDown.value).toBe(false)
+    expect(plugin.isGmRewardedFilled.value).toBe(true)
   })
 
   it('a "too soon" SDK message arms the cooldown (frequency-cap self-correction)', async () => {

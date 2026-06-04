@@ -24,6 +24,7 @@ import { loadAudioBuffer } from '@/use/useAssets'
 // parallel and fight for the AudioContext's decoder pool. Adding a new
 // SFX = add the basename here (no `.ogg`, no path prefix).
 const GAMEPLAY_SFX: ReadonlyArray<string> = [
+  'anchor-swap',
   'obstacle-hit',
   'coin-pickup',
   'plastic-torn-1',
