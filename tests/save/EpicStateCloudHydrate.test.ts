@@ -4,7 +4,7 @@ import { nextTick } from 'vue'
 // ─── Cloud → composable hydrate (CrazyGames cloud-only mode) ────────────────
 //
 // Proves the load-side wiring: the whole game state lives in the single
-// `epicrolla_state` blob (an allowlisted payload key), so the
+// `construct_state` blob (an allowlisted payload key), so the
 // CrazyGamesStrategy mirrors it verbatim to `sdk.data`. On boot,
 // `reloadEpicState()` is wired into the `saveDataVersion` bump inside
 // useSaveStatus, so every `watch(saveDataVersion)` consumer (coins, stage,
@@ -12,7 +12,7 @@ import { nextTick } from 'vue'
 // pre-hydrate snapshot.
 
 const MANIFEST_KEY = '__save_internal__crazy_keys'
-const STATE_KEY = 'epicrolla_state'
+const STATE_KEY = 'construct_state'
 
 const makeFakeData = (seed: Record<string, string> = {}) => {
   const store = new Map<string, string>(Object.entries(seed))
@@ -31,7 +31,7 @@ beforeEach(() => {
   vi.resetModules()
 })
 
-/** A CG-cloud snapshot whose `epicrolla_state` blob carries a full set of
+/** A CG-cloud snapshot whose `construct_state` blob carries a full set of
  *  persisted properties, plus the meta blob the merge resolver needs to pick
  *  remote over an empty local. */
 const seededCloud = async () => {
@@ -77,7 +77,7 @@ const bootCloudOnly = async (data: ReturnType<typeof makeFakeData>) => {
   return manager
 }
 
-describe('epicrolla_state cloud hydrate → composable refresh', () => {
+describe('construct_state cloud hydrate → composable refresh', () => {
   it('loads cloud upgrades into useEpicProgress after boot', async () => {
     const prog = await import('@/use/useEpicProgress')
     expect(prog.levelOf('powerupDuration')).toBe(0)
@@ -122,7 +122,7 @@ describe('epicrolla_state cloud hydrate → composable refresh', () => {
   })
 })
 
-describe('epicrolla_state persistence round-trip (write → sdk.data)', () => {
+describe('construct_state persistence round-trip (write → sdk.data)', () => {
   it('mirrors the whole blob (upgrades included) to sdk.data', async () => {
     const data = makeFakeData()
     const manager = await bootCloudOnly(data)

@@ -22,7 +22,7 @@ export default {
       'items250': { 'name': 'Accumulatore', 'desc': 'Afferra 250 casse oggetto in totale.' }
     }
   },
-  'gameName': 'Epicrolla',
+  'gameName': 'Construct',
   'cancel': 'Annulla',
   'close': 'Chiudi',
   'ok': 'Ok',

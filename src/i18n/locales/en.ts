@@ -3,7 +3,7 @@
 // this folder mirror the shape. Vite ships each non-English locale as its own
 // lazy chunk (see `src/i18n/index.ts`).
 export default {
-  'gameName': 'Epicrolla',
+  'gameName': 'Construct',
   'cancel': 'Cancel',
   'close': 'Close',
   'ok': 'Ok',

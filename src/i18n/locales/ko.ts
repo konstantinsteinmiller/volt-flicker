@@ -22,7 +22,7 @@ export default {
       'items250': { 'name': '수집광', 'desc': '총 250개의 아이템 상자를 획득하세요.' }
     }
   },
-  'gameName': 'Epicrolla',
+  'gameName': 'Construct',
   'cancel': '취소',
   'close': '닫기',
   'ok': '확인',

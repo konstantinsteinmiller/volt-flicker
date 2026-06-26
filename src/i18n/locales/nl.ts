@@ -22,7 +22,7 @@ export default {
       'items250': { 'name': 'Hamsteraar', 'desc': 'Pak in totaal 250 itemkisten.' }
     }
   },
-  'gameName': 'Epicrolla',
+  'gameName': 'Construct',
   'cancel': 'Annuleren',
   'close': 'Sluiten',
   'ok': 'Ok',

@@ -1,5 +1,5 @@
 import { ref, computed, watch, type Ref } from 'vue'
-import { getState, setState, epicrollaState } from '@/use/useEpicState'
+import { getState, setState, constructState } from '@/use/useEpicState'
 import { saveDataVersion, flushSaveNow } from '@/use/useSaveStatus'
 import { MISSIONS_KEY } from '@/keys'
 import useEpicConfig from '@/use/useEpicConfig'
@@ -10,7 +10,7 @@ import useBattlePass from '@/use/useBattlePass'
 // Three rotating goals, regenerated each local day, that give a reason to open
 // the app daily beyond the login chest. Progress is fed by `recordRun()` at the
 // end of every run; completing a mission lets the player claim coins + a chunk
-// of battle-pass XP. State persists in the single `epicrolla_state` blob under
+// of battle-pass XP. State persists in the single `construct_state` blob under
 // `MISSIONS_KEY` as `{ day, missions }`, so it round-trips through cloud save.
 
 export type MissionType = 'coins' | 'tiles' | 'items' | 'clears'
@@ -93,7 +93,7 @@ const refresh = (): void => {
   if (next.day !== state.value.day) state.value = next
 }
 watch(saveDataVersion, refresh)
-watch(epicrollaState, refresh, { deep: false })
+watch(constructState, refresh, { deep: false })
 
 const persist = (): void => {
   setState(MISSIONS_KEY, state.value)

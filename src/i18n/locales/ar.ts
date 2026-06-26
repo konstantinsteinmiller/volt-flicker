@@ -22,7 +22,7 @@ export default {
       'items250': { 'name': 'المكتنز', 'desc': 'احصل على 250 صندوق عناصر إجمالاً.' }
     }
   },
-  'gameName': 'Epicrolla',
+  'gameName': 'Construct',
   'cancel': 'إلغاء',
   'close': 'إغلاق',
   'ok': 'موافق',

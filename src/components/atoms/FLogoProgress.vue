@@ -16,7 +16,7 @@
         div(:style="sizeStyle")
           img(
             :src="logoSrc"
-            alt="epicrolla"
+            alt="construct"
             class="w-full h-full object-contain"
             draggable="false"
           )

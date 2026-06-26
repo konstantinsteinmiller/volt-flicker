@@ -1,6 +1,6 @@
 {
-  "name": "Epicrolla",
-  "short_name": "Epicrolla",
+  "name": "Construct",
+  "short_name": "Construct",
   "display": "standalone",
   "display_override": ["fullscreen", "standalone"],
   "orientation": "portrait",

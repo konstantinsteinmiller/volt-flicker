@@ -259,7 +259,7 @@ export const readCoinTotal = (read: SnapshotReader): number => {
  */
 /**
  * Single-blob model: every persisted gameplay value lives inside the
- * `epicrolla_state` localStorage entry (see `useEpicState.ts`). The cloud
+ * `construct_state` localStorage entry (see `useEpicState.ts`). The cloud
  * mirrors exactly two keys — the state blob and the meta blob.
  *
  * Individual `epic_*` game keys plus the reused-platform `spinner_*` / `ca_*`

@@ -22,7 +22,7 @@ export default {
       'items250': { 'name': 'Накопичувач', 'desc': 'Зберіть загалом 250 скринь з предметами.' }
     }
   },
-  'gameName': 'Epicrolla',
+  'gameName': 'Construct',
   'cancel': 'Скасувати',
   'close': 'Закрити',
   'ok': 'Ок',

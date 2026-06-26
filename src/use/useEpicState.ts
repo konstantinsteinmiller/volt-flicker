@@ -1,18 +1,18 @@
 import { ref, type Ref } from 'vue'
 
 /**
- * Single-blob localStorage layer for Epicrolla.
+ * Single-blob localStorage layer for Construct.
  *
  * EVERY persisted gameplay value the game touches lives inside ONE in-memory
- * record — `epicrollaState` — and only ONE localStorage key is ever written:
- * `epicrolla_state`. The cloud-sync subsystem (SaveManager / strategies) only
+ * record — `constructState` — and only ONE localStorage key is ever written:
+ * `construct_state`. The cloud-sync subsystem (SaveManager / strategies) only
  * has to mirror this single key (plus the `__save_meta__` blob) for a complete
  * save. This keeps localStorage pollution minimal and makes cloud hydration a
  * single-object round-trip.
  *
  * Field names inside the record use the `epic_` prefix for game progress
  * (`epic_stage`, `epic_coins`, …). A handful of cross-cutting subsystems that
- * were reused wholesale from the Epicrolla platform layer keep their original
+ * were reused wholesale from the Construct platform layer keep their original
  * `spinner_` field names (user settings, battle pass, daily rewards, the
  * ad-button cooldown) — these are now just keys INSIDE the one blob, not their
  * own localStorage entries, so there is no extra pollution.
@@ -21,7 +21,7 @@ import { ref, type Ref } from 'vue'
  * `pagehide` / tab-hide so a close mid-burst never drops data.
  */
 
-export const STATE_KEY = 'epicrolla_state'
+export const STATE_KEY = 'construct_state'
 
 /** Persisted values may be bare strings ("en"), stringified numbers ("120"),
  *  or stringified JSON. JSON.parse round-trips numbers/objects; bare strings
@@ -51,7 +51,7 @@ let persistTimer: ReturnType<typeof setTimeout> | null = null
 let firstDirtyAt = 0
 
 /** Force the debounced blob write to happen NOW — cancels the pending timer
- *  and writes `epicrolla_state` to localStorage synchronously. Called from
+ *  and writes `construct_state` to localStorage synchronously. Called from
  *  the page-hide handlers below and (via `useSaveStatus.flushSaveNow`) at hard
  *  checkpoints (stage change, upgrade, claim) so the cloud push starts
  *  immediately instead of waiting out the debounce. */
@@ -61,7 +61,7 @@ export const flushPersist = (): void => {
     persistTimer = null
   }
   firstDirtyAt = 0
-  persistRaw(epicrollaState.value)
+  persistRaw(constructState.value)
 }
 
 const schedulePersist = (): void => {
@@ -73,7 +73,7 @@ const schedulePersist = (): void => {
   persistTimer = setTimeout(() => {
     persistTimer = null
     firstDirtyAt = 0
-    persistRaw(epicrollaState.value)
+    persistRaw(constructState.value)
   }, delay)
 }
 
@@ -124,38 +124,38 @@ const buildInitial = (): Record<string, unknown> => {
 }
 
 /** The single in-memory aggregate of all persisted game state. */
-export const epicrollaState: Ref<Record<string, unknown>> = ref(buildInitial())
+export const constructState: Ref<Record<string, unknown>> = ref(buildInitial())
 
 /** Read a value out of the blob. `fallback` is returned when the key is
  *  absent. Type parameter is advisory — the layer does not validate shape. */
 export const getState = <T = unknown>(key: string, fallback?: T): T => {
-  const v = epicrollaState.value[key]
+  const v = constructState.value[key]
   return (v === undefined ? fallback : v) as T
 }
 
-export const hasState = (key: string): boolean => epicrollaState.value[key] !== undefined
+export const hasState = (key: string): boolean => constructState.value[key] !== undefined
 
 export const setState = (key: string, value: unknown): void => {
-  epicrollaState.value = { ...epicrollaState.value, [key]: value }
+  constructState.value = { ...constructState.value, [key]: value }
   schedulePersist()
 }
 
 export const removeState = (key: string): void => {
-  if (epicrollaState.value[key] === undefined) return
-  const next = { ...epicrollaState.value }
+  if (constructState.value[key] === undefined) return
+  const next = { ...constructState.value }
   delete next[key]
-  epicrollaState.value = next
+  constructState.value = next
   schedulePersist()
 }
 
 /** Re-read from localStorage. Used by the SaveManager hydrate watcher
  *  (`saveDataVersion`) so cloud-sourced updates show up in-memory. */
 export const reloadEpicState = (): void => {
-  epicrollaState.value = buildInitial()
+  constructState.value = buildInitial()
 }
 
 /** Test-only: wipe both the in-memory blob and the persisted entry. */
 export const __resetEpicState = (): void => {
-  epicrollaState.value = {}
+  constructState.value = {}
   try { localStorage.removeItem(STATE_KEY) } catch { /* harmless */ }
 }

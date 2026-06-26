@@ -22,7 +22,7 @@ export default {
       'items250': { 'name': 'İstifçi', 'desc': 'Toplam 250 eşya kutusu yakala.' }
     }
   },
-  'gameName': 'Epicrolla',
+  'gameName': 'Construct',
   'cancel': 'İptal',
   'close': 'Kapat',
   'ok': 'Tamam',

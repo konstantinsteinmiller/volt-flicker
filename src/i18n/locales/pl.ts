@@ -22,7 +22,7 @@ export default {
       'items250': { 'name': 'Zbieracz', 'desc': 'Złap łącznie 250 skrzyń z przedmiotami.' }
     }
   },
-  'gameName': 'Epicrolla',
+  'gameName': 'Construct',
   'cancel': 'Anuluj',
   'close': 'Zamknij',
   'ok': 'Ok',

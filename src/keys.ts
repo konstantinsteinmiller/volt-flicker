@@ -1,6 +1,6 @@
 // ─── Game-progress field catalogue ──────────────────────────────────────────
 //
-// Field names INSIDE the single `epicrolla_state` blob (see `useEpicState.ts`).
+// Field names INSIDE the single `construct_state` blob (see `useEpicState.ts`).
 // These are not separate localStorage keys — they're properties of the one
 // persisted object — but they're still a contract with the player base:
 // renaming any of them strands existing players' progress on the old field.
