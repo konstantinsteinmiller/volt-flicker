@@ -150,13 +150,14 @@ To win a Construct 3 game jam with these low assets, implement these three built
 3. **Dynamic Shadows:** Put the background on Layer 0 (Light Gray). Put the Walls, Blocks, and Solid Player on Layer 1. Add the **Shadow Caster** behavior to Layer 1 objects, and place a light source object at the origin point of every `BeamSource`. Construct 3 will procedurally render dark, sweeping geometric shadows across the map in real-time as blocks move.
 
 ## 7. Visual Guideline
-Slide 1-5 offer a visual guideline for the implementation.
+Slide 1-6 offer a visual guideline for the implementation.
 Refer to: 
 - "C:\Users\konst\Documents\__p\construct\src\assets\art\slide1_ground_zero.png"
 - "C:\Users\konst\Documents\__p\construct\src\assets\art\slide2_environmental_rule.png"
 - "C:\Users\konst\Documents\__p\construct\src\assets\art\slide3_kinetic_complexity.png"
 - "C:\Users\konst\Documents\__p\construct\src\assets\art\slide4_maximum_polish.png"
 - "C:\Users\konst\Documents\__p\construct\src\assets\art\slide5_mechanics_visualization.png"
+- "C:\Users\konst\Documents\__p\construct\src\assets\art\slide6_mechanics_visualization.png"
 
 ## UI
 show a UI/Level header with score(do we have score? Or should it be data shards instead?) like shown in "C:\Users\konst\Documents\__p\construct\src\assets\art\level-header.png"
@@ -165,6 +166,13 @@ but in the same style as in Prism Shift visual Guideline.
 ## Levels
 add a level selector button that shows a clean and minimalistic, yet high fidelity
 level selector modal so the player can replay old levels if wanted.
+
+## Tutorial(don't add yet, will be added as a second step)
+The game needs a quick, short, but highly effective tutorial that teaches the player the core mechanics and the state-shifting ability. The tutorial should be interactive, allowing players to practice shifting states
+and interacting with light beams and blocks in a controlled environment. When a new mechanic is introduced/needed for a level,
+introduce the mechanic with a short animated tutorial that avoids text-based instructions as much as possible.
+Use visual cues, animations, and interactive elements to guide the player through the
+learning process.
 
 ## After implementing the game
 create a roadmap(min 15 features/action points, sorted by highest impact, best performance, highest game feel improvements)
