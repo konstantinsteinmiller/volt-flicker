@@ -25,8 +25,9 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
-    # Fail fast instead of hanging ~10 min if a deployment gets stuck.
-    timeout-minutes: 15
+    # deploy-pages polls up to its `timeout` (below) for GitHub Pages to pick
+    # up the deployment; give the whole job room beyond that.
+    timeout-minutes: 25
     steps:
       - name: Checkout main
         uses: actions/checkout@v4
@@ -102,3 +103,8 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+        with:
+          # Default is 10 min; GitHub Pages sometimes leaves the deployment in
+          # "deployment_queued" longer under load, which then times out even
+          # though nothing is wrong. Give it up to 20 min.
+          timeout: 1200000
