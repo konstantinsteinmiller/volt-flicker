@@ -137,7 +137,7 @@ export const initCrazyGames = async (): Promise<void> => {
 /**
  * Build the save strategy backed by the CrazyGames `data` module. The
  * strategy pulls the SDK lazily through `getSdk()` so it can be
- * constructed before `initCrazyGames()` has resolved — actual data calls
+ * volt-flickered before `initCrazyGames()` has resolved — actual data calls
  * happen during `hydrate()` which `SaveManager` awaits after SDK init.
  *
  * Returns a strategy that no-ops when the SDK isn't available, so the

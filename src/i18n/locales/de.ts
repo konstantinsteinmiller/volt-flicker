@@ -22,7 +22,7 @@ export default {
       'items250': { 'name': 'Hamsterer', 'desc': 'Schnapp dir insgesamt 250 Item-Boxen.' }
     }
   },
-  'gameName': 'Construct',
+  'gameName': 'volt-flicker',
   'cancel': 'Abbrechen',
   'close': 'Schließen',
   'ok': 'Ok',

@@ -275,7 +275,7 @@ describe('CrazyGamesStrategy (per-key)', () => {
     const proto = Object.getPrototypeOf(window.localStorage)
     const rawGet = proto.getItem.bind(window.localStorage)
 
-    // Dev toggles set before SaveManager constructs.
+    // Dev toggles set before SaveManager volt-flickers.
     window.localStorage.setItem('fps', 'true')
     window.localStorage.setItem('debug', 'true')
     window.localStorage.setItem('cheat', 'true')
@@ -304,7 +304,7 @@ describe('CrazyGamesStrategy (per-key)', () => {
   it('cloud-only mode: scrubs pre-existing payload + bookkeeping at boot, preserves dev toggles', async () => {
     // Simulates upgrading a returning player from per-key-raw-mirror
     // mode to cloud-only mode: their localStorage already has spinner_*
-    // entries, the META blob, and the manifest. After construction
+    // entries, the META blob, and the manifest. After volt-flickerion
     // every gameplay/bookkeeping key must be gone from raw, but the
     // values must survive in BlobStorage's in-memory state so the
     // hydrate's local meta still computes from real values.

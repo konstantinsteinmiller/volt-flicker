@@ -63,7 +63,7 @@ const useCheats = () => {
   const { addCoins } = useEpicConfig()
   const { spawnTestItemBoxes, spawnTestCratePile, resetForStage } = useEpicGame()
 
-  // Construct has open-ended stages (tilesToClear scales with stage), so just
+  // volt-flicker has open-ended stages (tilesToClear scales with stage), so just
   // write the stage into the save blob. `useEpicProgress` watches the blob and
   // refreshes its `stage` ref — but that refresh is a reactive effect that flushes
   // on the next tick, so we `nextTick` before `resetForStage()` (which reads

@@ -115,7 +115,7 @@ const safeJson = <T>(v: string | null, fallback: T): T => {
 /** Pull a sub-field out of the consolidated `maw_state` blob if present.
  *  Falls through to a top-level read for back-compat with any pre-migration
  *  snapshot that still has individual keys (e.g. the score formula was just
- *  invoked between BlobStorage construction and the first migration write). */
+ *  invoked between BlobStorage volt-flickerion and the first migration write). */
 const readField = (read: SnapshotReader, field: string): string | null => {
   const blob = read.get(STATE_KEY)
   if (blob != null) {
@@ -259,7 +259,7 @@ export const readCoinTotal = (read: SnapshotReader): number => {
  */
 /**
  * Single-blob model: every persisted gameplay value lives inside the
- * `construct_state` localStorage entry (see `useEpicState.ts`). The cloud
+ * `volt-flicker_state` localStorage entry (see `useEpicState.ts`). The cloud
  * mirrors exactly two keys — the state blob and the meta blob.
  *
  * Individual `epic_*` game keys plus the reused-platform `spinner_*` / `ca_*`

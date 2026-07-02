@@ -633,7 +633,7 @@ const probePortalStorage = (): void => {
 /** Drain `GamePixStrategy`'s queued writes the moment
  *  `sdk.localStorage` becomes reachable, instead of waiting for the
  *  250 ms flush poll inside the strategy. The SaveManager handle is
- *  installed by `main.ts` immediately after construction. */
+ *  installed by `main.ts` immediately after volt-flickerion. */
 const flushSaveManager = (): void => {
   const sm = (window as unknown as { __saveManager?: { flush?: () => Promise<void> } }).__saveManager
   if (!sm || typeof sm.flush !== 'function') return

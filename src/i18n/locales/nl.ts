@@ -22,7 +22,7 @@ export default {
       'items250': { 'name': 'Hamsteraar', 'desc': 'Pak in totaal 250 itemkisten.' }
     }
   },
-  'gameName': 'Construct',
+  'gameName': 'volt-flicker',
   'cancel': 'Annuleren',
   'close': 'Sluiten',
   'ok': 'Ok',

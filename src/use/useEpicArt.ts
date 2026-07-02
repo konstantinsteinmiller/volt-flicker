@@ -1,4 +1,4 @@
-// ─── Canvas renderer + VFX for Construct ───────────────────────────────────
+// ─── Canvas renderer + VFX for volt-flicker ───────────────────────────────────
 //
 // Pure drawing layer. Reads the module-singleton `game` snapshot from
 // `useEpicGame` and the active power-up from `usePowerups`; owns NO game logic.

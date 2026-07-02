@@ -22,7 +22,7 @@ export default {
       'items250': { 'name': '収集家', 'desc': '合計250個のアイテムボックスを取る。' }
     }
   },
-  'gameName': 'Construct',
+  'gameName': 'volt-flicker',
   'cancel': 'キャンセル',
   'close': '閉じる',
   'ok': 'OK',

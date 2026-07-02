@@ -1,6 +1,6 @@
 {
-  "name": "Construct",
-  "short_name": "Construct",
+  "name": "volt-flicker",
+  "short_name": "volt-flicker",
   "display": "standalone",
   "display_override": ["fullscreen", "standalone"],
   "orientation": "portrait",

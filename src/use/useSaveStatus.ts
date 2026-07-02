@@ -2,7 +2,7 @@
 // notice queue for the on-screen banner. Module-level singleton so any
 // component can read/write without prop-drilling.
 //
-// Wired from main.ts after the SaveManager has been constructed. The
+// Wired from main.ts after the SaveManager has been volt-flickered. The
 // banner component (`SaveStatusBanner.vue`) reads from here.
 
 import { ref, computed } from 'vue'

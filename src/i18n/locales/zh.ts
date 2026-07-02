@@ -22,7 +22,7 @@ export default {
       'items250': { 'name': '囤积者', 'desc': '累计获取 250 个道具箱。' }
     }
   },
-  'gameName': 'Construct',
+  'gameName': 'volt-flicker',
   'cancel': '取消',
   'close': '关闭',
   'ok': '确定',

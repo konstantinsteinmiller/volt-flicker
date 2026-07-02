@@ -22,7 +22,7 @@ export default {
       'items250': { 'name': 'Накопитель', 'desc': 'Соберите всего 250 ящиков с предметами.' }
     }
   },
-  'gameName': 'Construct',
+  'gameName': 'volt-flicker',
   'cancel': 'Отмена',
   'close': 'Закрыть',
   'ok': 'Ок',

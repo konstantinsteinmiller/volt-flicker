@@ -22,7 +22,7 @@ export default {
       'items250': { 'name': 'Yig\'uvchi', 'desc': 'Jami 250 ta buyum qutisini oling.' }
     }
   },
-  'gameName': 'Construct',
+  'gameName': 'volt-flicker',
   'cancel': 'Bekor qilish',
   'close': 'Yopish',
   'ok': 'Ok',

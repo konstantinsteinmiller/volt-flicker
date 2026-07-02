@@ -1,6 +1,6 @@
 import { ref, computed, watch, type Ref, type ComputedRef } from 'vue'
 import { saveDataVersion, flushSaveNow } from '@/use/useSaveStatus'
-import { getState, setState, constructState } from '@/use/useEpicState'
+import { getState, setState, volt-flickerState } from '@/use/useEpicState'
 import { STAGE_KEY, BEST_SCORE_KEY, UPGRADES_KEY, START_SECOND_CHANCE_KEY } from '@/keys'
 import useEpicConfig from '@/use/useEpicConfig'
 
@@ -10,7 +10,7 @@ import useEpicConfig from '@/use/useEpicConfig'
 // to 55, after which every subsequent stage adds +10 tiles (65, 75, …).
 // Reaching the target = a win; the player advances to the next stage on their
 // next run. Stage, best score, lifetime games and max-stage all live as fields
-// inside the single `construct_state` blob.
+// inside the single `volt-flicker_state` blob.
 
 const GAMES_PLAYED_KEY = 'epic_games_played'
 const MAX_STAGE_KEY = 'epic_max_stage'
@@ -129,7 +129,7 @@ const refresh = (): void => {
   startSecondChance.value = readBool(START_SECOND_CHANCE_KEY, startSecondChance.value)
 }
 watch(saveDataVersion, refresh)
-watch(constructState, refresh, { deep: false })
+watch(volt-flickerState, refresh, { deep: false })
 
 // ─── Public reactive surface (also consumed by gamepixPlugin) ───────────────
 

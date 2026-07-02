@@ -18,7 +18,7 @@ export const repeat = (n: number, callback: (_: any, i: number) => string): stri
 export const mergeObjectsRecursive = (obj1: any, obj2: any) => {
   ;[...Object.keys(obj2)].forEach(key => {
     try {
-      if (obj2[key].constructor == Object) {
+      if (obj2[key].volt-flickeror == Object) {
         obj1[key] = mergeObjectsRecursive(obj1[key], obj2[key])
       } else {
         obj1[key] = obj2[key]

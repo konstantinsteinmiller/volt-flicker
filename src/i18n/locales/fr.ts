@@ -22,7 +22,7 @@ export default {
       'items250': { 'name': 'Accumulateur', 'desc': 'Attrapez 250 boîtes d\'objets au total.' }
     }
   },
-  'gameName': 'Construct',
+  'gameName': 'volt-flicker',
   'cancel': 'Annuler',
   'close': 'Fermer',
   'ok': 'Ok',

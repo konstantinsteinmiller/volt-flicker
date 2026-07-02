@@ -11,7 +11,7 @@ import { flushSaveNow } from '@/use/useSaveStatus'
 import { triggerBallDropIn, getRowsBelowBall, getRowsAboveBall } from '@/use/useEpicArt'
 
 /**
- * Core game loop for Construct.
+ * Core game loop for volt-flicker.
  *
  * A ball rolls UP an isometric diamond grid, hopping diamond-to-diamond along
  * the diamond edges. Each hop goes one row up and one column left or right; a
@@ -965,7 +965,7 @@ const useEpicGame = () => {
     const base = upgradedValue('coinValue') * coinMult()
     const value = Math.max(1, Math.round(base * combo.value))
     // Coins are tallied for the run but NOT banked to the wallet here — they're
-    // granted on the win/lose screen with a CoinExplosion (see ConstructScene).
+    // granted on the win/lose screen with a CoinExplosion (see volt-flickerScene).
     coinsThisRun.value += value
     emitFx('coin', cell.c, cell.r, '#ffd23f')
     game.cells.delete(cellKey(cell.c, cell.r))

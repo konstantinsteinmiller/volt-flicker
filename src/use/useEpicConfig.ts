@@ -1,7 +1,7 @@
 import { ref, watch, type Ref } from 'vue'
 import { saveDataVersion } from '@/use/useSaveStatus'
 import { COINS_KEY } from '@/keys'
-import { getState, setState, constructState } from '@/use/useEpicState'
+import { getState, setState, volt-flickerState } from '@/use/useEpicState'
 
 // Coins are stored as a plain number inside the blob. `Number(v)` falls back
 // to 0 for any malformed leftover.
@@ -19,7 +19,7 @@ const coins: Ref<number> = ref(readNumber(COINS_KEY, 0))
 watch(saveDataVersion, () => {
   coins.value = readNumber(COINS_KEY, coins.value)
 })
-watch(constructState, () => {
+watch(volt-flickerState, () => {
   coins.value = readNumber(COINS_KEY, coins.value)
 }, { deep: false })
 

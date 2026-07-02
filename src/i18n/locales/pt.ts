@@ -22,7 +22,7 @@ export default {
       'items250': { 'name': 'Acumulador', 'desc': 'Pegue 250 caixas de itens no total.' }
     }
   },
-  'gameName': 'Construct',
+  'gameName': 'volt-flicker',
   'cancel': 'Cancelar',
   'close': 'Fechar',
   'ok': 'Ok',

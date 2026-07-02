@@ -22,7 +22,7 @@ export default {
       'items250': { 'name': 'Penimbun', 'desc': 'Ambil total 250 kotak item.' }
     }
   },
-  'gameName': 'Construct',
+  'gameName': 'volt-flicker',
   'cancel': 'Batal',
   'close': 'Tutup',
   'ok': 'Ok',

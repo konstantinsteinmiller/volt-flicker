@@ -1,5 +1,5 @@
 import { ref, computed, watch, type Ref } from 'vue'
-import { getState, setState, constructState } from '@/use/useEpicState'
+import { getState, setState, volt-flickerState } from '@/use/useEpicState'
 import { saveDataVersion, flushSaveNow } from '@/use/useSaveStatus'
 import { ACHIEVEMENTS_KEY } from '@/keys'
 import useEpicConfig from '@/use/useEpicConfig'
@@ -10,7 +10,7 @@ import useEpicProgress from '@/use/useEpicProgress'
 // Lifetime milestones that turn incidental play into goals. Each grants a
 // one-time coin payout, scaled to how hard it is to reach — small for the early
 // ones, fat for the grindy "100,000 tiles" capstone. State lives in the single
-// `construct_state` blob under `ACHIEVEMENTS_KEY`:
+// `volt-flicker_state` blob under `ACHIEVEMENTS_KEY`:
 //   { claimed: string[], stats: { tiles, coins, items, clears, bestRun } }
 // Lifetime stats accumulate on every finished run via `recordRun`; the
 // "highest stage reached" metric reads `progress.maxStage` directly.
@@ -96,7 +96,7 @@ const state: Ref<AchievementState> = ref(loadState())
 
 const refresh = (): void => { state.value = loadState() }
 watch(saveDataVersion, refresh)
-watch(constructState, refresh, { deep: false })
+watch(volt-flickerState, refresh, { deep: false })
 
 const persist = (): void => {
   setState(ACHIEVEMENTS_KEY, state.value)

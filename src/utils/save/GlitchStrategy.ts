@@ -45,7 +45,7 @@ import {
 //   Anonymous / guest players get 403 Forbidden. When we see that, we
 //   flip the strategy to disabled and surface it via `onGuestBlocked`
 //   so the UI can prompt the player to sign in. No further network
-//   calls are made until a new GlitchStrategy is constructed.
+//   calls are made until a new GlitchStrategy is volt-flickered.
 //
 // Size limit:
 //   Slots cap out at 10MB. We warn when the encoded payload approaches
@@ -128,7 +128,7 @@ export class GlitchStrategy implements SaveStrategy {
   private noticeListeners = new Set<HydrateNoticeListener>()
   private readonly fetchImpl: typeof fetch
 
-  constructor(private readonly config: GlitchStrategyConfig) {
+  volt-flickeror(private readonly config: GlitchStrategyConfig) {
     this.fetchImpl = config.fetchImpl ?? fetch.bind(globalThis)
   }
 
@@ -589,7 +589,7 @@ export class GlitchStrategy implements SaveStrategy {
     if (this.guestBlocked) return
     this.guestBlocked = true
     // Cancel any pending flush — we're done calling the backend until a
-    // fresh strategy is constructed (e.g. after the player signs in and
+    // fresh strategy is volt-flickered (e.g. after the player signs in and
     // bootstraps the game again).
     if (this.flushTimer) {
       clearTimeout(this.flushTimer)

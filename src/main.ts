@@ -48,7 +48,7 @@ const bootstrap = async () => {
   // `setVConsoleMounter` so vConsole stays out of the main chunk
   // and off the hot path.
   //
-  // Why this matters: construct's main bundle ballooned by ~250KB
+  // Why this matters: volt-flicker's main bundle ballooned by ~250KB
   // gzipped when vConsole was statically imported. CrazyGames flagged
   // the regression. Putting the dynamic-import here fixes it without
   // breaking the trigger paths.
@@ -68,7 +68,7 @@ const bootstrap = async () => {
     import.meta.env.VITE_APP_NATIVE === 'true'
     || import.meta.env.VITE_APP_INCLUDE_VCONSOLE === 'true'
   ) {
-    // vConsole removed from this project (was a construct native-build
+    // vConsole removed from this project (was a volt-flicker native-build
     // dependency). To restore on-device debugging, reintroduce the
     // `vconsole` package and wire it back to `setVConsoleMounter`.
     bootstrapVConsoleFromUrl()
@@ -187,7 +187,7 @@ const bootstrap = async () => {
   })
     // Expose immediately, BEFORE the awaited `init()`. CG QA reported that
     // `window.__saveManager` was undefined when probed in the live console;
-    // setting it here makes the handle available the moment construction
+    // setting it here makes the handle available the moment volt-flickerion
     // finishes, even if init() hits an unexpected throw before the patches
     // are installed. Lets QA confirm `strategyName === 'crazyGames'` no
     // matter the hydrate timing.
@@ -195,7 +195,7 @@ const bootstrap = async () => {
 
   // Defense-in-depth `spinner_*` / `ca_*` / `__save_*` safety remove on
   // CG builds. BlobStorage's `scrubRawForCloudOnly()` already wiped these
-  // at construction (it seeded into `state` first, so progress is
+  // at volt-flickerion (it seeded into `state` first, so progress is
   // preserved); this second pass catches anything BlobStorage missed.
   // MUST run BEFORE `saveManager.init()` because init patches
   // `localStorage.setItem` / `removeItem` to forward to the strategy —

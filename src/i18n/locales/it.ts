@@ -22,7 +22,7 @@ export default {
       'items250': { 'name': 'Accumulatore', 'desc': 'Afferra 250 casse oggetto in totale.' }
     }
   },
-  'gameName': 'Construct',
+  'gameName': 'volt-flicker',
   'cancel': 'Annulla',
   'close': 'Chiudi',
   'ok': 'Ok',

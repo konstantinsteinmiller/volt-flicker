@@ -16,7 +16,7 @@
         div(:style="sizeStyle")
           img(
             :src="logoSrc"
-            alt="construct"
+            alt="volt-flicker"
             class="w-full h-full object-contain"
             draggable="false"
           )

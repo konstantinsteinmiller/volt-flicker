@@ -82,7 +82,7 @@ export class CrazyGamesStrategy implements SaveStrategy {
   // means "we removed this key"; `string` means "last set value".
   private lastSentByKey = new Map<string, string | undefined>()
 
-  constructor(private readonly getData: CrazySdkDataGetter) {
+  volt-flickeror(private readonly getData: CrazySdkDataGetter) {
   }
 
   get hydrateState(): HydrateState {

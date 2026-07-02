@@ -22,7 +22,7 @@ export default {
       'items250': { 'name': 'Acaparador', 'desc': 'Consigue 250 cajas de objetos en total.' }
     }
   },
-  'gameName': 'Construct',
+  'gameName': 'volt-flicker',
   'cancel': 'Cancelar',
   'close': 'Cerrar',
   'ok': 'Ok',

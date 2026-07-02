@@ -2,7 +2,7 @@
 
 **Project Title:** Prism Shift
 
-**Engine:** Construct 3
+**Engine:** volt-flicker 3
 
 **Target Audience:** Game Jam Judges / Puzzle-Platformer Enthusiasts
 
@@ -40,9 +40,9 @@ Save all state variables in one Object named prism_state.
 
 ---
 
-## 2. Object Registry & Asset Map (Construct 3 Layout)
+## 2. Object Registry & Asset Map (volt-flicker 3 Layout)
 
-Because this game relies on procedural feel ("juice") rather than bespoke art assets, every object is a primitive shape easily created using Construct 3’s built-in sprite editor.
+Because this game relies on procedural feel ("juice") rather than bespoke art assets, every object is a primitive shape easily created using volt-flicker 3’s built-in sprite editor.
 
 | Object Name | Visual Asset Type | Behaviors Applied | Instance Variables |
 | --- | --- | --- | --- |
@@ -82,7 +82,7 @@ The entire game logic hinges on the Player's `isSolid` Boolean variable, trigger
 
 ### Progression Hook 2: Prism Refraction & Polarity (Levels 4–6)
 
-* **Logic:** When `isSolid = False` (Phase State) and the Player overlaps a `LightBeam`, the beam does not kill them. Instead, a Construct 3 sub-event triggers:
+* **Logic:** When `isSolid = False` (Phase State) and the Player overlaps a `LightBeam`, the beam does not kill them. Instead, a volt-flicker 3 sub-event triggers:
 ```text
 + Player: Overlapping LightBeam
 + Player: isSolid = False
@@ -143,24 +143,24 @@ The Core functions as a smart directional switch.
 
 ## 6. The "Juice" Layer (Game Jam Polish Polish)
 
-To win a Construct 3 game jam with these low assets, implement these three built-in system visual effects to make the gameplay feel premium:
+To win a volt-flicker 3 game jam with these low assets, implement these three built-in system visual effects to make the gameplay feel premium:
 
 1. **Screen Shake on State Shift:** On hitting `SPACEBAR`, trigger a `ScrollTo: Shake` effect (Magnitude: 4, Duration: 0.1s). This makes the state shift feel incredibly impactful.
 2. **The Glitch Death:** Upon death (Solid player touching light), do not simply restart. Apply the **Glitch** HTML5 effect to the entire background layer for 0.3 seconds, burst 50 black and white square particles out of the player's position, then reset the layout.
-3. **Dynamic Shadows:** Put the background on Layer 0 (Light Gray). Put the Walls, Blocks, and Solid Player on Layer 1. Add the **Shadow Caster** behavior to Layer 1 objects, and place a light source object at the origin point of every `BeamSource`. Construct 3 will procedurally render dark, sweeping geometric shadows across the map in real-time as blocks move.
+3. **Dynamic Shadows:** Put the background on Layer 0 (Light Gray). Put the Walls, Blocks, and Solid Player on Layer 1. Add the **Shadow Caster** behavior to Layer 1 objects, and place a light source object at the origin point of every `BeamSource`. volt-flicker 3 will procedurally render dark, sweeping geometric shadows across the map in real-time as blocks move.
 
 ## 7. Visual Guideline
 Slide 1-6 offer a visual guideline for the implementation.
 Refer to: 
-- "C:\Users\konst\Documents\__p\construct\src\assets\art\slide1_ground_zero.png"
-- "C:\Users\konst\Documents\__p\construct\src\assets\art\slide2_environmental_rule.png"
-- "C:\Users\konst\Documents\__p\construct\src\assets\art\slide3_kinetic_complexity.png"
-- "C:\Users\konst\Documents\__p\construct\src\assets\art\slide4_maximum_polish.png"
-- "C:\Users\konst\Documents\__p\construct\src\assets\art\slide5_mechanics_visualization.png"
-- "C:\Users\konst\Documents\__p\construct\src\assets\art\slide6_mechanics_visualization.png"
+- "C:\Users\konst\Documents\__p\volt-flicker\src\assets\art\slide1_ground_zero.png"
+- "C:\Users\konst\Documents\__p\volt-flicker\src\assets\art\slide2_environmental_rule.png"
+- "C:\Users\konst\Documents\__p\volt-flicker\src\assets\art\slide3_kinetic_complexity.png"
+- "C:\Users\konst\Documents\__p\volt-flicker\src\assets\art\slide4_maximum_polish.png"
+- "C:\Users\konst\Documents\__p\volt-flicker\src\assets\art\slide5_mechanics_visualization.png"
+- "C:\Users\konst\Documents\__p\volt-flicker\src\assets\art\slide6_mechanics_visualization.png"
 
 ## UI
-show a UI/Level header with score(do we have score? Or should it be data shards instead?) like shown in "C:\Users\konst\Documents\__p\construct\src\assets\art\level-header.png"
+show a UI/Level header with score(do we have score? Or should it be data shards instead?) like shown in "C:\Users\konst\Documents\__p\volt-flicker\src\assets\art\level-header.png"
 but in the same style as in Prism Shift visual Guideline.
 
 ## Levels
