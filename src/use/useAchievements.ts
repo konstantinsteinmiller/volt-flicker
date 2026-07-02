@@ -1,5 +1,5 @@
 import { ref, computed, watch, type Ref } from 'vue'
-import { getState, setState, volt-flickerState } from '@/use/useEpicState'
+import { getState, setState, voltFlickerState } from '@/use/useEpicState'
 import { saveDataVersion, flushSaveNow } from '@/use/useSaveStatus'
 import { ACHIEVEMENTS_KEY } from '@/keys'
 import useEpicConfig from '@/use/useEpicConfig'
@@ -96,7 +96,7 @@ const state: Ref<AchievementState> = ref(loadState())
 
 const refresh = (): void => { state.value = loadState() }
 watch(saveDataVersion, refresh)
-watch(volt-flickerState, refresh, { deep: false })
+watch(voltFlickerState, refresh, { deep: false })
 
 const persist = (): void => {
   setState(ACHIEVEMENTS_KEY, state.value)

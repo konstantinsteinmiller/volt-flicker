@@ -4,7 +4,7 @@ import { ref, type Ref } from 'vue'
  * Single-blob localStorage layer for volt-flicker.
  *
  * EVERY persisted gameplay value the game touches lives inside ONE in-memory
- * record — `volt-flickerState` — and only ONE localStorage key is ever written:
+ * record — `voltFlickerState` — and only ONE localStorage key is ever written:
  * `volt-flicker_state`. The cloud-sync subsystem (SaveManager / strategies) only
  * has to mirror this single key (plus the `__save_meta__` blob) for a complete
  * save. This keeps localStorage pollution minimal and makes cloud hydration a
@@ -61,7 +61,7 @@ export const flushPersist = (): void => {
     persistTimer = null
   }
   firstDirtyAt = 0
-  persistRaw(volt-flickerState.value)
+  persistRaw(voltFlickerState.value)
 }
 
 const schedulePersist = (): void => {
@@ -73,7 +73,7 @@ const schedulePersist = (): void => {
   persistTimer = setTimeout(() => {
     persistTimer = null
     firstDirtyAt = 0
-    persistRaw(volt-flickerState.value)
+    persistRaw(voltFlickerState.value)
   }, delay)
 }
 
@@ -124,38 +124,38 @@ const buildInitial = (): Record<string, unknown> => {
 }
 
 /** The single in-memory aggregate of all persisted game state. */
-export const volt-flickerState: Ref<Record<string, unknown>> = ref(buildInitial())
+export const voltFlickerState: Ref<Record<string, unknown>> = ref(buildInitial())
 
 /** Read a value out of the blob. `fallback` is returned when the key is
  *  absent. Type parameter is advisory — the layer does not validate shape. */
 export const getState = <T = unknown>(key: string, fallback?: T): T => {
-  const v = volt-flickerState.value[key]
+  const v = voltFlickerState.value[key]
   return (v === undefined ? fallback : v) as T
 }
 
-export const hasState = (key: string): boolean => volt-flickerState.value[key] !== undefined
+export const hasState = (key: string): boolean => voltFlickerState.value[key] !== undefined
 
 export const setState = (key: string, value: unknown): void => {
-  volt-flickerState.value = { ...volt-flickerState.value, [key]: value }
+  voltFlickerState.value = { ...voltFlickerState.value, [key]: value }
   schedulePersist()
 }
 
 export const removeState = (key: string): void => {
-  if (volt-flickerState.value[key] === undefined) return
-  const next = { ...volt-flickerState.value }
+  if (voltFlickerState.value[key] === undefined) return
+  const next = { ...voltFlickerState.value }
   delete next[key]
-  volt-flickerState.value = next
+  voltFlickerState.value = next
   schedulePersist()
 }
 
 /** Re-read from localStorage. Used by the SaveManager hydrate watcher
  *  (`saveDataVersion`) so cloud-sourced updates show up in-memory. */
 export const reloadEpicState = (): void => {
-  volt-flickerState.value = buildInitial()
+  voltFlickerState.value = buildInitial()
 }
 
 /** Test-only: wipe both the in-memory blob and the persisted entry. */
 export const __resetEpicState = (): void => {
-  volt-flickerState.value = {}
+  voltFlickerState.value = {}
   try { localStorage.removeItem(STATE_KEY) } catch { /* harmless */ }
 }

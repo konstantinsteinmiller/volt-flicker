@@ -1,6 +1,6 @@
 import { ref, computed, watch, type Ref } from 'vue'
 import { saveDataVersion, flushSaveNow } from '@/use/useSaveStatus'
-import { getState, setState, volt-flickerState } from '@/use/useEpicState'
+import { getState, setState, voltFlickerState } from '@/use/useEpicState'
 import { SKINS_KEY, SKINS_SEEN_KEY } from '@/keys'
 import useEpicProgress from '@/use/useEpicProgress'
 import useEpicConfig from '@/use/useEpicConfig'
@@ -87,7 +87,7 @@ const skins: Ref<SkinState> = ref(loadSkins())
 
 const refresh = (): void => { skins.value = loadSkins() }
 watch(saveDataVersion, refresh)
-watch(volt-flickerState, refresh, { deep: false })
+watch(voltFlickerState, refresh, { deep: false })
 
 /** Reactive id of the currently-equipped skin (consumed by the renderer). */
 export const selectedSkinId = computed(() => skins.value.selected)

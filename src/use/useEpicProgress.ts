@@ -1,6 +1,6 @@
 import { ref, computed, watch, type Ref, type ComputedRef } from 'vue'
 import { saveDataVersion, flushSaveNow } from '@/use/useSaveStatus'
-import { getState, setState, volt-flickerState } from '@/use/useEpicState'
+import { getState, setState, voltFlickerState } from '@/use/useEpicState'
 import { STAGE_KEY, BEST_SCORE_KEY, UPGRADES_KEY, START_SECOND_CHANCE_KEY } from '@/keys'
 import useEpicConfig from '@/use/useEpicConfig'
 
@@ -129,7 +129,7 @@ const refresh = (): void => {
   startSecondChance.value = readBool(START_SECOND_CHANCE_KEY, startSecondChance.value)
 }
 watch(saveDataVersion, refresh)
-watch(volt-flickerState, refresh, { deep: false })
+watch(voltFlickerState, refresh, { deep: false })
 
 // ─── Public reactive surface (also consumed by gamepixPlugin) ───────────────
 
