@@ -12,9 +12,12 @@ permissions:
   pages: write
   id-token: write
 
+# Never cancel an in-progress run: cancelling mid-deploy leaves the
+# github-pages environment holding a non-terminal deployment, which then
+# blocks every subsequent run at "deployment_queued". Queue instead.
 concurrency:
   group: "pages"
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   deploy:
@@ -22,6 +25,8 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
+    # Fail fast instead of hanging ~10 min if a deployment gets stuck.
+    timeout-minutes: 15
     steps:
       - name: Checkout main
         uses: actions/checkout@v4
