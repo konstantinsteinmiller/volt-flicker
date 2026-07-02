@@ -62,12 +62,18 @@ jobs:
 #          pnpm install --no-frozen-lockfile
 #        working-directory: develop
 
-      - name: Build Main Production
-        run: npm run build-github-main
+      - name: Build construct game
+        run: npm run build:construct-crazygames
         working-directory: main
         env:
           VITE_APP_TURN_USERNAME: ${{ secrets.VITE_APP_TURN_USERNAME }}
-          VITE_APP_TURN_CREDENTIAL: ${{ secrets.VITE_APP_TURN_CREDENTIAL }}
+
+#      - name: Build Main Production
+#        run: npm run build-github-main
+#        working-directory: main
+#        env:
+#          VITE_APP_TURN_USERNAME: ${{ secrets.VITE_APP_TURN_USERNAME }}
+#          VITE_APP_TURN_CREDENTIAL: ${{ secrets.VITE_APP_TURN_CREDENTIAL }}
 
 #      - name: Build Develop Production
 #        run: npm run build-github-develop
@@ -80,7 +86,7 @@ jobs:
         run: mkdir dist
 
       - name: Copy Main Build
-        run: cp -r main/dist/* dist/
+        run: cp -r main/.c3-build/dist/* dist/
 
 #      - name: Copy Develop Build
 #        run: cp -r develop/dist/* dist/develop/
