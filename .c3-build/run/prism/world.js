@@ -7,7 +7,7 @@ import { TUNING } from './tuning.js';
 import { aabbOverlap, TAU, clamp } from './core.js';
 
 export class World {
-  volt-flickeror() { this.reset(); }
+  constructor() { this.reset(); }
 
   reset() {
     this.w = 1280; this.h = 720;

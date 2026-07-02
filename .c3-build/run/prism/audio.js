@@ -2,7 +2,7 @@
 // for movement + both skills + combat. Lazily created on first gesture.
 
 export class Audio2 {
-  volt-flickeror() { this.ctx = null; this.master = null; this.muted = false; }
+  constructor() { this.ctx = null; this.master = null; this.muted = false; }
   _ensure() {
     if (this.ctx) return true;
     try {

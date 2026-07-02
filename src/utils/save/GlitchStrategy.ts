@@ -128,7 +128,7 @@ export class GlitchStrategy implements SaveStrategy {
   private noticeListeners = new Set<HydrateNoticeListener>()
   private readonly fetchImpl: typeof fetch
 
-  volt-flickeror(private readonly config: GlitchStrategyConfig) {
+  constructor(private readonly config: GlitchStrategyConfig) {
     this.fetchImpl = config.fetchImpl ?? fetch.bind(globalThis)
   }
 

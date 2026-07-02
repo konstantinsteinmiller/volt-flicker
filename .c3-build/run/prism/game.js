@@ -20,7 +20,7 @@ const FIXED = 1 / 120;
 const GT = TUNING;
 
 export class Game {
-  volt-flickeror(canvas) {
+  constructor(canvas) {
     this.canvas = canvas; this.ctx = canvas.getContext('2d'); this.dpr = 1;
     this.world = new World(); this.player = new Player(); this.skills = new Skills();
     this.juice = new Juice(); this.audio = new Audio2(); this.ui = new UI(); this.editor = new Editor(this);

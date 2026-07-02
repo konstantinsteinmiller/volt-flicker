@@ -247,7 +247,7 @@ const rectCenter = (r) => ({ x: r.x + r.w / 2, y: r.y + r.h / 2 });
 // Fixed-cap ring so bursts never allocate during play. Each particle:
 // {x,y,vx,vy,life,maxLife,size,color,grav,additive,spin,angle,va}.
 class ParticlePool {
-  volt-flickeror(cap = 900) {
+  constructor(cap = 900) {
     this.cap = cap;
     this.p = new Array(cap);
     for (let i = 0; i < cap; i++) this.p[i] = { life: 0 };
@@ -769,7 +769,7 @@ const levelCount = () => LEVELS.length;
 
 
 class World {
-  volt-flickeror() { this.reset(); }
+  constructor() { this.reset(); }
 
   reset() {
     this.w = 1280; this.h = 720;
@@ -966,7 +966,7 @@ class World {
 const PT = TUNING;
 
 class Player {
-  volt-flickeror() { this.w = 34; this.h = 42; this.reset(0, 0, 1); }
+  constructor() { this.w = 34; this.h = 42; this.reset(0, 0, 1); }
 
   reset(x, y, facing = 1) {
     this.x = x; this.y = y; this.vx = 0; this.vy = 0;
@@ -1375,7 +1375,7 @@ const bossTakeMaxHit = (world, juice, audio) => {
 const ST = TUNING;
 
 class Skills {
-  volt-flickeror() { this.reset(); }
+  constructor() { this.reset(); }
   reset() {
     this.beamCharge = 0; this.beamHeldPrev = false; this.beamActive = false;
     this.radialCharge = 0; this.radialHeldPrev = false; this.radialActive = false;
@@ -1517,7 +1517,7 @@ const updateBeamBlast = (world, dt) => {
 const JC = TUNING.col;
 
 class Juice {
-  volt-flickeror() { this.particles = new ParticlePool(1200); this.reset(); }
+  constructor() { this.particles = new ParticlePool(1200); this.reset(); }
   reset() { this.shake = 0; this.flash = 0; this.flashCol = '#ffffff'; this.freezeT = 0; this.slowmoT = 0; this.slowmoScale = 1; this.labels = []; this.particles.clear(); }
 
   // Floating wobble-rise-fade labels (damage-number style) — used for OVERPOWERED.
@@ -1593,7 +1593,7 @@ class Juice {
 // for movement + both skills + combat. Lazily created on first gesture.
 
 class Audio2 {
-  volt-flickeror() { this.ctx = null; this.master = null; this.muted = false; }
+  constructor() { this.ctx = null; this.master = null; this.muted = false; }
   _ensure() {
     if (this.ctx) return true;
     try {
@@ -2219,7 +2219,7 @@ const CSS = `
 `;
 
 class UI {
-  volt-flickeror() { this.cb = {}; this.held = { left: false, right: false }; }
+  constructor() { this.cb = {}; this.held = { left: false, right: false }; }
 
   mount(root, cb) {
     this.cb = cb || {};
@@ -2389,7 +2389,7 @@ const ED_CSS = `
 `;
 
 class Editor {
-  volt-flickeror(game) { this.game = game; this.enabled = false; this.tool = 'select'; this.sel = null; this.drag = null; this.grid = 10; }
+  constructor(game) { this.game = game; this.enabled = false; this.tool = 'select'; this.sel = null; this.drag = null; this.grid = 10; }
 
   mount(root) {
     const style = document.createElement('style'); style.textContent = ED_CSS; document.head.appendChild(style);
@@ -2565,7 +2565,7 @@ const FIXED = 1 / 120;
 const GT = TUNING;
 
 class Game {
-  volt-flickeror(canvas) {
+  constructor(canvas) {
     this.canvas = canvas; this.ctx = canvas.getContext('2d'); this.dpr = 1;
     this.world = new World(); this.player = new Player(); this.skills = new Skills();
     this.juice = new Juice(); this.audio = new Audio2(); this.ui = new UI(); this.editor = new Editor(this);

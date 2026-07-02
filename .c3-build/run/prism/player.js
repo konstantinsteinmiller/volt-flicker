@@ -8,7 +8,7 @@ import { clamp, approach, aabbOverlap } from './core.js';
 const PT = TUNING;
 
 export class Player {
-  volt-flickeror() { this.w = 34; this.h = 42; this.reset(0, 0, 1); }
+  constructor() { this.w = 34; this.h = 42; this.reset(0, 0, 1); }
 
   reset(x, y, facing = 1) {
     this.x = x; this.y = y; this.vx = 0; this.vy = 0;

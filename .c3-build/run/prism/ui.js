@@ -74,7 +74,7 @@ const CSS = `
 `;
 
 export class UI {
-  volt-flickeror() { this.cb = {}; this.held = { left: false, right: false }; }
+  constructor() { this.cb = {}; this.held = { left: false, right: false }; }
 
   mount(root, cb) {
     this.cb = cb || {};

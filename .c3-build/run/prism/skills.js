@@ -10,7 +10,7 @@ import { bossTakeMaxHit } from './enemies.js';
 const ST = TUNING;
 
 export class Skills {
-  volt-flickeror() { this.reset(); }
+  constructor() { this.reset(); }
   reset() {
     this.beamCharge = 0; this.beamHeldPrev = false; this.beamActive = false;
     this.radialCharge = 0; this.radialHeldPrev = false; this.radialActive = false;

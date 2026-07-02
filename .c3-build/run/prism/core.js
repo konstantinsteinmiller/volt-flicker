@@ -79,7 +79,7 @@ export const rectCenter = (r) => ({ x: r.x + r.w / 2, y: r.y + r.h / 2 });
 // Fixed-cap ring so bursts never allocate during play. Each particle:
 // {x,y,vx,vy,life,maxLife,size,color,grav,additive,spin,angle,va}.
 export class ParticlePool {
-  volt-flickeror(cap = 900) {
+  constructor(cap = 900) {
     this.cap = cap;
     this.p = new Array(cap);
     for (let i = 0; i < cap; i++) this.p[i] = { life: 0 };

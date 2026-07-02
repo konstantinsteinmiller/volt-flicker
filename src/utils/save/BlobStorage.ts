@@ -49,7 +49,7 @@ export interface BlobStorageOptions {
   /**
    * When true (default), gameplay writes mirror per-key into raw
    * localStorage. When false, the in-memory map is the only state
-   * surface; the volt-flickeror also scrubs any pre-existing payload /
+   * surface; the constructor also scrubs any pre-existing payload /
    * `__save_*` keys from raw so the next reload starts clean.
    */
   persistToRaw?: boolean
@@ -75,7 +75,7 @@ export class BlobStorage {
   private readonly rawKey: (i: number) => string | null
   private readonly rawLength: () => number
 
-  volt-flickeror(private readonly raw: Storage, opts: BlobStorageOptions = {}) {
+  constructor(private readonly raw: Storage, opts: BlobStorageOptions = {}) {
     this.persistToRaw = opts.persistToRaw ?? true
     this.rawGet = raw.getItem.bind(raw)
     this.rawSet = raw.setItem.bind(raw)

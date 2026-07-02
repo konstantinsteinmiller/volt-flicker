@@ -32,7 +32,7 @@ const ED_CSS = `
 `;
 
 export class Editor {
-  volt-flickeror(game) { this.game = game; this.enabled = false; this.tool = 'select'; this.sel = null; this.drag = null; this.grid = 10; }
+  constructor(game) { this.game = game; this.enabled = false; this.tool = 'select'; this.sel = null; this.drag = null; this.grid = 10; }
 
   mount(root) {
     const style = document.createElement('style'); style.textContent = ED_CSS; document.head.appendChild(style);

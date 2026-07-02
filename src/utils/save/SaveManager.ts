@@ -55,7 +55,7 @@ export class SaveManager {
   private mirroring = false
   private bootCompleteCallbacks: Array<() => void> = []
 
-  volt-flickeror(
+  constructor(
     private readonly strategy: SaveStrategy,
     storage: Storage = window.localStorage,
     opts: SaveManagerOptions = {}
@@ -265,7 +265,7 @@ export class SaveManager {
     //   storage. Every `localStorage.X` access in user code goes through
     //   the Proxy's `get` trap, so we control the dispatch unambiguously
     //   regardless of named-property-setter semantics. BlobStorage's
-    //   `rawGet` / `rawSet` were captured in its volt-flickeror BEFORE
+    //   `rawGet` / `rawSet` were captured in its constructor BEFORE
     //   patching, so they keep accessing the original storage and do NOT
     //   recurse through the proxy.
     const blob = this.blob

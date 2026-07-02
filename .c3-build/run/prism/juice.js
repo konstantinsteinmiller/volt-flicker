@@ -8,7 +8,7 @@ import { ParticlePool, rng, rrange, clamp, TAU } from './core.js';
 const JC = TUNING.col;
 
 export class Juice {
-  volt-flickeror() { this.particles = new ParticlePool(1200); this.reset(); }
+  constructor() { this.particles = new ParticlePool(1200); this.reset(); }
   reset() { this.shake = 0; this.flash = 0; this.flashCol = '#ffffff'; this.freezeT = 0; this.slowmoT = 0; this.slowmoScale = 1; this.labels = []; this.particles.clear(); }
 
   // Floating wobble-rise-fade labels (damage-number style) — used for OVERPOWERED.

@@ -42,7 +42,7 @@ const makeFetch = (handlers: Record<string, Handler>) => {
   })
 }
 
-const makeStrategy = (overrides: Partial<volt-flickerorParameters<typeof GlitchStrategy>[0]> = {}) => {
+const makeStrategy = (overrides: Partial<constructorParameters<typeof GlitchStrategy>[0]> = {}) => {
   const fetchImpl = overrides.fetchImpl as ReturnType<typeof makeFetch>
   return new GlitchStrategy({
     titleId: TITLE_ID,
