@@ -7,26 +7,21 @@ on:
 #      - develop
   workflow_dispatch:
 
+# Branch-based deploy: peaceiris pushes the built site to the `gh-pages`
+# branch, so we need write access to repo contents (not the pages/id-token
+# scopes the Actions deploy-pages flow required).
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
-# Never cancel an in-progress run: cancelling mid-deploy leaves the
-# github-pages environment holding a non-terminal deployment, which then
-# blocks every subsequent run at "deployment_queued". Queue instead.
+# Don't cancel an in-progress publish; let concurrent pushes queue so the
+# gh-pages branch is never updated by two runs at once.
 concurrency:
   group: "pages"
   cancel-in-progress: false
 
 jobs:
   deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
-    # deploy-pages has its own hard 10-min cap while it waits for GitHub Pages
-    # to pick up the deployment; this is just an outer safety net.
     timeout-minutes: 15
     steps:
       - name: Checkout main
@@ -92,14 +87,11 @@ jobs:
 #      - name: Copy Develop Build
 #        run: cp -r develop/dist/* dist/develop/
 
-      - name: Setup Pages
-        uses: actions/configure-pages@v5
-
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+      - name: Publish to gh-pages branch
+        uses: peaceiris/actions-gh-pages@v4
         with:
-          path: './dist'
-
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist
+          publish_branch: gh-pages
+          # peaceiris drops a .nojekyll file automatically, so GitHub Pages
+          # serves the files as-is (no Jekyll processing).
